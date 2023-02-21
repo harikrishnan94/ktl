@@ -2,6 +2,10 @@
 
 extern "C" auto main() -> int;
 
+// Will be provided by linker
+extern void (*__init_array_start)();
+extern void (*__init_array_end)();
+
 template<long CALL_NO>
 static auto
 syscall(long arg1 = 0, long arg2 = 0, long arg3 = 0, long arg4 = 0, long arg5 = 0, long arg6 = 0)
@@ -57,12 +61,16 @@ syscall(long arg1 = 0, long arg2 = 0, long arg3 = 0, long arg4 = 0, long arg5 = 
     __builtin_unreachable();
 }
 
-static void call_static_constructors() {}
-static void call_static_destructors() {}
+void* __dso_handle = nullptr;
+extern "C" void __cxa_atexit() {}
+
+static void call_static_constructors() {
+    for (auto* cons = &__init_array_start; cons < &__init_array_end; cons++) {
+        (*cons)();
+    }
+}
 
 extern "C" [[noreturn]] void ENTRYPOINT() {
     call_static_constructors();
-    auto ret = main();
-    call_static_destructors();
-    exit(ret);
+    exit(main());
 }
