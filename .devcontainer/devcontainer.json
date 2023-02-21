@@ -34,6 +34,7 @@
 					"editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
 				},
 				"C_Cpp.intelliSenseEngine": "disabled",
+				"clangd.path": "clangd-15",
 				"terminal.integrated.defaultProfile.linux": "bash"
 			}
 		}
