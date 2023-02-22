@@ -86,7 +86,7 @@ auto write_stdout(const void* data, isize len) -> isize {
     return syscall<SYS_write>(STDOUT_FILENO, std::bit_cast<long>(data), len);
 }
 
-auto write(etl::string_view str) -> isize {
+auto write(const etl::string_view& str) -> isize {
     return write_stdout(str.data(), static_cast<isize>(str.length()));
 }
 
@@ -98,7 +98,11 @@ auto write(I n) -> isize {
     return write(etl::to_string(n, str));
 }
 
-template auto write(char n) -> isize;
+auto write(char n) -> isize {
+    std::array chs = {n, '\0'};
+    return write(chs.data());
+}
+
 template auto write(short n) -> isize;
 template auto write(int n) -> isize;
 template auto write(long n) -> isize;
@@ -109,3 +113,16 @@ template auto write(unsigned short n) -> isize;
 template auto write(unsigned int n) -> isize;
 template auto write(unsigned long n) -> isize;
 template auto write(unsigned long long n) -> isize;
+
+extern "C" void
+__assert_fail(const char* assertion, const char* file, unsigned int line, const char* function) {
+    write("assertion failed: [");
+    write(assertion);
+    write("] @ ");
+    write(function);
+    write(" @ ");
+    write(file);
+    write(":");
+    write(line);
+    exit(-1);
+}
