@@ -1,6 +1,13 @@
-#include <sys/syscall.h>
+#include "platform.h"
 
-extern "C" auto main() -> int;
+#include <bit>
+#include <etl/to_string.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
+#include <ktl/int.hpp>
+
+using namespace ktl;
 
 // Will be provided by linker
 extern void (*__init_array_start)();  // NOLINT
@@ -56,8 +63,8 @@ syscall(long arg1 = 0, long arg2 = 0, long arg3 = 0, long arg4 = 0, long arg5 = 
     return ret;
 }
 
-[[noreturn]] static void exit(int ret) {
-    syscall<SYS_exit>(ret);
+void exit(int status) {
+    syscall<SYS_exit>(status);
     __builtin_unreachable();
 }
 
@@ -74,3 +81,31 @@ extern "C" [[noreturn]] void ENTRYPOINT() {
     call_static_constructors();
     exit(main());  // NOLINT
 }
+
+auto write_stdout(const void* data, isize len) -> isize {
+    return syscall<SYS_write>(STDOUT_FILENO, std::bit_cast<long>(data), len);
+}
+
+auto write(etl::string_view str) -> isize {
+    return write_stdout(str.data(), static_cast<isize>(str.length()));
+}
+
+static constexpr auto MAX_INT_DIGITS = 20;
+
+template<std::integral I>
+auto write(I n) -> isize {
+    etl::string<MAX_INT_DIGITS> str = {};
+    return write(etl::to_string(n, str));
+}
+
+template auto write(char n) -> isize;
+template auto write(short n) -> isize;
+template auto write(int n) -> isize;
+template auto write(long n) -> isize;
+template auto write(long long n) -> isize;
+
+template auto write(unsigned char n) -> isize;
+template auto write(unsigned short n) -> isize;
+template auto write(unsigned int n) -> isize;
+template auto write(unsigned long n) -> isize;
+template auto write(unsigned long long n) -> isize;
