@@ -21,3 +21,11 @@ extern "C" void memset(void* __restrict__ dst_p, int val, size_t size) {
         dst[i] = static_cast<char>(val);
     }
 }
+
+extern "C" auto strlen(const char* s) -> size_t {
+    size_t len = 0;
+    while (*s++ != '\0') {
+        len++;
+    }
+    return len;
+}

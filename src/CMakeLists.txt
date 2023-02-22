@@ -12,7 +12,6 @@ target_compile_features(ktl PUBLIC cxx_std_20)
 target_compile_definitions(ktl PUBLIC
     ETL_TARGET_DEVICE_GENERIC=1
     ETL_TARGET_OS_NONE=1
-    ETL_NO_STL=1
     ETL_USING_TYPE_TRAITS_BUILTINS=1)
 target_compile_options(ktl PUBLIC -ffreestanding -mgeneral-regs-only -fPIC
     -fno-exceptions -fno-unwind-tables -fno-rtti
