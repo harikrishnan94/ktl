@@ -3,8 +3,8 @@
 extern "C" auto main() -> int;
 
 // Will be provided by linker
-extern void (*__init_array_start)();
-extern void (*__init_array_end)();
+extern void (*__init_array_start)();  // NOLINT
+extern void (*__init_array_end)();  // NOLINT
 
 template<long CALL_NO>
 static auto
@@ -33,7 +33,7 @@ syscall(long arg1 = 0, long arg2 = 0, long arg3 = 0, long arg4 = 0, long arg5 = 
           [arg6] "r"(arg6)
         : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9");
 #elif ARCH_IS_AARCH64 == 1
-    asm volatile(
+    asm volatile(  // NOLINT
         "mov x8, %[call_no]\n"
         "mov x0, %[arg1]\n"
         "mov x1, %[arg2]\n"
@@ -61,8 +61,8 @@ syscall(long arg1 = 0, long arg2 = 0, long arg3 = 0, long arg4 = 0, long arg5 = 
     __builtin_unreachable();
 }
 
-void* __dso_handle = nullptr;
-extern "C" void __cxa_atexit() {}
+void* __dso_handle = nullptr;  // NOLINT
+extern "C" void __cxa_atexit() {}  // NOLINT
 
 static void call_static_constructors() {
     for (auto* cons = &__init_array_start; cons < &__init_array_end; cons++) {
@@ -72,5 +72,5 @@ static void call_static_constructors() {
 
 extern "C" [[noreturn]] void ENTRYPOINT() {
     call_static_constructors();
-    exit(main());
+    exit(main());  // NOLINT
 }
