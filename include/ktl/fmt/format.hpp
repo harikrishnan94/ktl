@@ -415,7 +415,7 @@ class FormatContext {
     template<std::integral Int>
     static constexpr auto to_chars(const fmt_spec::fmt_spec_t& fmt_spec, Int val) noexcept
         -> expected<to_chars_res, Error> {
-        to_chars_res res = {};
+        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
 
         switch (fmt_spec.type) {
             using enum fmt_spec::type_t;
@@ -543,7 +543,7 @@ class FormatContext {
 
             default:
                 assert(false && "unsupported type for integer");
-                break;
+                __builtin_unreachable();
         }
     }
 
@@ -551,7 +551,7 @@ class FormatContext {
     static constexpr auto
     to_chars_helper_binary(Int v, std::optional<fmt_spec::sign_t> sign, bool append_prefix) noexcept
         -> to_chars_res {
-        to_chars_res res = {};
+        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
         auto* prefix = res.buf.data();
         res.sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
@@ -569,7 +569,7 @@ class FormatContext {
     template<std::integral Int>
     static constexpr auto
     to_chars_helper_decimal(Int v, std::optional<fmt_spec::sign_t> sign) noexcept -> to_chars_res {
-        to_chars_res res = {};
+        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
         res.sign_and_prefix_len = append_sign(v, res.buf[0], sign) ? 1 : 0;
         res.num_len = to_chars_impl<Int, 10, false>(  // NOLINT(*-magic-numbers)
             v,
@@ -582,7 +582,7 @@ class FormatContext {
     static constexpr auto
     to_chars_helper_octal(Int v, std::optional<fmt_spec::sign_t> sign, bool append_prefix) noexcept
         -> to_chars_res {
-        to_chars_res res = {};
+        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
         auto* prefix = res.buf.data();
         res.sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
@@ -601,7 +601,7 @@ class FormatContext {
     static constexpr auto
     to_chars_helper_hex(Int v, std::optional<fmt_spec::sign_t> sign, bool append_prefix) noexcept
         -> to_chars_res {
-        to_chars_res res = {};
+        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
         auto* prefix = res.buf.data();
         res.sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
@@ -638,6 +638,7 @@ class FormatContext {
                 return true;
         }
         assert(false);
+        __builtin_unreachable();
     }
 
     template<std::integral Int, Int Base, bool Upper>

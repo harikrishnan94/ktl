@@ -995,13 +995,16 @@ namespace detail {
         constexpr explicit FmtArgs(const Args&... args) : m_data {std::make_tuple(&args...)} {}
 
         template<usize I, typename FmtArgs>
-        constexpr friend inline auto get(FmtArgs&& args) noexcept -> const auto& {
-            return *std::get<I>(std::forward<FmtArgs>(args).m_data);
-        }
+        constexpr friend auto get(FmtArgs&& args) noexcept -> const auto&;
 
       private:
         tuple_type m_data;
     };
+
+    template<usize I, typename FmtArgs>
+    constexpr auto get(FmtArgs&& args) noexcept -> const auto& {
+        return *std::get<I>(std::forward<FmtArgs>(args).m_data);
+    }
 
     template<fixed_string FmtStr, field_t F, typename... Args>
     struct formatter_base {

@@ -13,6 +13,8 @@
                                      static_cast<const char*>(__ASSERT_FUNCTION)))
     #define KTL_ENABLE_CHECKED_ITERATORS true
 #else
+    #define KTL_ENABLE_CHECKED_ITERATORS false
+    #define __ASSERT_FUNCTION __PRETTY_FUNCTION__
 #endif
 
 namespace ktl {
