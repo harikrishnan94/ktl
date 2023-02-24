@@ -415,18 +415,19 @@ class FormatContext {
     template<std::integral Int>
     static constexpr auto to_chars(const fmt_spec::fmt_spec_t& fmt_spec, Int val) noexcept
         -> expected<to_chars_res, Error> {
-        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
+        to_chars_res res;
 
+        res.sign_and_prefix_len = res.num_len = 0;
         switch (fmt_spec.type) {
             using enum fmt_spec::type_t;
             case string:
                 assert((std::same_as<Int, bool>));
                 if (val) {
-                    res.buf = {'t', 'r', 'u', 'e'};
                     res.num_len = 4;
+                    std::copy_n("true", res.num_len, res.buf.begin());
                 } else {
-                    res.buf = {'f', 'a', 'l', 's', 'e'};
                     res.num_len = 5;  // NOLINT(*-magic-numbers)
+                    std::copy_n("false", res.num_len, res.buf.begin());
                 }
                 break;
 
@@ -446,7 +447,8 @@ class FormatContext {
                 break;
 
             default:
-                res = to_chars_helper(fmt_spec, val);
+                std::tie(res.sign_and_prefix_len, res.num_len) =
+                    to_chars_helper(res.buf.data(), fmt_spec, val);
                 break;
         }
 
@@ -513,8 +515,9 @@ class FormatContext {
     }
 
     template<std::integral Int>
-    static constexpr auto to_chars_helper(const fmt_spec::fmt_spec_t& fmt_spec, Int v) noexcept
-        -> to_chars_res {
+    static constexpr auto
+    to_chars_helper(char_type* buf, const fmt_spec::fmt_spec_t& fmt_spec, Int v) noexcept
+        -> std::pair<u8, u8> {
         auto val = [&] {
             if constexpr (std::same_as<Int, bool>) {
                 return static_cast<u8>(v);
@@ -529,17 +532,17 @@ class FormatContext {
         switch (fmt_spec.type) {
             using enum fmt_spec::type_t;
             case binary:
-                return to_chars_helper_binary<false>(v, sign, append_prefix);
+                return to_chars_helper_binary<false>(buf, v, sign, append_prefix);
             case upper_binary:
-                return to_chars_helper_binary<true>(v, sign, append_prefix);
+                return to_chars_helper_binary<true>(buf, v, sign, append_prefix);
             case decimal:
-                return to_chars_helper_decimal(v, sign);
+                return to_chars_helper_decimal(buf, v, sign);
             case octal:
-                return to_chars_helper_octal(v, sign, append_prefix);
+                return to_chars_helper_octal(buf, v, sign, append_prefix);
             case hex:
-                return to_chars_helper_hex<false>(v, sign, append_prefix);
+                return to_chars_helper_hex<false>(buf, v, sign, append_prefix);
             case upper_hex:
-                return to_chars_helper_hex<true>(v, sign, append_prefix);
+                return to_chars_helper_hex<true>(buf, v, sign, append_prefix);
 
             default:
                 assert(false && "unsupported type for integer");
@@ -548,74 +551,77 @@ class FormatContext {
     }
 
     template<bool Upper, std::integral Int>
-    static constexpr auto
-    to_chars_helper_binary(Int v, std::optional<fmt_spec::sign_t> sign, bool append_prefix) noexcept
-        -> to_chars_res {
-        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
-        auto* prefix = res.buf.data();
-        res.sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
+    static constexpr auto to_chars_helper_binary(
+        char_type* buf,
+        Int v,
+        std::optional<fmt_spec::sign_t> sign,
+        bool append_prefix) noexcept -> std::pair<u8, u8> {
+        auto* prefix = buf;
+        u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
         if (append_prefix) {
-            prefix[res.sign_and_prefix_len] = '0';
-            prefix[res.sign_and_prefix_len + 1] = Upper ? 'B' : 'b';
-            res.sign_and_prefix_len += 2;
+            prefix[sign_and_prefix_len] = '0';
+            prefix[sign_and_prefix_len + 1] = Upper ? 'B' : 'b';
+            sign_and_prefix_len += 2;
         }
 
-        res.num_len = to_chars_impl<Int, 2, Upper>(v, res.buf.data() + res.sign_and_prefix_len);
+        u8 num_len = to_chars_impl<Int, 2, Upper>(v, buf + sign_and_prefix_len);
 
-        return res;
+        return {sign_and_prefix_len, num_len};
     }
 
     template<std::integral Int>
     static constexpr auto
-    to_chars_helper_decimal(Int v, std::optional<fmt_spec::sign_t> sign) noexcept -> to_chars_res {
-        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
-        res.sign_and_prefix_len = append_sign(v, res.buf[0], sign) ? 1 : 0;
-        res.num_len = to_chars_impl<Int, 10, false>(  // NOLINT(*-magic-numbers)
+    to_chars_helper_decimal(char_type* buf, Int v, std::optional<fmt_spec::sign_t> sign) noexcept
+        -> std::pair<u8, u8> {
+        u8 sign_and_prefix_len = append_sign(v, buf[0], sign) ? 1 : 0;
+        u8 num_len = to_chars_impl<Int, 10, false>(  // NOLINT(*-magic-numbers)
             v,
-            res.buf.data() + res.sign_and_prefix_len);
+            buf + sign_and_prefix_len);
 
-        return res;
+        return {sign_and_prefix_len, num_len};
     }
 
     template<std::integral Int>
-    static constexpr auto
-    to_chars_helper_octal(Int v, std::optional<fmt_spec::sign_t> sign, bool append_prefix) noexcept
-        -> to_chars_res {
-        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
-        auto* prefix = res.buf.data();
-        res.sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
+    static constexpr auto to_chars_helper_octal(
+        char_type* buf,
+        Int v,
+        std::optional<fmt_spec::sign_t> sign,
+        bool append_prefix) noexcept -> std::pair<u8, u8> {
+        auto* prefix = buf;
+        u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
         if (append_prefix) {
-            prefix[res.sign_and_prefix_len++] = '0';
+            prefix[sign_and_prefix_len++] = '0';
         }
 
-        res.num_len = to_chars_impl<Int, 8, false>(  // NOLINT(*-magic-numbers)
+        u8 num_len = to_chars_impl<Int, 8, false>(  // NOLINT(*-magic-numbers)
             v,
-            res.buf.data() + res.sign_and_prefix_len);
+            buf + sign_and_prefix_len);
 
-        return res;
+        return {sign_and_prefix_len, num_len};
     }
 
     template<bool Upper, std::integral Int>
-    static constexpr auto
-    to_chars_helper_hex(Int v, std::optional<fmt_spec::sign_t> sign, bool append_prefix) noexcept
-        -> to_chars_res {
-        to_chars_res res = {.sign_and_prefix_len = 0, .num_len = 0};
-        auto* prefix = res.buf.data();
-        res.sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
+    static constexpr auto to_chars_helper_hex(
+        char_type* buf,
+        Int v,
+        std::optional<fmt_spec::sign_t> sign,
+        bool append_prefix) noexcept -> std::pair<u8, u8> {
+        auto* prefix = buf;
+        u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
         if (append_prefix) {
-            prefix[res.sign_and_prefix_len] = '0';
-            prefix[res.sign_and_prefix_len + 1] = Upper ? 'X' : 'x';
-            res.sign_and_prefix_len += 2;
+            prefix[sign_and_prefix_len] = '0';
+            prefix[sign_and_prefix_len + 1] = Upper ? 'X' : 'x';
+            sign_and_prefix_len += 2;
         }
 
-        res.num_len = to_chars_impl<Int, 16, Upper>(  // NOLINT(*-magic-numbers)
+        u8 num_len = to_chars_impl<Int, 16, Upper>(  // NOLINT(*-magic-numbers)
             v,
-            res.buf.data() + res.sign_and_prefix_len);
+            buf + sign_and_prefix_len);
 
-        return res;
+        return {sign_and_prefix_len, num_len};
     }
 
     template<std::integral Int>
