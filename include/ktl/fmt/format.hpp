@@ -58,17 +58,26 @@ namespace detail {
             fp.fill_and_align = FmtSpec.fill_and_align.value();
         }
         if constexpr (FmtSpec.sign) {
+            static_assert(
+                std::is_arithmetic_v<ArgT>,
+                "sign is only applicable to integer or floating types");
+
             fp.sign = FmtSpec.sign.value();
         } else {
-            if constexpr (std::integral<ArgT>) {
+            if constexpr (std::is_arithmetic_v<ArgT>) {
                 fp.sign = sign_t::minus;
             }
         }
         if constexpr (FmtSpec.use_alternative_form) {
+            static_assert(
+                std::is_arithmetic_v<ArgT>,
+                "alternative form is only applicable to integer or floating types");
             fp.use_alternative_form = true;
         }
         if constexpr (FmtSpec.zero_pad) {
-            static_assert(std::integral<ArgT>, "zero pad is only applicable to integer types");
+            static_assert(
+                std::is_arithmetic_v<ArgT>,
+                "zero pad is only applicable to integer or floating types");
             // If the 0 character and an align option both appear, the 0 character is ignored.
             fp.zero_pad = !FmtSpec.fill_and_align;
         }
@@ -92,7 +101,7 @@ namespace detail {
         if constexpr (FmtSpec.precision) {
             static_assert(
                 std::floating_point<ArgT>,
-                "zero pad is only applicable to floating point types");
+                "precision is only applicable to floating point types");
             if (auto p = replace<FmtSpec.precision.value()>(args)) {
                 fp.precision = *p;
             } else {
@@ -108,7 +117,7 @@ namespace detail {
         } else {
             if constexpr (string_type<ArgT, CharT> || std::same_as<ArgT, bool>) {
                 fp.type = type_t::string;
-            } else if constexpr (std::integral<ArgT>) {
+            } else if constexpr (std::is_arithmetic_v<ArgT>) {
                 fp.type = type_t::decimal;
             } else {
                 static_assert(std::is_pointer_v<ArgT>, "must be a pointer type");
