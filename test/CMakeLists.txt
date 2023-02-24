@@ -6,5 +6,5 @@ target_link_options(platform PUBLIC -e ${ENTRYPOINT})
 
 # Tests - All tests must link against `platform`
 # Ex:
-# add_executable(test test.cpp)
-# target_link_libraries(test PRIVATE platform)
+add_executable(format_test format_test.cpp)
+target_link_libraries(format_test PRIVATE platform)
