@@ -399,6 +399,7 @@ namespace detail {
         using iterator_t = contiguous_iterator<field_t, false>;
         using const_iterator_t = contiguous_iterator<const field_t, false>;
 
+        // NOLINTNEXTLINE(*-dynamic-static-initializers)
         static constexpr auto FieldCount = N;
 
         [[nodiscard]] constexpr auto begin() -> iterator_t {
@@ -867,6 +868,7 @@ namespace detail {
     }
 
     template<usize N>
+    // NOLINTNEXTLINE(*-cognitive-complexity)
     constexpr auto rewrite(const format_string_t<N>& FmtStr) -> optional<format_string_t<N>> {
         bool has_argument_id = false;
         bool first_replacement = true;
@@ -898,19 +900,20 @@ namespace detail {
             first_replacement = false;
             arg_count++;
 
-            if (rep.fmt_spec && rep.fmt_spec.value().width
-                && rep.fmt_spec.value().width.value().has_replacement()) {
-                if (!rep.fmt_spec.value().width.value().replacement().has_argid()) {
-                    rep.fmt_spec.value().width.value().replacement().set_argid(arg_count);
+            if (rep.fmt_spec) {
+                auto& fmt_spec = rep.fmt_spec.value();
+                if (fmt_spec.width && fmt_spec.width.value().has_replacement()) {
+                    if (!fmt_spec.width.value().replacement().has_argid()) {
+                        fmt_spec.width.value().replacement().set_argid(arg_count);
+                    }
+                    arg_count++;
                 }
-                arg_count++;
-            }
-            if (rep.fmt_spec && rep.fmt_spec.value().precision
-                && rep.fmt_spec.value().precision.value().has_replacement()) {
-                if (!rep.fmt_spec.value().precision.value().replacement().has_argid()) {
-                    rep.fmt_spec.value().precision.value().replacement().set_argid(arg_count);
+                if (fmt_spec.precision && fmt_spec.precision.value().has_replacement()) {
+                    if (!fmt_spec.precision.value().replacement().has_argid()) {
+                        fmt_spec.precision.value().replacement().set_argid(arg_count);
+                    }
+                    arg_count++;
                 }
-                arg_count++;
             }
         }
 
@@ -1075,10 +1078,12 @@ class fixed_buffer;
 // Holds both the Raw Format string and Transformed one.
 template<fixed_string RawFmtStr>
 struct format_string_t {
+    // NOLINTNEXTLINE(*-dynamic-static-initializers)
     static constexpr auto underlying_value = detail::parse_and_check<RawFmtStr>();
     using underlying_type = std::decay<decltype(underlying_value)>;
     using char_type = typename std::decay_t<decltype(RawFmtStr)>::char_type;
 
+    // NOLINTNEXTLINE(*-dynamic-static-initializers)
     static constexpr auto raw_fmt_str = RawFmtStr;
 
     constexpr auto value() const noexcept {

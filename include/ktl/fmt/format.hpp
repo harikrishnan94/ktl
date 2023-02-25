@@ -50,6 +50,7 @@ namespace detail {
     }
 
     template<fmt_spec_t FmtSpec, typename CharT, typename ArgT, typename... Args>
+    // NOLINTNEXTLINE(*-cognitive-complexity, *-function-size)
     static constexpr auto convert(const FmtArgs<Args...>& args)
         -> ktl::expected<fmt_spec::fmt_spec_t, Error> {
         fmt_spec::fmt_spec_t fp;
@@ -567,22 +568,22 @@ class FormatContext {
     }
 
     template<std::integral Int>
-    static constexpr auto append_sign(Int v, char_type& i, std::optional<fmt_spec::sign_t> sign)
+    static constexpr auto append_sign(Int v, char_type& s, std::optional<fmt_spec::sign_t> sign)
         -> bool {
         assert(sign);
         switch (*sign) {
             using enum fmt_spec::sign_t;
             case plus:
-                i = v < 0 ? '-' : '+';
+                s = v < 0 ? '-' : '+';
                 return true;
             case minus:
                 if (v < 0) {
-                    i = '-';
+                    s = '-';
                     return true;
                 }
                 return false;
             case space:
-                i = v < 0 ? '-' : ' ';
+                s = v < 0 ? '-' : ' ';
                 return true;
         }
         assert(false);
@@ -617,49 +618,16 @@ class FormatContext {
         }
 
         std::reverse(buf, buf + len);
-        return std::max(len, usize {1});
+        return std::max(len, usize {1});  // Handle, `v == 0` case.
     }
 
     SB* m_sb;
     usize m_len = 0;
 };
 
-template<typename CharT, std::integral I>
-struct formatter<CharT, I> {
-    template<typename FormatContext>
-        requires std::same_as<CharT, typename FormatContext::char_type>
-    constexpr auto
-    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const I& val) noexcept
-        -> expected<bool, Error> {
-        return ctx.Format(fmt_spec, val);
-    }
-};
-
-template<typename CharT, typename T>
-struct formatter<CharT, const T*> {
-    template<typename FormatContext>
-        requires std::same_as<CharT, typename FormatContext::char_type>
-    constexpr auto
-    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const T* ptr) noexcept
-        -> expected<bool, Error> {
-        return ctx.Format(fmt_spec, ptr);
-    }
-};
-
-template<typename CharT, detail::string_type<CharT> Str>
-struct formatter<CharT, Str> {
-    template<typename FormatContext>
-        requires std::same_as<CharT, typename FormatContext::char_type>
-    constexpr auto
-    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const Str& str) noexcept
-        -> expected<bool, Error> {
-        return ctx.Format(fmt_spec, std::begin(str), std::end(str));
-    }
-};
-
-// fixed_buffer provides `string_builder` interface for range of chars.
+// fixed_buffer provides `string_buffer` interface for range of chars.
 // It allows `format` API to write formatted output safely into range of chars b/w `{begin, end}`.
-// Atmost `end - begin` chars is written.
+// Atmost `end - begin` chars are written.
 template<typename CharT>
 class fixed_buffer {
   public:
@@ -684,12 +652,52 @@ class fixed_buffer {
     }
 
     constexpr void putback(usize len) noexcept {
-        m_len -= len;
+        assert(len <= m_pos);
+        m_pos -= len;
     }
 
   private:
     char_type* m_buf;
     usize m_len;
     usize m_pos = 0;
+};
+
+// Partial specializations of `formatter` for builtin types
+//---------------------------------------------------------
+
+// Integeral types
+template<typename CharT, std::integral I>
+struct formatter<CharT, I> {
+    template<typename FormatContext>
+        requires std::same_as<CharT, typename FormatContext::char_type>
+    constexpr auto
+    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const I& val) noexcept
+        -> expected<bool, Error> {
+        return ctx.Format(fmt_spec, val);
+    }
+};
+
+// Pointer types
+template<typename CharT, typename T>
+struct formatter<CharT, const T*> {
+    template<typename FormatContext>
+        requires std::same_as<CharT, typename FormatContext::char_type>
+    constexpr auto
+    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const T* ptr) noexcept
+        -> expected<bool, Error> {
+        return ctx.Format(fmt_spec, ptr);
+    }
+};
+
+// String types (with `begin()` and `end()`)
+template<typename CharT, detail::string_type<CharT> Str>
+struct formatter<CharT, Str> {
+    template<typename FormatContext>
+        requires std::same_as<CharT, typename FormatContext::char_type>
+    constexpr auto
+    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const Str& str) noexcept
+        -> expected<bool, Error> {
+        return ctx.Format(fmt_spec, std::begin(str), std::end(str));
+    }
 };
 }  // namespace ktl::fmt
