@@ -48,8 +48,10 @@ auto main() -> int {
     static_assert(*fmt::detail::field_count("{1002:*^-#0{}.22Ld}") == 1);
 
     static_assert(
-        std::string_view {"{:*^{}} {:+}"_f.format_to_array<"this"_s, 10, 100>().data()}
-        == "***this*** +100");
+        std::string_view {"{:*^{}} {:+#08X} test string `{}`. {} {:d}"_f
+                              .format<"this"_s, 10, 100, "str"_s, false, true>()
+                              .data()}
+        == "***this*** +0X00064 test string `str`. false 1");
 
     std::array<char, 64> arr;
     fmt::detail::array_buffer ab {arr};

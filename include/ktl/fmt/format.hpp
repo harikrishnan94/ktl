@@ -32,7 +32,7 @@ namespace detail {
                 argid < std::tuple_size_v<tuple_type>,
                 "argument_id exceeds argument count");
 
-            using rep_type = std::remove_pointer_t<
+            using rep_type = remove_const_pointer_t<
                 std::tuple_element_t<argid, typename FmtArgs<Args...>::tuple_type>>;
 
             static_assert(std::integral<rep_type>, "width is not integral type");
@@ -131,7 +131,7 @@ namespace detail {
     template<replacement_t R, typename CharT, string_buffer_of<CharT> SB, typename... Args>
     constexpr auto do_format(FormatContext<SB>& ctx, const FmtArgs<Args...>& args) noexcept
         -> ktl::expected<bool, Error> {
-        using fmt_arg_t = std::remove_pointer_t<
+        using fmt_arg_t = remove_const_pointer_t<
             std::tuple_element_t<R.value.argid(), typename FmtArgs<Args...>::tuple_type>>;
 
         formatter<CharT, fmt_arg_t> formatter;
@@ -321,12 +321,13 @@ class FormatContext {
     template<std::integral Int>
     constexpr auto Format(const fmt_spec::fmt_spec_t& fmt_spec, Int val) noexcept
         -> expected<bool, Error> {
-        auto res = to_chars(fmt_spec, val);
-        if (!res) {
-            return make_unexpected(res.error());
+        to_chars_res res;
+
+        if (auto error = to_chars(res, fmt_spec, val)) {
+            return make_unexpected(std::move(*error));
         }
 
-        auto&& [buf, prefix_len, num_len] = *res;
+        const auto& [buf, prefix_len, num_len] = res;
         auto len = prefix_len + num_len;
 
         if (!fmt_spec.width || len >= *fmt_spec.width) {
@@ -334,7 +335,7 @@ class FormatContext {
         }
 
         if (fmt_spec.zero_pad) {
-            return format_zero_pad(fmt_spec, *res);
+            return format_zero_pad(fmt_spec, res);
         }
         return format_str(fmt_spec, buf.data(), buf.data() + len);
     }
@@ -373,6 +374,15 @@ class FormatContext {
     }
 
   private:
+    static constexpr auto IntMaxDigits = std::numeric_limits<u64>::digits;
+    static constexpr auto IntMaxLen = IntMaxDigits + 3;  // 1(sign)+2(Alt form 0b/0x)
+
+    struct to_chars_res {
+        std::array<char_type, IntMaxLen> buf;
+        u8 sign_and_prefix_len;
+        u8 num_len;
+    };
+
     constexpr auto
     write(const char_type* begin, const char_type* end, [[maybe_unused]] bool escape) noexcept
         -> bool {
@@ -403,48 +413,33 @@ class FormatContext {
         return buf.len == count;
     }
 
-    static constexpr auto IntMaxDigits = std::numeric_limits<u64>::digits;
-    static constexpr auto IntMaxLen = IntMaxDigits + 3;  // 1(sign)+2(Alt form 0b/0x)
-
-    struct to_chars_res {
-        std::array<char_type, IntMaxLen> buf;
-        u8 sign_and_prefix_len;
-        u8 num_len;
-    };
-
     template<std::integral Int>
-    static constexpr auto to_chars(const fmt_spec::fmt_spec_t& fmt_spec, Int val) noexcept
-        -> expected<to_chars_res, Error> {
-        to_chars_res res;
-
+    static constexpr auto
+    to_chars(to_chars_res& res, const fmt_spec::fmt_spec_t& fmt_spec, Int val) noexcept
+        -> std::optional<Error> {
         res.sign_and_prefix_len = res.num_len = 0;
+
         switch (fmt_spec.type) {
             using enum fmt_spec::type_t;
-            case string:
+            case string: {
                 assert((std::same_as<Int, bool>));
-                if (val) {
-                    res.num_len = 4;
-                    std::copy_n("true", res.num_len, res.buf.begin());
-                } else {
-                    res.num_len = 5;  // NOLINT(*-magic-numbers)
-                    std::copy_n("false", res.num_len, res.buf.begin());
-                }
-                break;
+                std::basic_string_view str = val ? "true" : "false";
+                res.num_len = str.length();
+                std::copy_n(str.begin(), res.num_len, res.buf.begin());
+            } break;
 
             case escape:
                 assert((std::same_as<Int, char_type>));
-            case char_:
+            case char_: {
                 assert((!std::same_as<Int, bool>));
-                {
-                    auto c = static_cast<u64>(val);
-                    if (c < std::numeric_limits<char_type>::min()
-                        || c > std::numeric_limits<char_type>::max()) {
-                        return make_unexpected(Error::ValueOverflow);
-                    }
-                    res.buf[0] = static_cast<char_type>(c);
-                    res.num_len = 1;
+                auto c = static_cast<u64>(val);
+                if (c < std::numeric_limits<char_type>::min()
+                    || c > std::numeric_limits<char_type>::max()) {
+                    return Error::ValueOverflow;
                 }
-                break;
+                res.buf[0] = static_cast<char_type>(c);
+                res.num_len = 1;
+            } break;
 
             default:
                 std::tie(res.sign_and_prefix_len, res.num_len) =
@@ -452,7 +447,7 @@ class FormatContext {
                 break;
         }
 
-        return res;
+        return {};
     }
 
     constexpr auto format_str(
@@ -524,7 +519,7 @@ class FormatContext {
             } else {
                 return v;
             }
-        };
+        }();
 
         auto sign = fmt_spec.sign;
         auto append_prefix = fmt_spec.use_alternative_form;
@@ -532,17 +527,17 @@ class FormatContext {
         switch (fmt_spec.type) {
             using enum fmt_spec::type_t;
             case binary:
-                return to_chars_helper_binary<false>(buf, v, sign, append_prefix);
+                return to_chars_helper_binary<false>(buf, val, sign, append_prefix);
             case upper_binary:
-                return to_chars_helper_binary<true>(buf, v, sign, append_prefix);
+                return to_chars_helper_binary<true>(buf, val, sign, append_prefix);
             case decimal:
-                return to_chars_helper_decimal(buf, v, sign);
+                return to_chars_helper_decimal(buf, val, sign);
             case octal:
-                return to_chars_helper_octal(buf, v, sign, append_prefix);
+                return to_chars_helper_octal(buf, val, sign, append_prefix);
             case hex:
-                return to_chars_helper_hex<false>(buf, v, sign, append_prefix);
+                return to_chars_helper_hex<false>(buf, val, sign, append_prefix);
             case upper_hex:
-                return to_chars_helper_hex<true>(buf, v, sign, append_prefix);
+                return to_chars_helper_hex<true>(buf, val, sign, append_prefix);
 
             default:
                 assert(false && "unsupported type for integer");
@@ -711,7 +706,7 @@ struct formatter<CharT, Str> {
     constexpr auto
     format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const Str& str) noexcept
         -> expected<bool, Error> {
-        return ctx.Format(fmt_spec, str.begin(), str.end());
+        return ctx.Format(fmt_spec, std::begin(str), std::end(str));
     }
 };
 }  // namespace ktl::fmt

@@ -22,7 +22,7 @@ struct fixed_string {
     using char_type = CharT;
 
     constexpr fixed_string(const CharT (&str)[N]) {
-        std::copy_n(str, N - 1, value);
+        std::copy_n(str, N, value);
     }
 
     constexpr auto begin() const noexcept -> const char_type* {
@@ -30,14 +30,14 @@ struct fixed_string {
     }
 
     constexpr auto end() const noexcept -> const char_type* {
-        return begin() + N - 1;
+        return begin() + N - 1;  // Ignore trailing `NUL` char
     }
 
     constexpr auto view() const noexcept -> std::string_view {
         return {begin(), end()};
     }
 
-    char_type value[N - 1] = {};
+    char_type value[N] = {};
 };
 // NOLINTEND(hicpp-avoid-c-arrays, hicpp-explicit-conversions,
 // misc-non-private-member-variables-in-classes)
@@ -987,10 +987,16 @@ namespace detail {
         return true;
     }
 
+    template<typename Arg>
+    using add_const_pointer_t = std::add_pointer_t<std::add_const_t<Arg>>;
+
+    template<typename Arg>
+    using remove_const_pointer_t = std::remove_const_t<std::remove_pointer_t<Arg>>;
+
     template<typename... Args>
     class FmtArgs {
       public:
-        using tuple_type = std::tuple<std::add_pointer_t<std::add_const_t<std::decay_t<Args>>>...>;
+        using tuple_type = std::tuple<add_const_pointer_t<Args>...>;
 
         constexpr explicit FmtArgs(const Args&... args) : m_data {std::make_tuple(&args...)} {}
 
@@ -1025,7 +1031,7 @@ namespace detail {
                     F.replacement().value.argid() < std::tuple_size_v<typename FmtArgs::tuple_type>,
                     "argument_id exceeds argument count");
 
-                using unchecked_type = std::remove_pointer_t<std::tuple_element_t<
+                using unchecked_type = remove_const_pointer_t<std::tuple_element_t<
                     F.replacement().value.argid(),
                     typename FmtArgs::tuple_type>>;
 
@@ -1082,21 +1088,17 @@ struct format_string_t {
     // Writes formatted string into StringBuffer (`sb`).
     // Only minimum of `formatted_size` and `sb available` chars are written into the buffer.
     template<string_buffer_of<char_type> SB, typename... Args>
-    constexpr auto format(SB& sb, Args&&... args) const noexcept -> ktl::expected<Result, Error> {
-        return detail::vformat<RawFmtStr, underlying_value>(
-            sb,
-            detail::FmtArgs {std::forward<Args>(args)...});
+    constexpr auto format(SB& sb, const Args&... args) const noexcept -> expected<Result, Error> {
+        return detail::vformat<RawFmtStr, underlying_value>(sb, detail::FmtArgs {args...});
     }
 
     // Returns the length of the formatted string.
     template<typename... Args>
-    constexpr auto size(Args&&... args) const noexcept -> expected<usize, Error> {
+    constexpr auto size(const Args&... args) const noexcept -> expected<usize, Error> {
         usize len = 0;
         detail::counting_buffer<char_type> cb {len};
 
-        if (auto res = detail::vformat<RawFmtStr, underlying_value>(
-                cb,
-                detail::FmtArgs {std::forward<Args>(args)...});
+        if (auto res = detail::vformat<RawFmtStr, underlying_value>(cb, detail::FmtArgs {args...});
             !res) {
             return make_unexpected(std::move(res).error());
         }
@@ -1107,9 +1109,10 @@ struct format_string_t {
     // Format the string in compile time (consteval) and return array<char_type, size(...)>
     // containing the formatted chars.
     template<auto... Args>
-    constexpr auto format_to_array() const noexcept {
+    constexpr auto format() const noexcept {
         usize len = 0;
-        std::array<char_type, *std::decay_t<decltype(*this)> {}.size(Args...) + 1> buf;
+        constexpr auto Len = *std::decay_t<decltype(*this)> {}.size(Args...) + 1;
+        std::array<char_type, Len> buf;
         detail::array_buffer ab {buf};
 
         auto res = detail::vformat<RawFmtStr, underlying_value>(ab, detail::FmtArgs {Args...});
@@ -1144,11 +1147,11 @@ template<
     fixed_string FmtStr,
     string_buffer_of<typename std::decay_t<decltype(FmtStr)>::char_type> SB,
     typename... Args>
-constexpr auto format(SB& sb, Args&&... args) noexcept -> expected<Result, Error> {
-    return detail::vformat<FmtStr>(sb, detail::FmtArgs {std::forward<Args>(args)...});
+constexpr auto format(SB& sb, const Args&... args) noexcept -> expected<Result, Error> {
+    return detail::vformat<FmtStr>(sb, detail::FmtArgs {args...});
 }
 
 // Returns the length of the formatted string.
 template<fixed_string FmtStr, typename... Args>
-constexpr auto formatted_size(Args&&... args) noexcept -> expected<usize, Error>;
+constexpr auto formatted_size(const Args&... args) noexcept -> expected<usize, Error>;
 }  // namespace ktl::fmt
