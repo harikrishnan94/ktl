@@ -1,70 +1,58 @@
+#include <ktl/access.hpp>
 #include <ktl/fmt/format.hpp>
 
 #include "platform.h"
 
-using namespace ktl;
+using namespace ktl::fmt;
 using namespace ktl::fmt::literals;
 
-template<fmt::fixed_string FmtStr>
-static void print();
+template<typename CharT, ktl::usize N>
+constexpr auto view(const std::array<CharT, N>& arr) -> etl::basic_string_view<CharT> {
+    etl::basic_string_view view = {arr.begin(), arr.end()};
+    auto len = view.find('\0');
+    return len == etl::string_view::npos ? view : view.substr(0, len);
+}
 
-template<fmt::fixed_string Str, std::integral T, fmt::detail::int_base Base>
-struct from_chars {
-    static constexpr auto value = []() -> std::optional<T> {
-        T v;
-        auto res = fmt::detail::from_chars<Base>(std::begin(Str.value), std::end(Str.value), v);
-        if (res.ec != std::errc {}) {
-            return {};
-        }
-        return v;
-    }();
-};
+template<fixed_string RawFmtStr, typename... Args>
+constexpr auto check(const char* exp, const Args&&... args) -> unsigned {
+    constexpr auto FmtStr = make_format_string<RawFmtStr>();
+    std::array<char, 1024> buf;  // NOLINT
+    fixed_buffer fb {buf.begin(), buf.end()};
+    auto res = FmtStr.format(fb, args...);
 
-template<
-    fmt::fixed_string Str,
-    std::integral T,
-    fmt::detail::int_base Base = fmt::detail::int_base::dec>
-static constexpr auto from_chars_v = from_chars<Str, T, Base>::value;
+    assert(res && "must not be error");  // NOLINT(*-decay)
+    assert(*res && "must not complete");  // NOLINT(*-decay)
 
-auto main() -> int {
-    static_assert(from_chars_v<"100", int> == 100);
-    static_assert(from_chars_v<"-340404", int> == -340404);
-    static_assert(from_chars_v<"-12a", int> == -12);
-    static_assert(!from_chars_v<"+12a", int>.has_value());
-    static_assert(!from_chars_v<"a100", int>.has_value());
-
-    static_assert(*fmt::detail::field_count("format {} is {{ }} {:} valid \n{}") == 8);
-    static_assert(*fmt::detail::field_count("{{}}") == 2);
-    static_assert(*fmt::detail::field_count("a{{{:} }}") == 3);
-    static_assert(*fmt::detail::field_count("{{ {:} }}") == 4);
-    static_assert(*fmt::detail::field_count("a{{ {:.<5.5s} }}") == 4);
-    static_assert(!fmt::detail::field_count("{"));
-    static_assert(!fmt::detail::field_count("}"));
-    static_assert(!fmt::detail::field_count("{}}"));
-    static_assert(!fmt::detail::field_count("Hi}{"));
-    static_assert(*fmt::detail::field_count("Hi}}{{") == 2);
-    static_assert(*fmt::detail::field_count("{1002:*^-#0{20}.{30}Ld}") == 1);
-    static_assert(*fmt::detail::field_count("{1002:*^-#0{20}.22Ld}") == 1);
-    static_assert(*fmt::detail::field_count("{1002:*^-#0{}.22Ld}") == 1);
-
-    static_assert(
-        std::string_view {"{:*^{}} {:+#08X} test string `{}`. {} {:d}"_f
-                              .format<"this"_s, 10, 100, "str"_s, false, true>()
-                              .data()}
-        == "***this*** +0X00064 test string `str`. false 1");
-
-    std::array<char, 15> arr;
-    fmt::fixed_buffer fb {arr.begin(), arr.end()};
-    int a = 10;
-    int b = 20;
-    auto res = "{:*^{}} {:+}"_f.format(fb, a, 10, b);
-    if (res) {
-        arr[res->formatted_len()] = 0;
-        write(arr.data());
-        write("\n");
-    } else {
-        write("none\n");
+    ktl::at(buf, res->formatted_len()) = '\0';
+    if (auto str = view(buf); str != exp) {
+        write("failure: `");
+        write(str);
+        write(" != ");
+        write(exp);
+        write("`\n");
+        return 1;
     }
 
     return 0;
+}
+
+auto main() -> int {
+    // NOLINTBEGIN(*-magic-numbers)
+    static_assert(view("{{}}"_f.format<>()) == "{}");
+    static_assert(view("{{ {:} }}"_f.format<"1"_cs>()) == "{ 1 }");
+    static_assert(view("a{{ {:.<5s} }}"_f.format<"1"_cs>()) == "a{ 1.... }");
+    static_assert(view("a{{ {:*^5s} }}"_f.format<"1"_cs>()) == "a{ **1** }");
+    static_assert(view("{0:+#0{1}d}"_f.format<100, 10>()) == "+000000100");
+    static_assert(
+        view("{:*^{}} {:+#08X} test string `{:3s}`. {} {:d}"_f
+                 .format<"this"_cs, 10, 100, "str"_cs, false, true>())
+        == "***this*** +0X00064 test string `str`. false 1");
+
+    unsigned ret = 0;
+
+    ret |= check<("{:*^{}} {:+}")>("****10**** +20", 10, 10, 20);
+
+    // NOLINTEND(*-magic-numbers)
+
+    return static_cast<int>(ret);
 }

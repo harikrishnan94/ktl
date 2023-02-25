@@ -38,6 +38,22 @@ extern "C" void memset(void* __restrict__ dst_p, int val, size_t size) {
     }
 }
 
+extern "C" auto memcmp(const void* __restrict__ a_p, const void* __restrict__ b_p, size_t count)
+    -> int {
+    const auto* a = static_cast<const std::byte*>(a_p);
+    const auto* b = static_cast<const std::byte*>(b_p);
+
+    for (size_t i = 0; i < count; i++) {
+        if (*a == *b) {
+            continue;
+        }
+
+        return *a < *b ? -1 : 1;
+    }
+
+    return 0;
+}
+
 extern "C" auto strlen(const char* s) -> size_t {
     size_t len = 0;
     while (*s++ != '\0') {

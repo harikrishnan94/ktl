@@ -23,5 +23,5 @@ Abort(const char* message, const char* file, unsigned int line, const char* func
 }
 
 // NOLINTNEXTLINE(*-macro-usage)
-#define abort(message) \
+#define abort_(message) \
     ktl::Abort(message, __FILE__, __LINE__, static_cast<const char*>(__ASSERT_FUNCTION))

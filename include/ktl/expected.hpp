@@ -103,7 +103,7 @@ static constexpr unexpect_t unexpect {};
 namespace detail {
     template<typename E>
     [[noreturn]] constexpr void throw_exception(E&& /* e */) noexcept {
-        abort("expected doesn't have value");
+        abort_("expected doesn't have value");
     }
 
     // Trait for checking if a type is a tl::expected

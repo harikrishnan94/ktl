@@ -183,13 +183,13 @@ namespace detail {
 
         [[nodiscard]] constexpr auto value() const -> const auto& {
             if (!m_has_value) {
-                abort("optional is empty");
+                abort_("optional is empty");
             }
             return m_value;
         }
         [[nodiscard]] constexpr auto value() -> auto& {
             if (!m_has_value) {
-                abort("optional is empty");
+                abort_("optional is empty");
             }
             return m_value;
         }
@@ -217,7 +217,7 @@ namespace detail {
 
         [[nodiscard]] constexpr auto value() const -> const auto& {
             if (m_tag != Ok) {
-                abort("expected contains error");
+                abort_("expected contains error");
             }
             return m_ok.value();
         }
@@ -1137,7 +1137,7 @@ constexpr auto make_format_string() noexcept -> format_string_t<FmtStr> {
 
 namespace literals {
     template<fixed_string FmtStr>
-    constexpr auto operator""_s() {
+    constexpr auto operator""_cs() {
         return FmtStr;
     }
 

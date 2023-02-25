@@ -279,7 +279,8 @@ class FormatContext {
             return make_unexpected(std::move(*error));
         }
 
-        const auto& [buf, prefix_len, num_len] = res;
+        const auto& [buf, reslen] = res;
+        auto [prefix_len, num_len] = reslen;
         auto len = prefix_len + num_len;
 
         if (!fmt_spec.width || len >= *fmt_spec.width) {
@@ -329,10 +330,14 @@ class FormatContext {
     static constexpr auto IntMaxDigits = std::numeric_limits<u64>::digits;
     static constexpr auto IntMaxLen = IntMaxDigits + 3;  // 1(sign)+2(Alt form 0b/0x)
 
+    struct to_chars_len {
+        u8 sign_and_prefix;
+        u8 num;
+    };
+
     struct to_chars_res {
         std::array<char_type, IntMaxLen> buf;
-        u8 sign_and_prefix_len;
-        u8 num_len;
+        to_chars_len len;
     };
 
     constexpr auto
@@ -365,15 +370,15 @@ class FormatContext {
     static constexpr auto
     to_chars(to_chars_res& res, const fmt_spec::fmt_spec_t& fmt_spec, Int val) noexcept
         -> std::optional<Error> {
-        res.sign_and_prefix_len = res.num_len = 0;
+        res.len = {};
 
         switch (fmt_spec.type) {
             using enum fmt_spec::type_t;
             case string: {
                 assert((std::same_as<Int, bool>));
                 std::basic_string_view str = val ? "true" : "false";
-                res.num_len = str.length();
-                std::copy_n(str.begin(), res.num_len, res.buf.begin());
+                res.len.num = str.length();
+                std::copy_n(str.begin(), res.len.num, res.buf.begin());
             } break;
 
             case escape:
@@ -386,12 +391,11 @@ class FormatContext {
                     return Error::ValueOverflow;
                 }
                 res.buf[0] = static_cast<char_type>(c);
-                res.num_len = 1;
+                res.len.num = 1;
             } break;
 
             default:
-                std::tie(res.sign_and_prefix_len, res.num_len) =
-                    to_chars_helper(res.buf.data(), fmt_spec, val);
+                res.len = to_chars_helper(res.buf.data(), fmt_spec, val);
                 break;
         }
 
@@ -442,9 +446,10 @@ class FormatContext {
         assert(fmt_spec.width);
         assert(fmt_spec.zero_pad);
 
-        auto&& [buf, prefix_len, num_len] = chars;
+        const auto& [buf, reslen] = chars;
+        auto [prefix_len, num_len] = reslen;
         const auto* prefix = buf.data();
-        const auto* num = prefix + chars.sign_and_prefix_len;
+        const auto* num = prefix + prefix_len;
         auto len = prefix_len + num_len;
         auto width = *fmt_spec.width;
         bool escape = fmt_spec.type == fmt_spec::type_t::escape;
@@ -460,7 +465,7 @@ class FormatContext {
     template<std::integral Int>
     static constexpr auto
     to_chars_helper(char_type* buf, const fmt_spec::fmt_spec_t& fmt_spec, Int v) noexcept
-        -> std::pair<u8, u8> {
+        -> to_chars_len {
         auto val = [&] {
             if constexpr (std::same_as<Int, bool>) {
                 return static_cast<u8>(v);
@@ -498,7 +503,7 @@ class FormatContext {
         char_type* buf,
         Int v,
         std::optional<fmt_spec::sign_t> sign,
-        bool append_prefix) noexcept -> std::pair<u8, u8> {
+        bool append_prefix) noexcept -> to_chars_len {
         auto* prefix = buf;
         u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
@@ -516,7 +521,7 @@ class FormatContext {
     template<std::integral Int>
     static constexpr auto
     to_chars_helper_decimal(char_type* buf, Int v, std::optional<fmt_spec::sign_t> sign) noexcept
-        -> std::pair<u8, u8> {
+        -> to_chars_len {
         u8 sign_and_prefix_len = append_sign(v, buf[0], sign) ? 1 : 0;
         u8 num_len = to_chars_impl<Int, 10, false>(  // NOLINT(*-magic-numbers)
             v,
@@ -530,7 +535,7 @@ class FormatContext {
         char_type* buf,
         Int v,
         std::optional<fmt_spec::sign_t> sign,
-        bool append_prefix) noexcept -> std::pair<u8, u8> {
+        bool append_prefix) noexcept -> to_chars_len {
         auto* prefix = buf;
         u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
@@ -550,7 +555,7 @@ class FormatContext {
         char_type* buf,
         Int v,
         std::optional<fmt_spec::sign_t> sign,
-        bool append_prefix) noexcept -> std::pair<u8, u8> {
+        bool append_prefix) noexcept -> to_chars_len {
         auto* prefix = buf;
         u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
 
