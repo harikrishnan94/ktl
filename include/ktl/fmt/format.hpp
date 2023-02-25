@@ -246,55 +246,6 @@ namespace detail {
       private:
         counting_iterator<CharT> m_iter;
     };
-
-    template<typename CharT, usize N>
-    class array_out_iterator {
-      public:
-        using difference_type = isize;
-        using value_type = CharT;
-
-        constexpr explicit array_out_iterator(std::array<CharT, N>& buf, usize pos) :
-            m_buf {&buf},
-            m_pos(pos) {}
-
-        constexpr auto operator*() noexcept -> CharT& {
-            return (*m_buf)[m_pos++];
-        }
-
-        constexpr auto operator++() noexcept -> array_out_iterator& {
-            return *this;
-        }
-
-        constexpr auto operator++(int) noexcept -> array_out_iterator {
-            auto temp = *this;
-            return ++temp;
-        }
-
-      private:
-        std::array<CharT, N>* m_buf;
-        usize m_pos;
-    };
-
-    template<typename CharT, usize N>
-    class array_buffer {
-      public:
-        using char_type = CharT;
-
-        constexpr explicit array_buffer(std::array<char_type, N>& buf) : m_buf {&buf} {}
-
-        constexpr auto reserve(usize len) noexcept
-            -> buffer_view<CharT, array_out_iterator<CharT, N>> {
-            return {array_out_iterator {*m_buf, std::exchange(m_len, m_len + len)}, len};
-        }
-
-        constexpr void putback(usize len) noexcept {
-            m_len -= len;
-        }
-
-      private:
-        std::array<char_type, N>* m_buf;
-        usize m_len = 0;
-    };
 }  // namespace detail
 
 template<fixed_string FmtStr, typename... Args>
@@ -392,8 +343,6 @@ class FormatContext {
         assert(escape == false && "C++23 escape sequence is not implemented");
 
         std::copy_n(begin, buf.len, buf.out);
-        if (req_len != buf.len)
-            m_sb->putback(req_len - buf.len);
 
         m_len += buf.len;
         return buf.len == req_len;
@@ -406,8 +355,6 @@ class FormatContext {
         assert(escape == false && "C++23 escape sequence is not implemented");
 
         std::fill_n(buf.out, buf.len, fill_char);
-        if (count != buf.len)
-            m_sb->putback(count - buf.len);
 
         m_len += buf.len;
         return buf.len == count;
@@ -708,5 +655,41 @@ struct formatter<CharT, Str> {
         -> expected<bool, Error> {
         return ctx.Format(fmt_spec, std::begin(str), std::end(str));
     }
+};
+
+// fixed_buffer provides `string_builder` interface for range of chars.
+// It allows `format` API to write formatted output safely into range of chars b/w `{begin, end}`.
+// Atmost `end - begin` chars is written.
+template<typename CharT>
+class fixed_buffer {
+  public:
+    using char_type = CharT;
+    using iterator_type = contiguous_iterator<char_type, KTL_ENABLE_CHECKED_ITERATORS>;
+
+    constexpr explicit fixed_buffer(char_type* begin, char_type* end) :
+        m_buf {begin},
+        m_len {static_cast<usize>(end - begin)} {
+        assert(end >= begin);
+    }
+
+    constexpr auto reserve(usize len) noexcept -> buffer_view<char_type, iterator_type> {
+        iterator_type it {m_buf, m_buf + m_len, m_buf + m_pos};
+        if (m_pos + len <= m_len) [[likely]] {
+            m_pos += len;
+        } else {
+            len = m_len - m_pos;
+            m_pos = m_len;
+        }
+        return {it, len};
+    }
+
+    constexpr void putback(usize len) noexcept {
+        m_len -= len;
+    }
+
+  private:
+    char_type* m_buf;
+    usize m_len;
+    usize m_pos = 0;
 };
 }  // namespace ktl::fmt

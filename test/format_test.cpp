@@ -53,11 +53,11 @@ auto main() -> int {
                               .data()}
         == "***this*** +0X00064 test string `str`. false 1");
 
-    std::array<char, 64> arr;
-    fmt::detail::array_buffer ab {arr};
+    std::array<char, 15> arr;
+    fmt::fixed_buffer fb {arr.begin(), arr.end()};
     int a = 10;
     int b = 20;
-    auto res = "{:*^{}} {:+}"_f.format(ab, a, 10, b);
+    auto res = "{:*^{}} {:+}"_f.format(fb, a, 10, b);
     if (res) {
         arr[res->formatted_len()] = 0;
         write(arr.data());

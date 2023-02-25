@@ -1065,12 +1065,12 @@ namespace detail {
         return vformat<FmtStr, FormatString, SB, Args...>(sb, args);
     }
 
-    template<typename CharT, usize N>
-    class array_buffer;
-
     template<typename CharT>
     class counting_buffer;
 }  // namespace detail
+
+template<typename CharT>
+class fixed_buffer;
 
 // Holds both the Raw Format string and Transformed one.
 template<fixed_string RawFmtStr>
@@ -1110,15 +1110,16 @@ struct format_string_t {
     // containing the formatted chars.
     template<auto... Args>
     constexpr auto format() const noexcept {
-        usize len = 0;
         constexpr auto Len = *std::decay_t<decltype(*this)> {}.size(Args...) + 1;
-        std::array<char_type, Len> buf;
-        detail::array_buffer ab {buf};
 
+        std::array<char_type, Len> buf;
+        fixed_buffer ab {buf.begin(), buf.end() - 1};
         auto res = detail::vformat<RawFmtStr, underlying_value>(ab, detail::FmtArgs {Args...});
-        buf[res->formatted_len()] = '\0';
 
         assert(res && "cannot format string");
+        assert(res->formatted_len() == Len - 1);
+
+        buf[res->formatted_len()] = '\0';
 
         return buf;
     }
