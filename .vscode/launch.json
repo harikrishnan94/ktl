@@ -1,13 +1,13 @@
 {
     "configurations": [
         {
-            "name": "(gdb) Launch",
+            "name": "Test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/debug/test/format_test",
+            "program": "${command:cmake.launchTargetPath}",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${command:cmake.getLaunchTargetDirectory}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
