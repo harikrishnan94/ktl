@@ -693,6 +693,15 @@ struct formatter<CharT, I> {
 
 // Pointer types
 template<typename CharT, typename T>
+struct formatter<CharT, const T*> {
+    template<typename FormatContext, typename FmtSpec>
+        requires std::same_as<CharT, typename FormatContext::char_type>
+    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, const T* ptr) noexcept
+        -> expected<bool, Error> {
+        return ctx.Format(fmt_spec, ptr);
+    }
+};
+template<typename CharT, typename T>
 struct formatter<CharT, T*> {
     template<typename FormatContext, typename FmtSpec>
         requires std::same_as<CharT, typename FormatContext::char_type>
@@ -719,6 +728,25 @@ struct formatter<CharT, Str> {
     constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, const Str& str) noexcept
         -> expected<bool, Error> {
         return ctx.Format(fmt_spec, std::begin(str), std::end(str));
+    }
+};
+
+template<typename CharT>
+struct formatter<CharT, const CharT*> {
+    template<typename FormatContext, typename FmtSpec>
+        requires std::same_as<CharT, typename FormatContext::char_type>
+    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, const CharT* str) noexcept
+        -> expected<bool, Error> {
+        return ctx.Format(fmt_spec, str, str + std::char_traits<CharT>::length(str));
+    }
+};
+template<typename CharT>
+struct formatter<CharT, CharT*> {
+    template<typename FormatContext, typename FmtSpec>
+        requires std::same_as<CharT, typename FormatContext::char_type>
+    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, CharT* str) noexcept
+        -> expected<bool, Error> {
+        return ctx.Format(fmt_spec, str, str + std::char_traits<CharT>::length(str));
     }
 };
 }  // namespace ktl::fmt
