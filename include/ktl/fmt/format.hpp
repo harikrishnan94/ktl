@@ -96,7 +96,9 @@ namespace detail {
             } else if constexpr (std::is_arithmetic_v<ArgT>) {
                 converted.type = type_t::decimal;
             } else {
-                assert(std::is_pointer_v<ArgT> && "must be a pointer type");
+                assert(
+                    (std::is_pointer_v<ArgT>
+                     || std::same_as<ArgT, std::nullptr_t>)&&"must be a pointer type");
                 converted.type = type_t::pointer;
             }
         }
