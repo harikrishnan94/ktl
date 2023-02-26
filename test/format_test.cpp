@@ -54,7 +54,7 @@ auto main() -> int {
 
     ret |= check<"{:*^{}} {:+}">("****10**** +20", 10, 10, 20);
     ret |= check<"{}">("0x0", nullptr);
-    ret |= check<"{:-^#14}">("--0xdeadbeef--", std::bit_cast<void*>(0xdeadbeefULL));
+    ret |= check<"{:-^14}">("--0xdeadbeef--", std::bit_cast<void*>(0xdeadbeefULL));
 
     // NOLINTEND(*-magic-numbers)
 
