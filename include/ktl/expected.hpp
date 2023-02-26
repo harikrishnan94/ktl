@@ -91,7 +91,7 @@ constexpr bool operator>=(const unexpected<E>& lhs, const unexpected<E>& rhs) no
 }
 
 template<typename E>
-unexpected<typename std::decay<E>::type> make_unexpected(E&& e) noexcept {
+constexpr unexpected<typename std::decay<E>::type> make_unexpected(E&& e) noexcept {
     return unexpected<typename std::decay<E>::type>(std::forward<E>(e));
 }
 
@@ -103,7 +103,7 @@ static constexpr unexpect_t unexpect {};
 namespace detail {
     template<typename E>
     [[noreturn]] constexpr void throw_exception(E&& /* e */) noexcept {
-        abort("expected doesn't have value");
+        abort_("expected doesn't have value");
     }
 
     // Trait for checking if a type is a tl::expected
@@ -904,16 +904,16 @@ class expected:
         "T must not be unexpected<E>");
     static_assert(!std::is_reference<E>::value, "E must not be a reference");
 
-    T* valptr() noexcept {
+    constexpr T* valptr() noexcept {
         return std::addressof(this->m_val);
     }
-    [[nodiscard]] const T* valptr() const noexcept {
+    [[nodiscard]] constexpr const T* valptr() const noexcept {
         return std::addressof(this->m_val);
     }
-    unexpected<E>* errptr() noexcept {
+    constexpr unexpected<E>* errptr() noexcept {
         return std::addressof(this->m_unexpect);
     }
-    [[nodiscard]] const unexpected<E>* errptr() const noexcept {
+    [[nodiscard]] constexpr const unexpected<E>* errptr() const noexcept {
         return std::addressof(this->m_unexpect);
     }
 

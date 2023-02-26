@@ -13,6 +13,8 @@
                                      static_cast<const char*>(__ASSERT_FUNCTION)))
     #define KTL_ENABLE_CHECKED_ITERATORS true
 #else
+    #define KTL_ENABLE_CHECKED_ITERATORS false
+    #define __ASSERT_FUNCTION __PRETTY_FUNCTION__
 #endif
 
 namespace ktl {
@@ -21,5 +23,5 @@ Abort(const char* message, const char* file, unsigned int line, const char* func
 }
 
 // NOLINTNEXTLINE(*-macro-usage)
-#define abort(message) \
+#define abort_(message) \
     ktl::Abort(message, __FILE__, __LINE__, static_cast<const char*>(__ASSERT_FUNCTION))

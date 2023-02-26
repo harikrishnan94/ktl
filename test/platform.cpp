@@ -1,10 +1,12 @@
 #include "platform.h"
 
 #include <bit>
-#include <etl/to_string.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#include <etl/to_string.h>
+
+#include <ktl/assert.hpp>
 #include <ktl/int.hpp>
 
 using namespace ktl;
@@ -117,7 +119,16 @@ template auto write(unsigned long long n) -> isize;
 extern "C" void
 __assert_fail(const char* assertion, const char* file, unsigned int line, const char* function) {
     write("assertion failed: [");
-    write(assertion);
+    ktl::Abort(assertion, file, line, function);
+}
+
+namespace ktl {
+void Abort(
+    const char* message,
+    const char* file,
+    unsigned int line,
+    const char* function) noexcept {
+    write(message);
     write("] @ ");
     write(function);
     write(" @ ");
@@ -126,3 +137,4 @@ __assert_fail(const char* assertion, const char* file, unsigned int line, const 
     write(line);
     exit(-1);
 }
+}  // namespace ktl
