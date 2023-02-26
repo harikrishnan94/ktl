@@ -51,28 +51,28 @@ namespace detail {
     static constexpr auto canonicalize() -> fmt_spec_t {
         auto converted = FmtSpec;
 
-        if (converted.sign) {
-            assert(
-                std::is_arithmetic_v<ArgT>
-                && "sign is only applicable to integer or floating types");
+        if constexpr (FmtSpec.sign) {
+            static_assert(
+                std::is_arithmetic_v<ArgT>,
+                "sign is only applicable to integer or floating point types");
         } else {
             if constexpr (std::is_arithmetic_v<ArgT>) {
                 converted.sign = sign_t::minus;
             }
         }
-        if (converted.use_alternative_form) {
-            assert(
-                std::is_arithmetic_v<ArgT>
-                && "alternative form is only applicable to integer or floating types");
+        if constexpr (FmtSpec.use_alternative_form) {
+            static_assert(
+                std::is_arithmetic_v<ArgT>,
+                "alternative form is only applicable to integer or floating point types");
         }
-        if (converted.zero_pad) {
-            assert(
-                std::is_arithmetic_v<ArgT>
-                && "zero pad is only applicable to integer or floating types");
+        if constexpr (FmtSpec.zero_pad) {
+            static_assert(
+                std::is_arithmetic_v<ArgT>,
+                "zero pad is only applicable to integer or floating point types");
             // If the 0 character and an align option both appear, the 0 character is ignored.
             converted.zero_pad = !converted.fill_and_align;
         }
-        if (converted.width) {
+        if constexpr (FmtSpec.width) {
             if (!converted.fill_and_align && !converted.zero_pad) {
                 converted.fill_and_align = fill_and_align_t {
                     .fill = fill_and_align_t::default_fill,
@@ -83,13 +83,13 @@ namespace detail {
             converted.fill_and_align = {};
             converted.zero_pad = false;
         }
-        if (converted.precision) {
-            assert(
-                std::floating_point<ArgT>
-                && "precision is only applicable to floating point types");
+        if constexpr (FmtSpec.precision) {
+            static_assert(
+                std::floating_point<ArgT>,
+                "precision is only applicable to floating point types");
         }
-        if (converted.locale_specific) {
-            assert(!FmtSpec.locale_specific && "locale support is not available");
+        if constexpr (FmtSpec.locale_specific) {
+            static_assert(!FmtSpec.locale_specific, "locale support is not available");
         }
         if (!converted.type) {
             if constexpr (string_type<ArgT, CharT> || std::same_as<ArgT, bool>) {
@@ -97,13 +97,13 @@ namespace detail {
             } else if constexpr (std::is_arithmetic_v<ArgT>) {
                 converted.type = type_t::decimal;
             } else {
-                assert(
-                    (std::is_pointer_v<ArgT>
-                     || std::same_as<ArgT, std::nullptr_t>)&&"must be a pointer type");
+                static_assert(
+                    std::is_pointer_v<ArgT> || std::same_as<ArgT, std::nullptr_t>,
+                    "must be a pointer type");
                 converted.type = type_t::pointer;
             }
         }
-        assert(converted.type && "must be a pointer type");
+        assert(converted.type && "must contain a type");
 
         return converted;
     }

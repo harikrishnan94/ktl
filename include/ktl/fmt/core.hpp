@@ -950,6 +950,7 @@ namespace detail {
 
     template<typename ArgT, typename CharT>
     constexpr auto check_type(replacement_t rep) -> bool {
+        static_assert(!std::floating_point<ArgT>, "floating point types are not supported");
         if (rep.fmt_spec) {
             auto& fmt_spec = rep.fmt_spec.value();
             if (fmt_spec.type) {
