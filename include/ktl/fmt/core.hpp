@@ -9,7 +9,6 @@
 
 #include "ktl/access.hpp"
 #include "ktl/assert.hpp"
-#include "ktl/contiguous_iterator.hpp"
 #include "ktl/detail/charconv.hpp"
 #include "ktl/expected.hpp"
 

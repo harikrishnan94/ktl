@@ -637,7 +637,7 @@ template<typename CharT>
 class fixed_buffer {
   public:
     using char_type = CharT;
-    using iterator_type = contiguous_iterator<char_type, KTL_ENABLE_CHECKED_ITERATORS>;
+    using iterator_type = char_type*;
 
     constexpr explicit fixed_buffer(char_type* begin, char_type* end) :
         m_buf {begin},
@@ -646,14 +646,8 @@ class fixed_buffer {
     }
 
     constexpr auto reserve(usize len) noexcept -> buffer_view<char_type, iterator_type> {
-        iterator_type it {m_buf + m_pos, m_buf + m_len, m_buf + m_pos};
-        // -----------------------------
-        // Workaround for GCC 12 compilation failure.
-        if (!std::is_constant_evaluated() && m_pos > m_len) {
-            __builtin_unreachable();
-        }
-        // -----------------------------
-        if (m_pos + len <= m_len) {
+        iterator_type it {m_buf + m_pos};
+        if (m_pos + len <= m_len) [[likely]] {
             m_pos += len;
         } else {
             len = m_len - m_pos;
