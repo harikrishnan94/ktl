@@ -4,6 +4,7 @@
 #include <variant>
 
 #include "core.hpp"
+#include "ktl/contiguous_iterator.hpp"
 
 namespace ktl::fmt {
 namespace detail {
@@ -643,7 +644,7 @@ template<typename CharT>
 class fixed_buffer {
   public:
     using char_type = CharT;
-    using iterator_type = char_type*;
+    using iterator_type = contiguous_iterator<char_type, KTL_ENABLE_CHECKED_ITERATORS>;
 
     constexpr explicit fixed_buffer(char_type* begin, char_type* end) :
         m_buf {begin},
@@ -652,7 +653,10 @@ class fixed_buffer {
     }
 
     constexpr auto reserve(usize len) noexcept -> buffer_view<char_type, iterator_type> {
-        iterator_type it {m_buf + m_pos};
+        auto it = make_contiguous_iterator<KTL_ENABLE_CHECKED_ITERATORS>(
+            m_buf + m_pos,
+            m_buf,
+            m_buf + m_len);
         if (m_pos + len <= m_len) [[likely]] {
             m_pos += len;
         } else {

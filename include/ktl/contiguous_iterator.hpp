@@ -8,51 +8,32 @@
 namespace ktl {
 namespace detail {
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-    template<typename T, bool EnableChecks>
-    struct iterator_store_if_checked {
-        iterator_store_if_checked() = default;
-
-        constexpr explicit iterator_store_if_checked(T* /* p */) {}
-    };
-
     template<typename T>
-    struct iterator_store_if_checked<T, true> {
-        iterator_store_if_checked() = default;
-
-        constexpr explicit iterator_store_if_checked(T* ptr) : ptr {ptr} {}
-
-        T* ptr;
-    };
-
-    template<typename T, bool EnableChecks>
     struct iterator_storage {
         iterator_storage() = default;
 
-        constexpr iterator_storage(T* start, T* end, T* current) :
+        // NOLINTNEXTLINE(*-easily-swappable-parameters)
+        constexpr iterator_storage(T* current, T* start, T* end) :
+            current {current},
             start {start},
-            end {end},
-            current {current} {}
+            end {end} {}
 
         [[nodiscard]] constexpr auto is_dereferencable() const -> bool {
-            if constexpr (EnableChecks) {
-                return current >= start.ptr && current < end.ptr;
-            } else {
-                return true;
-            }
+            return current >= start && current < end;
         }
 
-        [[no_unique_address]] iterator_store_if_checked<T, EnableChecks> start;
-        [[no_unique_address]] iterator_store_if_checked<T, EnableChecks> end;
         T* current;
+        T* start;
+        T* end;
     };
 
     /**
-     * @brief Contiguos Iterator with optional bounds checking.
-     * @details satisfies ConstexprIterator and std::contiguous_iterator
+     * @brief Iterator with mandatory bounds checking.
+     * @details satisfies ConstexprIterator and std::contigous_iterator
      * @tparam T value_type of the iterable.
      */
-    template<typename T, bool EnableChecks>
-    class contiguous_iterator {
+    template<typename T>
+    class checked_iterator {
       public:
         using value_type = T;
         using element_type = value_type;
@@ -61,12 +42,10 @@ namespace detail {
         using pointer = T*;
         using iterator_category = std::contiguous_iterator_tag;
 
-        contiguous_iterator() = default;
+        checked_iterator() = default;
 
-        constexpr contiguous_iterator(T* start, T* end, T* current) :
-            storage {start, end, current} {}
+        constexpr checked_iterator(T* current, T* start, T* end) : storage {current, start, end} {}
 
-        template<bool EnableChecksV = EnableChecks, typename = std::enable_if_t<EnableChecksV>>
         [[nodiscard]] constexpr auto is_dereferencable() const -> bool {
             return storage.is_dereferencable();
         }
@@ -83,68 +62,68 @@ namespace detail {
 
         // Increment and Decrement operators
         // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        constexpr auto operator++() -> contiguous_iterator& {
+        constexpr auto operator++() -> checked_iterator& {
             ++storage.current;
             return *this;
         }
 
-        constexpr auto operator++(int) -> contiguous_iterator {
+        constexpr auto operator++(int) -> checked_iterator {
             auto copy = *this;
             ++*this;
             return copy;
         }
 
-        constexpr auto operator--() -> contiguous_iterator& {
+        constexpr auto operator--() -> checked_iterator& {
             --storage.current;
             return *this;
         }
 
-        constexpr auto operator--(int) -> contiguous_iterator {
+        constexpr auto operator--(int) -> checked_iterator {
             auto copy = *this;
             --*this;
             return copy;
         }
 
         // Random access
-        constexpr auto operator+=(difference_type pos) -> contiguous_iterator& {
+        constexpr auto operator+=(difference_type pos) -> checked_iterator& {
             storage.current += pos;
             return *this;
         }
 
-        constexpr auto operator-=(difference_type pos) -> contiguous_iterator& {
+        constexpr auto operator-=(difference_type pos) -> checked_iterator& {
             storage.current -= pos;
             return *this;
         }
         // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
         // Comparison operator
-        constexpr auto operator<=>(const contiguous_iterator& rhs) const {
+        constexpr auto operator<=>(const checked_iterator& rhs) const {
             return storage.current <=> rhs.storage.current;
         }
 
-        constexpr auto operator==(const contiguous_iterator& rhs) const -> bool {
+        constexpr auto operator==(const checked_iterator& rhs) const -> bool {
             return storage.current == rhs.storage.current;
         }
 
-        constexpr auto operator+(difference_type pos) const -> contiguous_iterator {
-            contiguous_iterator iter = *this;
+        constexpr auto operator+(difference_type pos) const -> checked_iterator {
+            checked_iterator iter = *this;
             iter += pos;
             return iter;
         }
 
-        constexpr auto operator-(difference_type pos) const -> contiguous_iterator {
-            contiguous_iterator iter = *this;
+        constexpr auto operator-(difference_type pos) const -> checked_iterator {
+            checked_iterator iter = *this;
             iter -= pos;
             return iter;
         }
 
-        friend constexpr auto operator+(difference_type pos, contiguous_iterator self)
-            -> contiguous_iterator {
+        friend constexpr auto operator+(difference_type pos, checked_iterator self)
+            -> checked_iterator {
             return self + pos;
         }
 
         // Index and difference operators
-        constexpr auto operator-(const contiguous_iterator& rhs) const -> difference_type {
+        constexpr auto operator-(const checked_iterator& rhs) const -> difference_type {
             return storage.current - rhs.storage.current;
         }
 
@@ -154,11 +133,28 @@ namespace detail {
         }
 
       private:
-        iterator_storage<T, EnableChecks> storage;
+        iterator_storage<T> storage;
     };
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 }  // namespace detail
 
 template<typename T, bool EnableChecks>
-using contiguous_iterator = detail::contiguous_iterator<T, EnableChecks>;
+using contiguous_iterator = std::conditional_t<EnableChecks, detail::checked_iterator<T>, T*>;
+
+template<bool EnableChecks, typename T, typename = std::enable_if_t<EnableChecks>>
+constexpr auto make_contiguous_iterator(T* current, T* start, T* end)
+    -> contiguous_iterator<T, true> {
+    return {current, start, end};
+}
+
+template<bool EnableChecks, typename T, typename = std::enable_if_t<!EnableChecks>>
+constexpr auto make_contiguous_iterator(T* current) -> contiguous_iterator<T, false> {
+    return current;
+}
+
+template<bool EnableChecks, typename T, typename = std::enable_if_t<!EnableChecks>>
+constexpr auto make_contiguous_iterator(T* current, T* /* start */, T* /* end */)
+    -> contiguous_iterator<T, false> {
+    return current;
+}
 }  // namespace ktl

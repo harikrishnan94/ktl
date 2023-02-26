@@ -389,24 +389,24 @@ namespace detail {
 
     template<usize N>
     struct format_string_t {
-        using iterator_t = contiguous_iterator<field_t, false>;
-        using const_iterator_t = contiguous_iterator<const field_t, false>;
+        using iterator_t = field_t*;
+        using const_iterator_t = const field_t*;
 
         // NOLINTNEXTLINE(*-dynamic-static-initializers)
         static constexpr auto FieldCount = N;
 
         [[nodiscard]] constexpr auto begin() -> iterator_t {
-            return {std::begin(m_fields), std::end(m_fields), std::begin(m_fields)};
+            return std::begin(m_fields);
         }
         [[nodiscard]] constexpr auto begin() const -> const_iterator_t {
-            return {std::begin(m_fields), std::end(m_fields), std::begin(m_fields)};
+            return std::begin(m_fields);
         }
 
         [[nodiscard]] constexpr auto end() -> iterator_t {
-            return {std::begin(m_fields), std::end(m_fields), std::end(m_fields)};
+            return std::end(m_fields);
         }
         [[nodiscard]] constexpr auto end() const -> const_iterator_t {
-            return {std::begin(m_fields), std::end(m_fields), std::end(m_fields)};
+            return std::end(m_fields);
         }
 
         constexpr auto operator[](usize I) const -> const field_t& {
