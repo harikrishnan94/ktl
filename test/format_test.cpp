@@ -17,10 +17,9 @@ constexpr auto view(const std::array<CharT, N>& arr) -> etl::basic_string_view<C
 
 template<fixed_string RawFmtStr, typename... Args>
 constexpr auto check(const char* exp, const Args&... args) -> unsigned {
-    constexpr auto FmtStr = make_format_string<RawFmtStr>();
     std::array<char, 1024> buf;  // NOLINT
     fixed_buffer fb {buf.begin(), buf.end()};
-    auto res = FmtStr.format(fb, args...);
+    auto res = format<RawFmtStr>(fb, args...);
 
     assert(res && "must not be error");  // NOLINT(*-decay)
     assert(*res && "must not complete");  // NOLINT(*-decay)
