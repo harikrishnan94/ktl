@@ -128,22 +128,23 @@ namespace detail {
         return fp;
     }
 
-    template<replacement_t R, typename CharT, string_buffer_of<CharT> SB, typename... Args>
+    template<replacement_t R, string_buffer SB, typename... Args>
     constexpr auto do_format(FormatContext<SB>& ctx, const FmtArgs<Args...>& args) noexcept
         -> ktl::expected<bool, Error> {
         using fmt_arg_t = remove_const_pointer_t<
             std::tuple_element_t<R.value.argid(), typename FmtArgs<Args...>::tuple_type>>;
+        using char_type = typename FormatContext<SB>::char_type;
 
         constexpr auto FmtSpec = []() {
             if constexpr (R.fmt_spec) {
-                return canonicalize<R.fmt_spec.value(), CharT, fmt_arg_t, Args...>();
+                return canonicalize<R.fmt_spec.value(), char_type, fmt_arg_t, Args...>();
             } else {
-                return canonicalize<fmt_spec_t {}, CharT, fmt_arg_t, Args...>();
+                return canonicalize<fmt_spec_t {}, char_type, fmt_arg_t, Args...>();
             }
         }();
 
-        formatter<CharT, fmt_arg_t> formatter;
-        auto fmt_spec = flatten<FmtSpec, CharT, fmt_arg_t>(args);
+        formatter<char_type, fmt_arg_t> formatter;
+        auto fmt_spec = flatten<FmtSpec, char_type, fmt_arg_t>(args);
         if (!fmt_spec) {
             return make_unexpected(std::move(fmt_spec).error());
         }
@@ -652,7 +653,7 @@ class fixed_buffer {
             __builtin_unreachable();
         }
         // -----------------------------
-        if (m_pos + len <= m_len) [[likely]] {
+        if (m_pos + len <= m_len) {
             m_pos += len;
         } else {
             len = m_len - m_pos;

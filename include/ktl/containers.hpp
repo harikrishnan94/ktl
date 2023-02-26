@@ -1,7 +1,5 @@
 #pragma once
 
-#include <etl/platform.h>
-
 #include "assert.hpp"
 #include "contiguous_iterator.hpp"
 

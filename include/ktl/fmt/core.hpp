@@ -1036,7 +1036,7 @@ namespace detail {
                     check_type<unchecked_type, char_type>(F.replacement()),
                     "cannot compile field due to type or argument check failure");
 
-                return do_format<F.replacement(), char_type>(ctx, args);
+                return do_format<F.replacement()>(ctx, args);
             }
         }
     };
