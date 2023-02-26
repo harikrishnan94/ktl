@@ -286,26 +286,7 @@ class FormatContext {
             return make_unexpected(std::move(*error));
         }
 
-        const auto& [buf, reslen] = res;
-        auto [prefix_len, num_len] = reslen;
-        auto len = prefix_len + num_len;
-
-        constexpr auto Escape = FS.type.value() == detail::type_t::escape;
-
-        if constexpr (FS.width) {
-            if (len >= fmt_spec.width) {
-                return write<Escape>(buf.data(), buf.data() + len);
-            }
-
-            if constexpr (FS.zero_pad) {
-                static_assert(!FS.fill_and_align, "both fill align and zeropad cannot be present");
-                return format_zero_pad(fmt_spec, res);
-            } else {
-                return format_str(fmt_spec, buf.data(), buf.data() + len);
-            }
-        } else {
-            return write<Escape>(buf.data(), buf.data() + len);
-        }
+        return format(fmt_spec, res);
     }
 
     template<detail::fmt_spec_t FS, typename T>
@@ -314,14 +295,12 @@ class FormatContext {
         static_assert(FS.type.value() == detail::type_t::pointer);
         to_chars_res res;
 
-        res.len = to_chars_helper_hex<false>(
+        constexpr detail::optional<detail::sign_t> Sign = detail::sign_t::minus;
+        res.len = to_chars_helper_hex<false, Sign, true>(
             res.buf.data(),
-            std::bit_cast<std::uintptr_t>(ptr),
-            detail::sign_t::minus,
-            false);
+            std::bit_cast<std::uintptr_t>(ptr));
 
-        auto&& [buf, prefix_len, num_len] = res;
-        return format_str(fmt_spec, res.buf.data(), res.buf.data() + prefix_len + num_len);
+        return format(fmt_spec, res);
     }
 
     template<detail::fmt_spec_t FS>
@@ -387,6 +366,31 @@ class FormatContext {
 
         m_len += buf.len;
         return buf.len == count;
+    }
+
+    template<detail::fmt_spec_t FS>
+    constexpr auto format(const detail::dyn_fmt_spec_t<FS>& fmt_spec, const to_chars_res& res)
+        -> expected<bool, Error> {
+        const auto& [buf, reslen] = res;
+        auto [prefix_len, num_len] = reslen;
+        auto len = prefix_len + num_len;
+
+        constexpr auto Escape = FS.type.value() == detail::type_t::escape;
+
+        if constexpr (FS.width) {
+            if (len >= fmt_spec.width) {
+                return write<Escape>(buf.data(), buf.data() + len);
+            }
+
+            if constexpr (FS.zero_pad) {
+                static_assert(!FS.fill_and_align, "both fill align and zeropad cannot be present");
+                return format_zero_pad(fmt_spec, res);
+            } else {
+                return format_str(fmt_spec, buf.data(), buf.data() + len);
+            }
+        } else {
+            return write<Escape>(buf.data(), buf.data() + len);
+        }
     }
 
     template<detail::fmt_spec_t FS, std::integral Int>
@@ -683,10 +687,19 @@ struct formatter<CharT, I> {
 
 // Pointer types
 template<typename CharT, typename T>
-struct formatter<CharT, const T*> {
+struct formatter<CharT, T*> {
     template<typename FormatContext, typename FmtSpec>
         requires std::same_as<CharT, typename FormatContext::char_type>
-    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, const T* ptr) noexcept
+    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, T* ptr) noexcept
+        -> expected<bool, Error> {
+        return ctx.Format(fmt_spec, ptr);
+    }
+};
+template<typename CharT>
+struct formatter<CharT, std::nullptr_t> {
+    template<typename FormatContext, typename FmtSpec>
+        requires std::same_as<CharT, typename FormatContext::char_type>
+    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, std::nullptr_t ptr) noexcept
         -> expected<bool, Error> {
         return ctx.Format(fmt_spec, ptr);
     }
