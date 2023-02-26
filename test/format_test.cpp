@@ -14,7 +14,7 @@ constexpr auto view(const std::array<CharT, N>& arr) -> etl::basic_string_view<C
 }
 
 template<fixed_string RawFmtStr, typename... Args>
-constexpr auto check(const char* exp, const Args&&... args) -> unsigned {
+constexpr auto check(const char* exp, const Args&... args) -> unsigned {
     constexpr auto FmtStr = make_format_string<RawFmtStr>();
     std::array<char, 1024> buf;  // NOLINT
     fixed_buffer fb {buf.begin(), buf.end()};
@@ -27,7 +27,7 @@ constexpr auto check(const char* exp, const Args&&... args) -> unsigned {
     if (auto str = view(buf); str != exp) {
         write("failure: `");
         write(str);
-        write(" != ");
+        write("` != `");
         write(exp);
         write("`\n");
         return 1;
@@ -50,7 +50,7 @@ auto main() -> int {
 
     unsigned ret = 0;
 
-    ret |= check<("{:*^{}} {:+}")>("****10**** +20", 10, 10, 20);
+    ret |= check<"{:*^{}} {:+}">("****10**** +20", 10, 10, 20);
 
     // NOLINTEND(*-magic-numbers)
 

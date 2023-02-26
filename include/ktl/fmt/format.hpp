@@ -6,20 +6,16 @@
 #include "core.hpp"
 
 namespace ktl::fmt {
-namespace fmt_spec {
-    struct fmt_spec_t {
-        std::optional<fill_and_align_t> fill_and_align;
-        std::optional<sign_t> sign;
-        bool use_alternative_form = false;
-        bool zero_pad = false;
-        std::optional<u64> width;
-        std::optional<u64> precision;
-        bool locale_specific = false;
-        type_t type = type_t::none;
-    };
-}  // namespace fmt_spec
-
 namespace detail {
+    template<fmt_spec_t FS>
+    struct dyn_fmt_spec_t {
+        // NOLINTNEXTLINE(*-dynamic-static-initializers)
+        static constexpr auto FmtSpec = FS;
+
+        u64 width;
+        u64 precision;
+    };
+
     template<direct_or_replacement SR, typename... Args>
     static constexpr auto replace(const FmtArgs<Args...>& args) -> ktl::expected<u64, Error> {
         using tuple_type = typename FmtArgs<Args...>::tuple_type;
@@ -50,79 +46,82 @@ namespace detail {
     }
 
     template<fmt_spec_t FmtSpec, typename CharT, typename ArgT, typename... Args>
-    // NOLINTNEXTLINE(*-cognitive-complexity, *-function-size)
-    static constexpr auto convert(const FmtArgs<Args...>& args)
-        -> ktl::expected<fmt_spec::fmt_spec_t, Error> {
-        fmt_spec::fmt_spec_t fp;
+    // NOLINTNEXTLINE(*-function-cognitive-complexity)
+    static constexpr auto canonicalize() -> fmt_spec_t {
+        auto converted = FmtSpec;
 
-        if constexpr (FmtSpec.fill_and_align) {
-            fp.fill_and_align = FmtSpec.fill_and_align.value();
-        }
-        if constexpr (FmtSpec.sign) {
-            static_assert(
-                std::is_arithmetic_v<ArgT>,
-                "sign is only applicable to integer or floating types");
-
-            fp.sign = FmtSpec.sign.value();
+        if (converted.sign) {
+            assert(
+                std::is_arithmetic_v<ArgT>
+                && "sign is only applicable to integer or floating types");
         } else {
             if constexpr (std::is_arithmetic_v<ArgT>) {
-                fp.sign = sign_t::minus;
+                converted.sign = sign_t::minus;
             }
         }
-        if constexpr (FmtSpec.use_alternative_form) {
-            static_assert(
-                std::is_arithmetic_v<ArgT>,
-                "alternative form is only applicable to integer or floating types");
-            fp.use_alternative_form = true;
+        if (converted.use_alternative_form) {
+            assert(
+                std::is_arithmetic_v<ArgT>
+                && "alternative form is only applicable to integer or floating types");
         }
-        if constexpr (FmtSpec.zero_pad) {
-            static_assert(
-                std::is_arithmetic_v<ArgT>,
-                "zero pad is only applicable to integer or floating types");
+        if (converted.zero_pad) {
+            assert(
+                std::is_arithmetic_v<ArgT>
+                && "zero pad is only applicable to integer or floating types");
             // If the 0 character and an align option both appear, the 0 character is ignored.
-            fp.zero_pad = !FmtSpec.fill_and_align;
+            converted.zero_pad = !converted.fill_and_align;
         }
+        if (converted.width) {
+            if (!converted.fill_and_align && !converted.zero_pad) {
+                converted.fill_and_align = fill_and_align_t {
+                    .fill = fill_and_align_t::default_fill,
+                    .align = fill_and_align_t::default_align,
+                };
+            }
+        } else {
+            converted.fill_and_align = {};
+            converted.zero_pad = false;
+        }
+        if (converted.precision) {
+            assert(
+                std::floating_point<ArgT>
+                && "precision is only applicable to floating point types");
+        }
+        if (converted.locale_specific) {
+            assert(!FmtSpec.locale_specific && "locale support is not available");
+        }
+        if (!converted.type) {
+            if constexpr (string_type<ArgT, CharT> || std::same_as<ArgT, bool>) {
+                converted.type = type_t::string;
+            } else if constexpr (std::is_arithmetic_v<ArgT>) {
+                converted.type = type_t::decimal;
+            } else {
+                assert(std::is_pointer_v<ArgT> && "must be a pointer type");
+                converted.type = type_t::pointer;
+            }
+        }
+        assert(converted.type && "must be a pointer type");
+
+        return converted;
+    }
+
+    template<fmt_spec_t FmtSpec, typename CharT, typename ArgT, typename... Args>
+    static constexpr auto flatten(const FmtArgs<Args...>& args)
+        -> ktl::expected<dyn_fmt_spec_t<FmtSpec>, Error> {
+        dyn_fmt_spec_t<FmtSpec> fp = {};
+
         if constexpr (FmtSpec.width) {
             if (auto w = replace<FmtSpec.width.value()>(args)) {
                 fp.width = *w;
             } else {
                 return make_unexpected(w.error());
             }
-
-            if constexpr (!FmtSpec.fill_and_align && !FmtSpec.zero_pad) {
-                fp.fill_and_align = {
-                    .fill = fill_and_align_t::default_fill,
-                    .align = fill_and_align_t::default_align,
-                };
-            }
-        } else {
-            fp.fill_and_align = {};
-            fp.zero_pad = false;
         }
         if constexpr (FmtSpec.precision) {
-            static_assert(
-                std::floating_point<ArgT>,
-                "precision is only applicable to floating point types");
             if (auto p = replace<FmtSpec.precision.value()>(args)) {
                 fp.precision = *p;
             } else {
                 return make_unexpected(p.error());
-            }
-        }
-        if constexpr (FmtSpec.locale_specific) {
-            static_assert(!FmtSpec.locale_specific, "locale support is not available");
-            fp.locale_specific = true;
-        }
-        if constexpr (FmtSpec.type) {
-            fp.type = FmtSpec.type.value();
-        } else {
-            if constexpr (string_type<ArgT, CharT> || std::same_as<ArgT, bool>) {
-                fp.type = type_t::string;
-            } else if constexpr (std::is_arithmetic_v<ArgT>) {
-                fp.type = type_t::decimal;
-            } else {
-                static_assert(std::is_pointer_v<ArgT>, "must be a pointer type");
-                fp.type = type_t::pointer;
             }
         }
 
@@ -135,11 +134,18 @@ namespace detail {
         using fmt_arg_t = remove_const_pointer_t<
             std::tuple_element_t<R.value.argid(), typename FmtArgs<Args...>::tuple_type>>;
 
+        constexpr auto FmtSpec = []() {
+            if constexpr (R.fmt_spec) {
+                return canonicalize<R.fmt_spec.value(), CharT, fmt_arg_t, Args...>();
+            } else {
+                return canonicalize<fmt_spec_t {}, CharT, fmt_arg_t, Args...>();
+            }
+        }();
+
         formatter<CharT, fmt_arg_t> formatter;
-        auto fmt_spec =
-            convert<(R.fmt_spec ? R.fmt_spec.value() : fmt_spec_t {}), CharT, fmt_arg_t>(args);
+        auto fmt_spec = flatten<FmtSpec, CharT, fmt_arg_t>(args);
         if (!fmt_spec) {
-            return make_unexpected(fmt_spec.error());
+            return make_unexpected(std::move(fmt_spec).error());
         }
 
         return formatter.format(ctx, *fmt_spec, get<R.value.argid()>(args));
@@ -267,15 +273,15 @@ class FormatContext {
 
     constexpr auto Write(const char_type* begin, const char_type* end) noexcept
         -> expected<bool, Error> {
-        return write(begin, end, false);
+        return write<false>(begin, end);
     }
 
-    template<std::integral Int>
-    constexpr auto Format(const fmt_spec::fmt_spec_t& fmt_spec, Int val) noexcept
+    template<detail::fmt_spec_t FS, std::integral Int>
+    constexpr auto Format(const detail::dyn_fmt_spec_t<FS>& fmt_spec, Int val) noexcept
         -> expected<bool, Error> {
         to_chars_res res;
 
-        if (auto error = to_chars(res, fmt_spec, val)) {
+        if (auto error = to_chars<FS>(res, val)) {
             return make_unexpected(std::move(*error));
         }
 
@@ -283,47 +289,64 @@ class FormatContext {
         auto [prefix_len, num_len] = reslen;
         auto len = prefix_len + num_len;
 
-        if (!fmt_spec.width || len >= *fmt_spec.width) {
-            return write(buf.data(), buf.data() + len, fmt_spec.type == fmt_spec::type_t::escape);
-        }
+        constexpr auto Escape = FS.type.value() == detail::type_t::escape;
 
-        if (fmt_spec.zero_pad) {
-            return format_zero_pad(fmt_spec, res);
+        if constexpr (FS.width) {
+            if (len >= fmt_spec.width) {
+                return write<Escape>(buf.data(), buf.data() + len);
+            }
+
+            if constexpr (FS.zero_pad) {
+                static_assert(!FS.fill_and_align, "both fill align and zeropad cannot be present");
+                return format_zero_pad(fmt_spec, res);
+            } else {
+                return format_str(fmt_spec, buf.data(), buf.data() + len);
+            }
+        } else {
+            return write<Escape>(buf.data(), buf.data() + len);
         }
-        return format_str(fmt_spec, buf.data(), buf.data() + len);
     }
 
-    template<typename T>
-    constexpr auto Format(const fmt_spec::fmt_spec_t& fmt_spec, const T* ptr) noexcept
+    template<detail::fmt_spec_t FS, typename T>
+    constexpr auto Format(const detail::dyn_fmt_spec_t<FS>& fmt_spec, const T* ptr) noexcept
         -> expected<bool, Error> {
-        assert(fmt_spec.type == fmt_spec::type_t::pointer);
-        auto res = to_chars_helper_hex<false>(
+        static_assert(FS.type.value() == detail::type_t::pointer);
+        to_chars_res res;
+
+        res.len = to_chars_helper_hex<false>(
+            res.buf.data(),
             std::bit_cast<std::uintptr_t>(ptr),
-            fmt_spec::sign_t::minus,
+            detail::sign_t::minus,
             false);
-        if (!res) {
-            return make_unexpected(res.error());
-        }
 
-        auto&& [buf, prefix_len, num_len] = *res;
-        return format_str(fmt_spec, res->buf.data(), res->buf.data() + prefix_len + num_len);
+        auto&& [buf, prefix_len, num_len] = res;
+        return format_str(fmt_spec, res.buf.data(), res.buf.data() + prefix_len + num_len);
     }
 
-    constexpr auto Format(const fmt_spec::fmt_spec_t& fmt_spec, std::nullptr_t /* ptr */) noexcept
+    template<detail::fmt_spec_t FS>
+    constexpr auto
+    Format(const detail::dyn_fmt_spec_t<FS>& fmt_spec, std::nullptr_t /* ptr */) noexcept
         -> expected<bool, Error> {
-        assert(fmt_spec.type == fmt_spec::type_t::pointer);
+        static_assert(FS.type.value() == detail::type_t::pointer);
         return Format(fmt_spec, static_cast<void*>(nullptr));
     }
 
+    template<detail::fmt_spec_t FS>
     constexpr auto Format(
-        const fmt_spec::fmt_spec_t& fmt_spec,
+        const detail::dyn_fmt_spec_t<FS>& fmt_spec,
         const char_type* begin,
         const char_type* end) noexcept -> expected<bool, Error> {
+        constexpr auto Escape = FS.type.value() == detail::type_t::escape;
         auto len = end - begin;
-        if (!fmt_spec.width || len >= *fmt_spec.width) {
-            return write(begin, end, fmt_spec.type == fmt_spec::type_t::escape);
+
+        if constexpr (FS.width) {
+            if (len >= fmt_spec.width) {
+                return write<Escape>(begin, end);
+            }
+            return format_str(fmt_spec, begin, end);
+        } else {
+            return write<Escape>(begin, end);
         }
-        return format_str(fmt_spec, begin, end);
     }
 
   private:
@@ -340,13 +363,12 @@ class FormatContext {
         to_chars_len len;
     };
 
-    constexpr auto
-    write(const char_type* begin, const char_type* end, [[maybe_unused]] bool escape) noexcept
-        -> bool {
+    template<bool Escape>
+    constexpr auto write(const char_type* begin, const char_type* end) noexcept -> bool {
         auto req_len = end - begin;
         auto buf = m_sb->reserve(req_len);
 
-        assert(escape == false && "C++23 escape sequence is not implemented");
+        static_assert(!Escape, "C++23 escape sequence is not implemented");
 
         std::copy_n(begin, buf.len, buf.out);
 
@@ -354,118 +376,106 @@ class FormatContext {
         return buf.len == req_len;
     }
 
-    constexpr auto fill(char_type fill_char, usize count, [[maybe_unused]] bool escape) noexcept
-        -> bool {
+    template<char_type C, bool Escape>
+    constexpr auto fill(usize count) noexcept -> bool {
         auto buf = m_sb->reserve(count);
 
-        assert(escape == false && "C++23 escape sequence is not implemented");
+        static_assert(!Escape, "C++23 escape sequence is not implemented");
 
-        std::fill_n(buf.out, buf.len, fill_char);
+        std::fill_n(buf.out, buf.len, C);
 
         m_len += buf.len;
         return buf.len == count;
     }
 
-    template<std::integral Int>
-    static constexpr auto
-    to_chars(to_chars_res& res, const fmt_spec::fmt_spec_t& fmt_spec, Int val) noexcept
-        -> std::optional<Error> {
+    template<detail::fmt_spec_t FS, std::integral Int>
+    static constexpr auto to_chars(to_chars_res& res, Int val) noexcept -> std::optional<Error> {
         res.len = {};
 
-        switch (fmt_spec.type) {
-            using enum fmt_spec::type_t;
-            case string: {
-                assert((std::same_as<Int, bool>));
-                std::basic_string_view str = val ? "true" : "false";
-                res.len.num = str.length();
-                std::copy_n(str.begin(), res.len.num, res.buf.begin());
-            } break;
+        using enum detail::type_t;
+        if constexpr (FS.type.value() == string) {
+            static_assert(std::same_as<Int, bool>);
+            std::basic_string_view str = val ? "true" : "false";
+            res.len.num = str.length();
+            std::copy_n(str.begin(), res.len.num, res.buf.begin());
+        } else if constexpr (FS.type.value() == escape || FS.type.value() == char_) {
+            if constexpr (FS.type.value() == escape) {
+                static_assert(std::same_as<Int, char_type>);
+            } else {
+                static_assert(std::same_as<Int, bool>);
+            }
 
-            case escape:
-                assert((std::same_as<Int, char_type>));
-            case char_: {
-                assert((!std::same_as<Int, bool>));
-                auto c = static_cast<u64>(val);
-                if (c < std::numeric_limits<char_type>::min()
-                    || c > std::numeric_limits<char_type>::max()) {
-                    return Error::ValueOverflow;
-                }
-                res.buf[0] = static_cast<char_type>(c);
-                res.len.num = 1;
-            } break;
-
-            default:
-                res.len = to_chars_helper(res.buf.data(), fmt_spec, val);
-                break;
+            auto c = static_cast<u64>(val);
+            if (c < std::numeric_limits<char_type>::min()
+                || c > std::numeric_limits<char_type>::max()) {
+                return Error::ValueOverflow;
+            }
+            res.buf[0] = static_cast<char_type>(c);
+            res.len.num = 1;
+        } else {
+            res.len = to_chars_helper<FS>(res.buf.data(), val);
         }
 
         return {};
     }
 
+    template<detail::fmt_spec_t FS>
     constexpr auto format_str(
-        const fmt_spec::fmt_spec_t& fmt_spec,
+        const detail::dyn_fmt_spec_t<FS>& fmt_spec,
         const char_type* begin,
         const char_type* end) noexcept -> expected<bool, Error> {
-        assert(fmt_spec.width);
-        assert(fmt_spec.fill_and_align);
+        static_assert(FS.width);
+        static_assert(FS.fill_and_align);
+        constexpr auto Escape = FS.type.value() == detail::type_t::escape;
 
         auto len = end - begin;
-        auto width = *fmt_spec.width;
 
-        assert(width > len);
+        assert(fmt_spec.width > len);
 
-        auto fill_char = fmt_spec.fill_and_align->fill;
-        auto fill_len = width - len;
-        bool res = true;
-        bool escape = fmt_spec.type == fmt_spec::type_t::escape;
+        constexpr auto FillChar = FS.fill_and_align.value().fill;
+        constexpr auto Align = FS.fill_and_align.value().align;
 
-        switch (fmt_spec.fill_and_align->align) {
-            case fmt_spec::fill_and_align_t::start:
-                res = write(begin, end, escape) && fill(fill_char, fill_len, escape);
-                break;
+        auto fill_len = fmt_spec.width - len;
 
-            case fmt_spec::fill_and_align_t::end:
-                res = fill(fill_char, fill_len, escape) && write(begin, end, escape);
-                break;
+        if constexpr (Align == detail::fill_and_align_t::start) {
+            return write<Escape>(begin, end) && fill<FillChar, Escape>(fill_len);
+        } else if constexpr (Align == detail::fill_and_align_t::end) {
+            return fill<FillChar, Escape>(fill_len) && write<Escape>(begin, end);
+        } else if constexpr (Align == detail::fill_and_align_t::center) {
+            auto left_fill_len = fill_len / 2;
+            auto right_fill_len = fill_len - left_fill_len;
 
-            case fmt_spec::fill_and_align_t::center: {
-                auto left_fill_len = fill_len / 2;
-                auto right_fill_len = fill_len - left_fill_len;
-
-                res = fill(fill_char, left_fill_len, escape) && write(begin, end, escape)
-                    && fill(fill_char, right_fill_len, escape);
-            } break;
+            return fill<FillChar, Escape>(left_fill_len) && write<Escape>(begin, end)
+                && fill<FillChar, Escape>(right_fill_len);
+        } else {
+            abort_("unknown align value");
         }
-
-        return res;
     }
 
+    template<detail::fmt_spec_t FS>
     constexpr auto
-    format_zero_pad(const fmt_spec::fmt_spec_t& fmt_spec, const to_chars_res& chars) noexcept
+    format_zero_pad(const detail::dyn_fmt_spec_t<FS>& fmt_spec, const to_chars_res& chars) noexcept
         -> expected<bool, Error> {
-        assert(fmt_spec.width);
-        assert(fmt_spec.zero_pad);
+        static_assert(FS.width);
+        static_assert(FS.zero_pad);
+        constexpr auto Escape = FS.type.value() == detail::type_t::escape;
 
         const auto& [buf, reslen] = chars;
         auto [prefix_len, num_len] = reslen;
         const auto* prefix = buf.data();
         const auto* num = prefix + prefix_len;
         auto len = prefix_len + num_len;
-        auto width = *fmt_spec.width;
-        bool escape = fmt_spec.type == fmt_spec::type_t::escape;
 
-        assert(width > len);
+        assert(fmt_spec.width > len);
 
-        auto padlen = width - len;
+        auto padlen = fmt_spec.width - len;
 
-        return write(prefix, prefix + prefix_len, escape) && fill('0', padlen, escape)
-            && write(num, num + num_len, escape);
+        return write<Escape>(prefix, prefix + prefix_len) && fill<'0', Escape>(padlen)
+            && write<Escape>(num, num + num_len);
     }
 
-    template<std::integral Int>
-    static constexpr auto
-    to_chars_helper(char_type* buf, const fmt_spec::fmt_spec_t& fmt_spec, Int v) noexcept
-        -> to_chars_len {
+    template<detail::fmt_spec_t FS, std::integral Int>
+    static constexpr auto to_chars_helper(char_type* buf, Int v) noexcept -> to_chars_len {
         auto val = [&] {
             if constexpr (std::same_as<Int, bool>) {
                 return static_cast<u8>(v);
@@ -474,132 +484,121 @@ class FormatContext {
             }
         }();
 
-        auto sign = fmt_spec.sign;
-        auto append_prefix = fmt_spec.use_alternative_form;
+        constexpr auto Sign = FS.sign;
+        constexpr auto AppendPrefix = FS.use_alternative_form;
 
-        switch (fmt_spec.type) {
-            using enum fmt_spec::type_t;
-            case binary:
-                return to_chars_helper_binary<false>(buf, val, sign, append_prefix);
-            case upper_binary:
-                return to_chars_helper_binary<true>(buf, val, sign, append_prefix);
-            case decimal:
-                return to_chars_helper_decimal(buf, val, sign);
-            case octal:
-                return to_chars_helper_octal(buf, val, sign, append_prefix);
-            case hex:
-                return to_chars_helper_hex<false>(buf, val, sign, append_prefix);
-            case upper_hex:
-                return to_chars_helper_hex<true>(buf, val, sign, append_prefix);
-
-            default:
-                assert(false && "unsupported type for integer");
-                __builtin_unreachable();
+        using enum detail::type_t;
+        if constexpr (FS.type.value() == binary) {
+            return to_chars_helper_binary<false, Sign, AppendPrefix>(buf, val);
+        } else if constexpr (FS.type.value() == upper_binary) {
+            return to_chars_helper_binary<true, Sign, AppendPrefix>(buf, val);
+        } else if constexpr (FS.type.value() == decimal) {
+            return to_chars_helper_decimal<Sign>(buf, val);
+        } else if constexpr (FS.type.value() == octal) {
+            return to_chars_helper_octal<Sign, AppendPrefix>(buf, val);
+        } else if constexpr (FS.type.value() == hex) {
+            return to_chars_helper_hex<false, Sign, AppendPrefix>(buf, val);
+        } else if constexpr (FS.type.value() == upper_hex) {
+            return to_chars_helper_hex<true, Sign, AppendPrefix>(buf, val);
+        } else {
+            abort_("unsupported type for integer");
         }
     }
 
-    template<bool Upper, std::integral Int>
-    static constexpr auto to_chars_helper_binary(
-        char_type* buf,
-        Int v,
-        std::optional<fmt_spec::sign_t> sign,
-        bool append_prefix) noexcept -> to_chars_len {
+    template<
+        bool Upper,
+        detail::optional<detail::sign_t> Sign,
+        bool AppendPrefix,
+        std::integral Int>
+    static constexpr auto to_chars_helper_binary(char_type* buf, Int v) noexcept -> to_chars_len {
         auto* prefix = buf;
-        u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
+        u8 sign_and_prefix_len = append_sign<Sign>(v, prefix[0]) ? 1 : 0;
 
-        if (append_prefix) {
+        if constexpr (AppendPrefix) {
             prefix[sign_and_prefix_len] = '0';
             prefix[sign_and_prefix_len + 1] = Upper ? 'B' : 'b';
             sign_and_prefix_len += 2;
         }
 
-        u8 num_len = to_chars_impl<Int, 2, Upper>(v, buf + sign_and_prefix_len);
+        auto num_len = to_chars_impl<Int, 2, Upper>(v, buf + sign_and_prefix_len);
 
         return {sign_and_prefix_len, num_len};
     }
 
-    template<std::integral Int>
-    static constexpr auto
-    to_chars_helper_decimal(char_type* buf, Int v, std::optional<fmt_spec::sign_t> sign) noexcept
-        -> to_chars_len {
-        u8 sign_and_prefix_len = append_sign(v, buf[0], sign) ? 1 : 0;
-        u8 num_len = to_chars_impl<Int, 10, false>(  // NOLINT(*-magic-numbers)
+    template<detail::optional<detail::sign_t> Sign, std::integral Int>
+    static constexpr auto to_chars_helper_decimal(char_type* buf, Int v) noexcept -> to_chars_len {
+        u8 sign_and_prefix_len = append_sign<Sign>(v, buf[0]) ? 1 : 0;
+        auto num_len = to_chars_impl<Int, 10, false>(  // NOLINT(*-magic-numbers)
             v,
             buf + sign_and_prefix_len);
 
         return {sign_and_prefix_len, num_len};
     }
 
-    template<std::integral Int>
-    static constexpr auto to_chars_helper_octal(
-        char_type* buf,
-        Int v,
-        std::optional<fmt_spec::sign_t> sign,
-        bool append_prefix) noexcept -> to_chars_len {
+    template<detail::optional<detail::sign_t> Sign, bool AppendPrefix, std::integral Int>
+    static constexpr auto to_chars_helper_octal(char_type* buf, Int v) noexcept -> to_chars_len {
         auto* prefix = buf;
-        u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
+        u8 sign_and_prefix_len = append_sign<Sign>(v, prefix[0]) ? 1 : 0;
 
-        if (append_prefix) {
+        if constexpr (AppendPrefix) {
             prefix[sign_and_prefix_len++] = '0';
         }
 
-        u8 num_len = to_chars_impl<Int, 8, false>(  // NOLINT(*-magic-numbers)
+        auto num_len = to_chars_impl<Int, 8, false>(  // NOLINT(*-magic-numbers)
             v,
             buf + sign_and_prefix_len);
 
         return {sign_and_prefix_len, num_len};
     }
 
-    template<bool Upper, std::integral Int>
-    static constexpr auto to_chars_helper_hex(
-        char_type* buf,
-        Int v,
-        std::optional<fmt_spec::sign_t> sign,
-        bool append_prefix) noexcept -> to_chars_len {
+    template<
+        bool Upper,
+        detail::optional<detail::sign_t> Sign,
+        bool AppendPrefix,
+        std::integral Int>
+    static constexpr auto to_chars_helper_hex(char_type* buf, Int v) noexcept -> to_chars_len {
         auto* prefix = buf;
-        u8 sign_and_prefix_len = append_sign(v, prefix[0], sign) ? 1 : 0;
+        u8 sign_and_prefix_len = append_sign<Sign>(v, prefix[0]) ? 1 : 0;
 
-        if (append_prefix) {
+        if constexpr (AppendPrefix) {
             prefix[sign_and_prefix_len] = '0';
             prefix[sign_and_prefix_len + 1] = Upper ? 'X' : 'x';
             sign_and_prefix_len += 2;
         }
 
-        u8 num_len = to_chars_impl<Int, 16, Upper>(  // NOLINT(*-magic-numbers)
+        auto num_len = to_chars_impl<Int, 16, Upper>(  // NOLINT(*-magic-numbers)
             v,
             buf + sign_and_prefix_len);
 
         return {sign_and_prefix_len, num_len};
     }
 
-    template<std::integral Int>
-    static constexpr auto append_sign(Int v, char_type& s, std::optional<fmt_spec::sign_t> sign)
-        -> bool {
-        assert(sign);
-        switch (*sign) {
-            using enum fmt_spec::sign_t;
-            case plus:
-                s = v < 0 ? '-' : '+';
-                return true;
-            case minus:
+    template<detail::optional<detail::sign_t> Sign, std::integral Int>
+    static constexpr auto append_sign(Int v, char_type& s) -> bool {
+        static_assert(Sign, "sign must not be empty");
+        using enum detail::sign_t;
+
+        if constexpr (Sign.value() == plus || Sign.value() == space) {
+            s = v < 0 ? '-' : static_cast<char_type>(Sign.value());
+            return true;
+        } else if constexpr (Sign.value() == minus) {
+            if constexpr (std::is_signed_v<Int>) {
                 if (v < 0) {
                     s = '-';
                     return true;
                 }
-                return false;
-            case space:
-                s = v < 0 ? '-' : ' ';
-                return true;
+            }
+            return false;
+        } else {
+            abort_("unknown sign value");
         }
-        assert(false);
-        __builtin_unreachable();
     }
 
     template<std::integral Int, Int Base, bool Upper>
     // NOLINTNEXTLINE(*-magic-numbers)
         requires requires { Base == 2 || Base == 8 || Base == 10 || Base == 16; }
-    static constexpr auto to_chars_impl(Int v, char_type* buf) -> usize {
-        usize len = 0;
+    static constexpr auto to_chars_impl(Int v, char_type* buf) -> u8 {
+        u8 len = 0;
         const auto* digits = [] {
             if constexpr (Upper) {
                 return "0123456789ABCDEF";
@@ -623,7 +622,7 @@ class FormatContext {
         }
 
         std::reverse(buf, buf + len);
-        return std::max(len, usize {1});  // Handle, `v == 0` case.
+        return std::max<u8>(len, 1);  // Handle, `v == 0` case.
     }
 
     SB* m_sb;
@@ -646,7 +645,13 @@ class fixed_buffer {
     }
 
     constexpr auto reserve(usize len) noexcept -> buffer_view<char_type, iterator_type> {
-        iterator_type it {m_buf, m_buf + m_len, m_buf + m_pos};
+        iterator_type it {m_buf + m_pos, m_buf + m_len, m_buf + m_pos};
+        // -----------------------------
+        // Workaround for GCC 12 compilation failure.
+        if (!std::is_constant_evaluated() && m_pos > m_len) {
+            __builtin_unreachable();
+        }
+        // -----------------------------
         if (m_pos + len <= m_len) [[likely]] {
             m_pos += len;
         } else {
@@ -673,10 +678,9 @@ class fixed_buffer {
 // Integeral types
 template<typename CharT, std::integral I>
 struct formatter<CharT, I> {
-    template<typename FormatContext>
+    template<typename FormatContext, typename FmtSpec>
         requires std::same_as<CharT, typename FormatContext::char_type>
-    constexpr auto
-    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const I& val) noexcept
+    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, const I& val) noexcept
         -> expected<bool, Error> {
         return ctx.Format(fmt_spec, val);
     }
@@ -685,10 +689,9 @@ struct formatter<CharT, I> {
 // Pointer types
 template<typename CharT, typename T>
 struct formatter<CharT, const T*> {
-    template<typename FormatContext>
+    template<typename FormatContext, typename FmtSpec>
         requires std::same_as<CharT, typename FormatContext::char_type>
-    constexpr auto
-    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const T* ptr) noexcept
+    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, const T* ptr) noexcept
         -> expected<bool, Error> {
         return ctx.Format(fmt_spec, ptr);
     }
@@ -697,10 +700,9 @@ struct formatter<CharT, const T*> {
 // String types (with `begin()` and `end()`)
 template<typename CharT, detail::string_type<CharT> Str>
 struct formatter<CharT, Str> {
-    template<typename FormatContext>
+    template<typename FormatContext, typename FmtSpec>
         requires std::same_as<CharT, typename FormatContext::char_type>
-    constexpr auto
-    format(FormatContext& ctx, const fmt_spec::fmt_spec_t& fmt_spec, const Str& str) noexcept
+    constexpr auto format(FormatContext& ctx, const FmtSpec& fmt_spec, const Str& str) noexcept
         -> expected<bool, Error> {
         return ctx.Format(fmt_spec, std::begin(str), std::end(str));
     }

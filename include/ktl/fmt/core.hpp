@@ -117,53 +117,7 @@ struct formatter {};
 //      }
 // };
 
-namespace fmt_spec {
-    struct fill_and_align_t {
-        enum align_t { start = '<', end = '>', center = '^' };
-
-        static constexpr auto default_fill = ' ';
-        static constexpr auto default_align = align_t::end;
-
-        char fill;
-        align_t align;
-    };
-
-    enum class sign_t { plus = '+', minus = '-', space = ' ' };
-
-    enum class type_t {
-        none,
-
-        // string
-        string = 's',
-        escape = '?',
-
-        // integer
-        binary = 'b',
-        upper_binary = 'B',
-        char_ = 'c',
-        decimal = 'd',
-        octal = 'o',
-        hex = 'x',
-        upper_hex = 'X',
-
-        // pointer
-        pointer = 'p',
-
-        // floating precision
-        f_hex = 'a',
-        f_upper_hex = 'A',
-        scientific = 'e',
-        upper_scientific = 'E',
-        fixed = 'f',
-        upper_fixed = 'F',
-        general = 'g',
-        upper_general = 'G',
-    };
-}  // namespace fmt_spec
-
 namespace detail {
-    using namespace fmt_spec;
-
     struct parse_error {
         const char* reason;
         usize pos;
@@ -342,6 +296,46 @@ namespace detail {
         Tag m_tag = Replacement;
         optional<simple_replacement_t> m_replacement = simple_replacement_t {};
         optional<u64> m_direct;
+    };
+
+    struct fill_and_align_t {
+        enum align_t { start = '<', end = '>', center = '^' };
+
+        static constexpr auto default_fill = ' ';
+        static constexpr auto default_align = align_t::end;
+
+        char fill;
+        align_t align;
+    };
+
+    enum class sign_t { plus = '+', minus = '-', space = ' ' };
+
+    enum class type_t {
+        // string
+        string = 's',
+        escape = '?',
+
+        // integer
+        binary = 'b',
+        upper_binary = 'B',
+        char_ = 'c',
+        decimal = 'd',
+        octal = 'o',
+        hex = 'x',
+        upper_hex = 'X',
+
+        // pointer
+        pointer = 'p',
+
+        // floating precision
+        f_hex = 'a',
+        f_upper_hex = 'A',
+        scientific = 'e',
+        upper_scientific = 'E',
+        fixed = 'f',
+        upper_fixed = 'F',
+        general = 'g',
+        upper_general = 'G',
     };
 
     struct fmt_spec_t {
