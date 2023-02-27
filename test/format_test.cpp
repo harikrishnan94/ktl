@@ -2,6 +2,7 @@
 
 #include <ktl/access.hpp>
 #include <ktl/fmt/format.hpp>
+#include <ktl/span.hpp>
 
 #include "platform.h"
 
@@ -21,8 +22,8 @@ constexpr auto check(const char* exp, const Args&... args) -> unsigned {
     fixed_buffer fb {buf.begin(), buf.end()};
     auto res = format<RawFmtStr>(fb, args...);
 
-    assert(res && "must not be error");  // NOLINT(*-decay)
-    assert(*res && "must not complete");  // NOLINT(*-decay)
+    check_(res, "must not be error");
+    check_(*res, "must not complete");
 
     ktl::at(buf, res->formatted_len()) = '\0';
     if (auto str = view(buf); str != exp) {

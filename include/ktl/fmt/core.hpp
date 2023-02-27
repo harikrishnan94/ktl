@@ -147,6 +147,15 @@ namespace detail {
             return m_value;
         }
 
+        [[nodiscard]] constexpr auto operator*() const -> const auto& {
+            check_(m_has_value, "optional is empty");
+            return m_value;
+        }
+        [[nodiscard]] constexpr auto operator*() -> auto& {
+            check_(m_has_value, "optional is empty");
+            return m_value;
+        }
+
         bool m_has_value {false};
         T m_value {};
     };
@@ -164,7 +173,7 @@ namespace detail {
         constexpr expected(unexpected_t /*unexpected*/, E err) : m_tag {Error}, m_err {err} {}
 
         constexpr auto operator*() const -> const auto& {
-            assert(m_tag == Ok);
+            check_(m_tag == Ok, "dereferencing unexpected");
             return m_ok.value();
         }
 
@@ -176,7 +185,7 @@ namespace detail {
         }
 
         [[nodiscard]] constexpr auto error() const -> const auto& {
-            assert(m_tag == Error);
+            check_(m_tag == Error, "expected doesn't contain an error");
             return m_err.value();
         }
 
@@ -251,7 +260,7 @@ namespace detail {
         }
 
         [[nodiscard]] constexpr auto argid() const -> u64 {
-            assert(has_argid());
+            check_(has_argid(), "");
             return m_argid.value();
         }
 
@@ -280,15 +289,15 @@ namespace detail {
         }
 
         [[nodiscard]] constexpr auto direct() const -> u64 {
-            assert(has_direct());
+            check_(has_direct(), "");
             return m_direct.value();
         }
         [[nodiscard]] constexpr auto replacement() const -> const simple_replacement_t& {
-            assert(has_replacement());
+            check_(has_replacement(), "");
             return m_replacement.value();
         }
         [[nodiscard]] constexpr auto replacement() -> simple_replacement_t& {
-            assert(has_replacement());
+            check_(has_replacement(), "");
             return m_replacement.value();
         }
 
@@ -370,15 +379,15 @@ namespace detail {
         }
 
         [[nodiscard]] constexpr auto literal() const -> const literal_t& {
-            assert(has_literal());
+            check_(has_literal(), "");
             return m_literal.value();
         }
         [[nodiscard]] constexpr auto replacement() const -> const auto& {
-            assert(has_replacement());
+            check_(has_replacement(), "");
             return m_replacement.value();
         }
         [[nodiscard]] constexpr auto replacement() -> auto& {
-            assert(has_replacement());
+            check_(has_replacement(), "");
             return m_replacement.value();
         }
 
@@ -410,12 +419,12 @@ namespace detail {
         }
 
         constexpr auto operator[](usize I) const -> const field_t& {
-            assert(I < FieldCount);
+            check_(I < FieldCount, "");
             return m_fields[I];
         }
 
         constexpr auto operator[](usize I) -> field_t& {
-            assert(I < FieldCount);
+            check_(I < FieldCount, "");
             return m_fields[I];
         }
 
@@ -976,7 +985,7 @@ namespace detail {
                         return std::is_pointer_v<ArgT>;
 
                     default:
-                        assert(false && "floating point types are not supported");
+                        abort_("floating point types are not supported");
                 }
             }
         }

@@ -99,7 +99,7 @@ static constexpr auto checked_mul_and_add(T v, T m, T d) -> std::optional<T> {
 
 template<int_base Base, std::integral T>
 constexpr auto from_chars(const char* start, const char* end, T& out) -> std::from_chars_result {
-    assert(start < end);
+    check_(start < end, "start pointer of the string must be less then end pointer");
 
     T v = 0;
     bool is_neg = false;

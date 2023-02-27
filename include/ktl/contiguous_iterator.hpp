@@ -3,7 +3,8 @@
 #include <concepts>
 #include <iterator>
 
-#include "ktl/int.hpp"
+#include "assert.hpp"
+#include "int.hpp"
 
 namespace ktl {
 namespace detail {
@@ -52,7 +53,9 @@ namespace detail {
 
         // Value Access operators
         constexpr auto operator*() const -> T& {
-            assert(storage.is_dereferencable());
+            if (!storage.is_dereferencable()) [[unlikely]] {
+                abort_("iterator out of bounds");
+            };
             return *storage.current;
         }
 

@@ -1415,32 +1415,32 @@ class expected:
     }
 
     constexpr const T* operator->() const noexcept {
-        assert(has_value());
+        check_(has_value(), "dereferencing unexpected");
         return valptr();
     }
     constexpr T* operator->() noexcept {
-        assert(has_value());
+        check_(has_value(), "dereferencing unexpected");
         return valptr();
     }
 
     template<typename U = T, std::enable_if_t<!std::is_void<U>::value>* = nullptr>
     constexpr const U& operator*() const& noexcept {
-        assert(has_value());
+        check_(has_value(), "dereferencing unexpected");
         return val();
     }
     template<typename U = T, std::enable_if_t<!std::is_void<U>::value>* = nullptr>
     constexpr U& operator*() & noexcept {
-        assert(has_value());
+        check_(has_value(), "dereferencing unexpected");
         return val();
     }
     template<typename U = T, std::enable_if_t<!std::is_void<U>::value>* = nullptr>
     constexpr const U&& operator*() const&& noexcept {
-        assert(has_value());
+        check_(has_value(), "dereferencing unexpected");
         return std::move(val());
     }
     template<typename U = T, std::enable_if_t<!std::is_void<U>::value>* = nullptr>
     constexpr U&& operator*() && noexcept {
-        assert(has_value());
+        check_(has_value(), "dereferencing unexpected");
         return std::move(val());
     }
 
@@ -1477,19 +1477,19 @@ class expected:
     }
 
     [[nodiscard]] constexpr const E& error() const& noexcept {
-        assert(!has_value());
+        check_(!has_value(), "found `expected`, when `unexpected` is expected");
         return err().value();
     }
     constexpr E& error() & noexcept {
-        assert(!has_value());
+        check_(!has_value(), "found `expected`, when `unexpected` is expected");
         return err().value();
     }
     [[nodiscard]] constexpr const E&& error() const&& noexcept {
-        assert(!has_value());
+        check_(!has_value(), "found `expected`, when `unexpected` is expected");
         return std::move(err().value());
     }
     constexpr E&& error() && noexcept {
-        assert(!has_value());
+        check_(!has_value(), "found `expected`, when `unexpected` is expected");
         return std::move(err().value());
     }
 
