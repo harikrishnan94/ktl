@@ -61,3 +61,13 @@ extern "C" auto strlen(const char* s) -> size_t {
     }
     return len;
 }
+
+extern "C" auto memchr(const void* ptr_v, int ch, size_t count) -> const void* {
+    const auto* ptr = static_cast<const unsigned char*>(ptr_v);
+    for (size_t i = 0; i < count; i++) {
+        if (ptr[i] == ch) {
+            return ptr + i;
+        }
+    }
+    return nullptr;
+}

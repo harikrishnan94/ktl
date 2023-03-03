@@ -11,9 +11,12 @@
                                      __FILE__, \
                                      __LINE__, \
                                      static_cast<const char*>(__ASSERT_FUNCTION)))
-    #define KTL_ENABLE_CHECKED_ITERATORS true
+    #define KTL_CHECKS_ENABLED true
 #else
-    #define KTL_ENABLE_CHECKED_ITERATORS false
+    #ifndef KTL_CHECKS_ENABLED
+        #define KTL_CHECKS_ENABLED false
+    #endif
+
     #define __ASSERT_FUNCTION __PRETTY_FUNCTION__
 #endif
 
@@ -25,3 +28,7 @@ Abort(const char* message, const char* file, unsigned int line, const char* func
 // NOLINTNEXTLINE(*-macro-usage)
 #define abort_(message) \
     ktl::Abort(message, __FILE__, __LINE__, static_cast<const char*>(__ASSERT_FUNCTION))
+
+// Used for contract checking (validating inputs external to the API)
+// NOLINTNEXTLINE(*-macro-usage)
+#define check_(expr, msg) (static_cast<bool>(expr) ? void(0) : abort_("failed: " #expr "[" msg "]"))
