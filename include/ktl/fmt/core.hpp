@@ -147,15 +147,6 @@ namespace detail {
             return m_value;
         }
 
-        [[nodiscard]] constexpr auto operator*() const -> const auto& {
-            check_(m_has_value, "optional is empty");
-            return m_value;
-        }
-        [[nodiscard]] constexpr auto operator*() -> auto& {
-            check_(m_has_value, "optional is empty");
-            return m_value;
-        }
-
         bool m_has_value {false};
         T m_value {};
     };

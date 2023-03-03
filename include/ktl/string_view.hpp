@@ -25,7 +25,7 @@ class basic_string_view {
     using reference = CharT&;
     using const_reference = const CharT&;
     using const_iterator =
-        contiguous_iterator<const_pointer, KTL_CHECKS_ENABLED>;  // See [string.view.iterators]
+        contiguous_iterator<const CharT, KTL_CHECKS_ENABLED>;  // See [string.view.iterators]
     using iterator = const_iterator;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
     using reverse_iterator = const_reverse_iterator;
@@ -105,11 +105,14 @@ class basic_string_view {
     }
 
     [[nodiscard]] constexpr inline auto cbegin() const noexcept -> const_iterator {
-        return make_contiguous_iterator(m_data, m_data, m_data + m_size);
+        return make_contiguous_iterator<KTL_CHECKS_ENABLED>(m_data, m_data, m_data + m_size);
     }
 
     [[nodiscard]] constexpr inline auto cend() const noexcept -> const_iterator {
-        return make_contiguous_iterator(m_data + m_size, m_data, m_data + m_size);
+        return make_contiguous_iterator<KTL_CHECKS_ENABLED>(
+            m_data + m_size,
+            m_data,
+            m_data + m_size);
     }
 
     [[nodiscard]] constexpr inline auto rbegin() const noexcept -> const_reverse_iterator {
@@ -204,12 +207,12 @@ class basic_string_view {
     }
 
     [[nodiscard]] constexpr inline auto substr(size_type pos = 0, size_type n = npos) const noexcept
-        -> basic_string_view {
+        -> expected<basic_string_view, StringViewError> {
         if (pos > size()) {
             return make_unexpected(StringViewError::OutOfRange);
         }
 
-        return {data() + pos, std::min(n, size() - pos)};
+        return basic_string_view {data() + pos, std::min(n, size() - pos)};
     }
 
     [[nodiscard]] constexpr auto compare(basic_string_view sv) const noexcept -> int {
@@ -221,14 +224,27 @@ class basic_string_view {
     }
 
     [[nodiscard]] constexpr inline auto
-    compare(size_type pos1, size_type n1, basic_string_view sv) const noexcept -> int {
-        return substr(pos1, n1).compare(sv);
+    compare(size_type pos1, size_type n1, basic_string_view sv) const noexcept
+        -> expected<int, StringViewError> {
+        auto ss = substr(pos1, n1);
+        if (ss) [[likely]] {
+            return ss->compare(sv);
+        }
+        return make_unexpected(std::move(ss).error());
     }
 
     [[nodiscard]] constexpr inline auto
     compare(size_type pos1, size_type n1, basic_string_view sv, size_type pos2, size_type n2)
-        const noexcept -> int {
-        return substr(pos1, n1).compare(sv.substr(pos2, n2));
+        const noexcept -> expected<int, StringViewError> {
+        auto ss = substr(pos1, n1);
+        auto ss2 = sv.substr(pos2, n2);
+        if (!ss) [[unlikely]] {
+            return make_unexpected(std::move(ss).error());
+        }
+        if (!ss2) [[unlikely]] {
+            return make_unexpected(std::move(ss2).error());
+        }
+        return ss->compare(*ss2);
     }
 
     constexpr inline auto compare(const CharT* s) const noexcept -> int {
@@ -236,13 +252,22 @@ class basic_string_view {
     }
 
     constexpr inline auto compare(size_type pos1, size_type n1, const CharT* s) const noexcept
-        -> int {
-        return substr(pos1, n1).compare(s);
+        -> expected<int, StringViewError> {
+        auto ss = substr(pos1, n1);
+        if (ss) [[likely]] {
+            return ss->compare(s);
+        }
+        return make_unexpected(std::move(ss).error());
     }
 
     constexpr inline auto
-    compare(size_type pos1, size_type n1, const CharT* s, size_type n2) const noexcept -> int {
-        return substr(pos1, n1).compare(s, n2);
+    compare(size_type pos1, size_type n1, const CharT* s, size_type n2) const noexcept
+        -> expected<int, StringViewError> {
+        auto ss = substr(pos1, n1);
+        if (ss) [[likely]] {
+            return ss->compare(s, n2);
+        }
+        return make_unexpected(std::move(ss).error());
     }
 
     // find
@@ -279,13 +304,17 @@ class basic_string_view {
     rfind(basic_string_view s, size_type pos = npos) const noexcept -> size_type {
         check_(s.size() == 0 || s.data() != nullptr, "string_view::find(): received nullptr");
 
-        if (size() < s.size()) {
-            return npos;
-        }
+        auto my_len = length();
+        auto s_len = s.length();
 
-        pos = std::min(pos, size());
-        auto ipos = std::find_end(begin() + pos, s.begin(), s.end());
-        return ipos == end() ? npos : std::distance(begin(), ipos);
+        pos = std::min(pos, my_len);
+        pos = s_len < my_len - pos ? pos + s_len : my_len;
+
+        auto start = begin() + pos;
+        auto it = std::find_end(begin(), start, s.begin(), s.end(), Traits::eq);
+        if (s_len > 0 && it == start)
+            return npos;
+        return std::distance(begin(), it);
     }
 
     [[nodiscard]] constexpr inline auto rfind(CharT c, size_type pos = npos) const noexcept
@@ -311,8 +340,13 @@ class basic_string_view {
             s.size() == 0 || s.data() != nullptr,
             "string_view::find_first_of(): received nullptr");
 
-        auto ipos = std::find_first_of(begin() + pos, end(), s.begin(), s.end());
-        return ipos == end() ? npos : std::distance(begin(), ipos);
+        if (pos >= size() || s.size() == 0)
+            return npos;
+
+        auto it = std::find_first_of(begin() + pos, end(), s.begin(), s.end(), Traits::eq);
+        if (it == end())
+            return npos;
+        return std::distance(begin(), it);
     }
 
     [[nodiscard]] constexpr inline auto find_first_of(CharT c, size_type pos = 0) const noexcept
@@ -346,13 +380,14 @@ class basic_string_view {
         pos = pos < size() ? pos + 1 : size();
 
         auto my_beg = begin();
-        auto s_beg = s.begin();
+        auto s_beg = s.data();
         auto s_len = s.length();
         for (auto it = my_beg + pos; it != my_beg;) {
             if (Traits::find(s_beg, s_len, *--it) != nullptr) {
                 return std::distance(my_beg, it);
             }
         }
+        return npos;
     }
 
     [[nodiscard]] constexpr inline auto find_last_of(CharT c, size_type pos = npos) const noexcept
@@ -382,7 +417,7 @@ class basic_string_view {
         if (pos < size()) {
             auto my_beg = begin();
             auto my_end = end();
-            auto s_beg = s.begin();
+            auto s_beg = s.data();
             auto s_len = s.length();
             for (auto it = my_beg + pos; it != my_end; ++it) {
                 if (Traits::find(s_beg, s_len, *it) == nullptr) {
@@ -420,7 +455,7 @@ class basic_string_view {
         pos = pos < size() ? pos + 1 : size();
 
         auto my_beg = begin();
-        auto s_beg = s.begin();
+        auto s_beg = s.data();
         auto s_len = s.length();
         for (auto it = my_beg + pos; it != my_beg;) {
             if (Traits::find(s_beg, s_len, *--it) == nullptr) {
@@ -444,7 +479,7 @@ class basic_string_view {
     constexpr inline auto find_last_not_of(const CharT* s, size_type pos = npos) const noexcept
         -> size_type {
         check_(s != nullptr, "string_view::find_last_not_of(): received nullptr");
-        return find_last_not_of(basic_string_view {s, 1}, pos);
+        return find_last_not_of(basic_string_view {s}, pos);
     }
 
     [[nodiscard]] constexpr inline auto starts_with(basic_string_view s) const noexcept -> bool {
@@ -456,7 +491,7 @@ class basic_string_view {
     }
 
     constexpr inline auto starts_with(const value_type* s) const noexcept -> bool {
-        return starts_with(s);
+        return starts_with(basic_string_view {s});
     }
 
     [[nodiscard]] constexpr inline auto ends_with(basic_string_view s) const noexcept -> bool {
@@ -468,7 +503,7 @@ class basic_string_view {
     }
 
     constexpr inline auto ends_with(const value_type* s) const noexcept -> bool {
-        return ends_with(s);
+        return ends_with(basic_string_view {s});
     }
 
     [[nodiscard]] constexpr inline auto contains(basic_string_view sv) const noexcept -> bool {
@@ -520,6 +555,18 @@ template<typename CharT, typename Traits>
 constexpr inline auto
 operator==(basic_string_view<CharT, Traits> lhs, basic_string_view<CharT, Traits> rhs) noexcept
     -> bool {
+    if (lhs.size() != rhs.size())
+        return false;
+    return lhs.compare(rhs) == 0;
+}
+
+// The dummy default template parameters are used to work around a MSVC issue with mangling, see
+// VSO-409326 for details. This applies to the other sufficient overloads below for the other
+// comparison operators.
+template<typename CharT, typename Traits>
+constexpr inline auto operator==(
+    basic_string_view<CharT, Traits> lhs,
+    std::type_identity_t<basic_string_view<CharT, Traits>> rhs) noexcept -> bool {
     if (lhs.size() != rhs.size())
         return false;
     return lhs.compare(rhs) == 0;
@@ -697,32 +744,30 @@ struct hash<ktl::basic_string_view<wchar_t, std::char_traits<wchar_t>>>:
 
 namespace ktl {
 inline namespace literals {
-    inline namespace string_view_literals {
-        inline constexpr auto operator"" _sv(const char* str, usize len) noexcept
-            -> basic_string_view<char> {
-            return {str, len};
-        }
+    inline constexpr auto operator"" _sv(const char* str, usize len) noexcept
+        -> basic_string_view<char> {
+        return {str, len};
+    }
 
-        inline constexpr auto operator"" _sv(const wchar_t* str, usize len) noexcept
-            -> basic_string_view<wchar_t> {
-            return {str, len};
-        }
+    inline constexpr auto operator"" _sv(const wchar_t* str, usize len) noexcept
+        -> basic_string_view<wchar_t> {
+        return {str, len};
+    }
 
-        inline constexpr auto operator"" _sv(const char8_t* str, usize len) noexcept
-            -> basic_string_view<char8_t> {
-            return {str, len};
-        }
+    inline constexpr auto operator"" _sv(const char8_t* str, usize len) noexcept
+        -> basic_string_view<char8_t> {
+        return {str, len};
+    }
 
-        inline constexpr auto operator"" _sv(const char16_t* str, usize len) noexcept
-            -> basic_string_view<char16_t> {
-            return {str, len};
-        }
+    inline constexpr auto operator"" _sv(const char16_t* str, usize len) noexcept
+        -> basic_string_view<char16_t> {
+        return {str, len};
+    }
 
-        inline constexpr auto operator"" _sv(const char32_t* str, usize len) noexcept
-            -> basic_string_view<char32_t> {
-            return {str, len};
-        }
-    }  // namespace string_view_literals
+    inline constexpr auto operator"" _sv(const char32_t* str, usize len) noexcept
+        -> basic_string_view<char32_t> {
+        return {str, len};
+    }
 }  // namespace literals
 
 using string_view = basic_string_view<char>;
