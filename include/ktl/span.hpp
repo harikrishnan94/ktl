@@ -6,9 +6,9 @@
 #include <ranges>
 #include <type_traits>
 
-#include <ktl/assert.hpp>
-#include <ktl/contiguous_iterator.hpp>
-#include <ktl/int.hpp>
+#include "assert.hpp"
+#include "contiguous_iterator.hpp"
+#include "int.hpp"
 
 namespace ktl {
 inline constexpr usize dynamic_extent = std::numeric_limits<usize>::max();

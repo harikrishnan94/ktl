@@ -5,11 +5,11 @@
 #include <ranges>
 #include <type_traits>
 
-#include <ktl/assert.hpp>
-#include <ktl/contiguous_iterator.hpp>
-#include <ktl/expected.hpp>
-#include <ktl/hash.hpp>
-#include <ktl/int.hpp>
+#include "assert.hpp"
+#include "contiguous_iterator.hpp"
+#include "expected.hpp"
+#include "hash.hpp"
+#include "int.hpp"
 
 namespace ktl {
 enum class StringViewError { OutOfRange };
