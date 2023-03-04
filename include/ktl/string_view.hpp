@@ -7,13 +7,12 @@
 
 #include "assert.hpp"
 #include "contiguous_iterator.hpp"
+#include "error.hpp"
 #include "expected.hpp"
 #include "hash.hpp"
 #include "int.hpp"
 
 namespace ktl {
-enum class StringViewError { OutOfRange };
-
 template<typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_string_view {
   public:
@@ -155,9 +154,9 @@ class basic_string_view {
     }
 
     [[nodiscard]] constexpr inline auto at(size_type pos) const noexcept
-        -> expected<const_reference, StringViewError> {
+        -> expected<std::reference_wrapper<const value_type>, Error> {
         if (pos >= size()) {
-            return make_unexpected(StringViewError::OutOfRange);
+            return make_unexpected(Error::IndexOutOfBounds);
         }
         return m_data[pos];
     }
@@ -197,9 +196,9 @@ class basic_string_view {
     }
 
     inline constexpr auto copy(CharT* s, size_type n, size_type pos = 0) const noexcept
-        -> expected<size_type, StringViewError> {
+        -> expected<size_type, Error> {
         if (pos > size()) {
-            return make_unexpected(StringViewError::OutOfRange);
+            return make_unexpected(Error::IndexOutOfBounds);
         }
         size_type rlen = std::min(n, size() - pos);
         Traits::copy(s, data() + pos, rlen);
@@ -207,9 +206,9 @@ class basic_string_view {
     }
 
     [[nodiscard]] constexpr inline auto substr(size_type pos = 0, size_type n = npos) const noexcept
-        -> expected<basic_string_view, StringViewError> {
+        -> expected<basic_string_view, Error> {
         if (pos > size()) {
-            return make_unexpected(StringViewError::OutOfRange);
+            return make_unexpected(Error::IndexOutOfBounds);
         }
 
         return basic_string_view {data() + pos, std::min(n, size() - pos)};
@@ -225,7 +224,7 @@ class basic_string_view {
 
     [[nodiscard]] constexpr inline auto
     compare(size_type pos1, size_type n1, basic_string_view sv) const noexcept
-        -> expected<int, StringViewError> {
+        -> expected<int, Error> {
         auto ss = substr(pos1, n1);
         if (ss) [[likely]] {
             return ss->compare(sv);
@@ -235,7 +234,7 @@ class basic_string_view {
 
     [[nodiscard]] constexpr inline auto
     compare(size_type pos1, size_type n1, basic_string_view sv, size_type pos2, size_type n2)
-        const noexcept -> expected<int, StringViewError> {
+        const noexcept -> expected<int, Error> {
         auto ss = substr(pos1, n1);
         auto ss2 = sv.substr(pos2, n2);
         if (!ss) [[unlikely]] {
@@ -252,7 +251,7 @@ class basic_string_view {
     }
 
     constexpr inline auto compare(size_type pos1, size_type n1, const CharT* s) const noexcept
-        -> expected<int, StringViewError> {
+        -> expected<int, Error> {
         auto ss = substr(pos1, n1);
         if (ss) [[likely]] {
             return ss->compare(s);
@@ -262,7 +261,7 @@ class basic_string_view {
 
     constexpr inline auto
     compare(size_type pos1, size_type n1, const CharT* s, size_type n2) const noexcept
-        -> expected<int, StringViewError> {
+        -> expected<int, Error> {
         auto ss = substr(pos1, n1);
         if (ss) [[likely]] {
             return ss->compare(s, n2);

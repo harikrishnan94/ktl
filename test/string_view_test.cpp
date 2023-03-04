@@ -77,7 +77,7 @@ auto main() -> int {
             std::array<char, 8> dest = {};
             return source.copy(dest.data(), 1, 666);
         }();
-        static_assert(dest4.error() == StringViewError::OutOfRange);
+        static_assert(dest4.error() == Error::IndexOutOfBounds);
     }
 
     // substr test
@@ -90,7 +90,7 @@ auto main() -> int {
         static_assert(data.substr(pos_t(1)) == "BCDEF");
         static_assert(data.substr(pos_t(2), count_t(3)) == "CDE");
         static_assert(data.substr(pos_t(4), count_t(42)) == "EF");
-        static_assert(data.substr(pos_t(666), count_t(1)).error() == StringViewError::OutOfRange);
+        static_assert(data.substr(pos_t(666), count_t(1)).error() == Error::IndexOutOfBounds);
     }
 
     // Compare
