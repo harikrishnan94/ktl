@@ -7,10 +7,11 @@
 #include <string_view>
 #include <variant>
 
-#include "ktl/access.hpp"
-#include "ktl/assert.hpp"
-#include "ktl/detail/charconv.hpp"
-#include "ktl/expected.hpp"
+#include <ktl/access.hpp>
+#include <ktl/assert.hpp>
+#include <ktl/detail/charconv.hpp>
+#include <ktl/error.hpp>
+#include <ktl/expected.hpp>
 
 namespace ktl::fmt {
 // NOLINTBEGIN(hicpp-avoid-c-arrays, hicpp-explicit-conversions,
@@ -65,12 +66,6 @@ class Result {
   private:
     usize m_formatted_len;
     bool m_is_complete;
-};
-
-// Used to signal errors happening in runtime.
-enum Error {
-    ReplacementError /* Width/Precision replacement is negative */,
-    ValueOverflow /* value is not in the range of representable values of a type */
 };
 
 template<typename CharT, std::output_iterator<CharT> OI>
