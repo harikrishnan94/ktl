@@ -30,18 +30,12 @@ namespace detail {
 
 constexpr auto begin(detail::sequence_container auto&& container) noexcept {
     using value_type = typename std::decay_t<decltype(container)>::value_type;
-    return make_contiguous_iterator<KTL_CHECKS_ENABLED>(
-        container.begin(),
-        container.begin(),
-        container.end());
+    return make_contiguous_iterator(container.begin(), container.begin(), container.end());
 }
 
 constexpr auto end(detail::sequence_container auto&& container) noexcept {
     using value_type = typename std::decay_t<decltype(container)>::value_type;
-    return make_contiguous_iterator<KTL_CHECKS_ENABLED>(
-        container.end(),
-        container.begin(),
-        container.end());
+    return make_contiguous_iterator(container.end(), container.begin(), container.end());
 }
 
 constexpr auto rbegin(detail::sequence_container auto&& container) noexcept {

@@ -64,7 +64,7 @@ class span {
     using const_pointer = const T*;
     using reference = T&;
     using const_reference = const T&;
-    using iterator = contiguous_iterator<value_type, KTL_CHECKS_ENABLED>;
+    using iterator = contiguous_iterator<value_type>;
     using reverse_iterator = std::reverse_iterator<iterator>;
 
     // NOLINTNEXTLINE(*-dynamic-static-initializers)

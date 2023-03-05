@@ -141,21 +141,30 @@ namespace detail {
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 }  // namespace detail
 
-template<typename T, bool EnableChecks>
+template<typename T, bool EnableChecks = KTL_CHECKS_ENABLED>
 using contiguous_iterator = std::conditional_t<EnableChecks, detail::checked_iterator<T>, T*>;
 
-template<bool EnableChecks, typename T, typename = std::enable_if_t<EnableChecks>>
+template<
+    bool EnableChecks = KTL_CHECKS_ENABLED,
+    typename T,
+    typename = std::enable_if_t<EnableChecks>>
 constexpr auto make_contiguous_iterator(T* current, T* start, T* end)
     -> contiguous_iterator<T, true> {
     return {current, start, end};
 }
 
-template<bool EnableChecks, typename T, typename = std::enable_if_t<!EnableChecks>>
+template<
+    bool EnableChecks = KTL_CHECKS_ENABLED,
+    typename T,
+    typename = std::enable_if_t<!EnableChecks>>
 constexpr auto make_contiguous_iterator(T* current) -> contiguous_iterator<T, false> {
     return current;
 }
 
-template<bool EnableChecks, typename T, typename = std::enable_if_t<!EnableChecks>>
+template<
+    bool EnableChecks = KTL_CHECKS_ENABLED,
+    typename T,
+    typename = std::enable_if_t<!EnableChecks>>
 constexpr auto make_contiguous_iterator(T* current, T* /* start */, T* /* end */)
     -> contiguous_iterator<T, false> {
     return current;

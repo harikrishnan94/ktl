@@ -23,8 +23,7 @@ class basic_string_view {
     using const_pointer = const CharT*;
     using reference = CharT&;
     using const_reference = const CharT&;
-    using const_iterator =
-        contiguous_iterator<const CharT, KTL_CHECKS_ENABLED>;  // See [string.view.iterators]
+    using const_iterator = contiguous_iterator<const CharT>;  // See [string.view.iterators]
     using iterator = const_iterator;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
     using reverse_iterator = const_reverse_iterator;
@@ -104,14 +103,11 @@ class basic_string_view {
     }
 
     [[nodiscard]] constexpr inline auto cbegin() const noexcept -> const_iterator {
-        return make_contiguous_iterator<KTL_CHECKS_ENABLED>(m_data, m_data, m_data + m_size);
+        return make_contiguous_iterator(m_data, m_data, m_data + m_size);
     }
 
     [[nodiscard]] constexpr inline auto cend() const noexcept -> const_iterator {
-        return make_contiguous_iterator<KTL_CHECKS_ENABLED>(
-            m_data + m_size,
-            m_data,
-            m_data + m_size);
+        return make_contiguous_iterator(m_data + m_size, m_data, m_data + m_size);
     }
 
     [[nodiscard]] constexpr inline auto rbegin() const noexcept -> const_reverse_iterator {
