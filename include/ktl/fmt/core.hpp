@@ -10,6 +10,7 @@
 #include <ktl/access.hpp>
 #include <ktl/assert.hpp>
 #include <ktl/detail/charconv.hpp>
+#include <ktl/detail/preproc.hpp>
 #include <ktl/error.hpp>
 #include <ktl/expected.hpp>
 
@@ -204,8 +205,6 @@ namespace detail {
 
     // NOLINTBEGIN(cppcoreguidelines-macro-usage)
 
-#define CONCAT2(a, b) a##b
-#define CONCAT(a, b) CONCAT2(a, b)
 #define TryEVT(e, tmp_name) \
     auto && (tmp_name) = (e); \
     if (!(tmp_name)) \
@@ -926,8 +925,6 @@ namespace detail {
 #undef TryET
 #undef TryEV
 #undef TryEVT
-#undef CONCAT
-#undef CONCAT2
 
     template<fixed_string FmtStr, usize N = detail::field_count(FmtStr.view()).value()>
     constexpr auto parse_and_check() -> detail::format_string_t<N> {
@@ -1092,10 +1089,7 @@ struct format_string_t {
         usize len = 0;
         detail::counting_buffer<char_type> cb {len};
 
-        if (auto res = detail::vformat<RawFmtStr, underlying_value>(cb, detail::FmtArgs {args...});
-            !res) {
-            return make_unexpected(std::move(res).error());
-        }
+        TryV((detail::vformat<RawFmtStr, underlying_value>(cb, detail::FmtArgs {args...})));
 
         return len;
     }

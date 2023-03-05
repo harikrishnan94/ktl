@@ -221,25 +221,13 @@ class basic_string_view {
     [[nodiscard]] constexpr inline auto
     compare(size_type pos1, size_type n1, basic_string_view sv) const noexcept
         -> expected<int, Error> {
-        auto ss = substr(pos1, n1);
-        if (ss) [[likely]] {
-            return ss->compare(sv);
-        }
-        return make_unexpected(std::move(ss).error());
+        return Try(substr(pos1, n1)).compare(sv);
     }
 
     [[nodiscard]] constexpr inline auto
     compare(size_type pos1, size_type n1, basic_string_view sv, size_type pos2, size_type n2)
         const noexcept -> expected<int, Error> {
-        auto ss = substr(pos1, n1);
-        auto ss2 = sv.substr(pos2, n2);
-        if (!ss) [[unlikely]] {
-            return make_unexpected(std::move(ss).error());
-        }
-        if (!ss2) [[unlikely]] {
-            return make_unexpected(std::move(ss2).error());
-        }
-        return ss->compare(*ss2);
+        return Try(substr(pos1, n1)).compare(Try(sv.substr(pos2, n2)));
     }
 
     constexpr inline auto compare(const CharT* s) const noexcept -> int {
@@ -248,21 +236,13 @@ class basic_string_view {
 
     constexpr inline auto compare(size_type pos1, size_type n1, const CharT* s) const noexcept
         -> expected<int, Error> {
-        auto ss = substr(pos1, n1);
-        if (ss) [[likely]] {
-            return ss->compare(s);
-        }
-        return make_unexpected(std::move(ss).error());
+        return Try(substr(pos1, n1)).compare(s);
     }
 
     constexpr inline auto
     compare(size_type pos1, size_type n1, const CharT* s, size_type n2) const noexcept
         -> expected<int, Error> {
-        auto ss = substr(pos1, n1);
-        if (ss) [[likely]] {
-            return ss->compare(s, n2);
-        }
-        return make_unexpected(std::move(ss).error());
+        return Try(substr(pos1, n1)).compare(s, n2);
     }
 
     // find

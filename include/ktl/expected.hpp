@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "assert.hpp"
+#include "detail/preproc.hpp"
 
 // NOLINTBEGIN
 
@@ -1745,4 +1746,40 @@ void swap(expected<T, E>& lhs, expected<T, E>& rhs) noexcept {
     lhs.swap(rhs);
 }
 }  // namespace ktl
+
+#define TryAutoV2(tvar, expr) \
+    static_assert(::ktl::detail::is_expected<std::decay_t<decltype((expr))>>::value); \
+    auto tvar = (expr); \
+    if (!tvar) [[unlikely]] { \
+        return ::ktl::make_unexpected(::std::move(tvar).error()); \
+    }
+#define TryAuto2(var, tvar, expr) \
+    TryAutoV2(tvar, (expr)); \
+    auto&& var = *std::move(tvar)
+
+#define TryV(expr) \
+    do { \
+        TryAutoV2(CONCAT(tmp_, __LINE__), (expr)); \
+    } while (false)
+#define Try(expr) \
+    ({ \
+        auto res = (expr); \
+        if (!res) [[unlikely]] { \
+            return ::ktl::unexpected(::std::move(res).error()); \
+        }; \
+        *std::move(res); \
+    })
+
+#define TryAuto(var, expr) TryAuto2((var), CONCAT(tmp_, __LINE__), (expr))
+#define TryAssign(lvalue, expr) \
+    TryAutoV2(CONCAT(tmp_, __LINE__), (expr)); \
+    (lvalue) = *::std::move(CONCAT(tmp_, __LINE__))
+
+#define TryReturnV(expr) \
+    TryAutoV2(CONCAT(tmp_, __LINE__), (expr)); \
+    return {}
+#define TryReturn(expr) \
+    TryAuto2(CONCAT(ret_, __LINE__), CONCAT(tmp_, __LINE__), (expr)); \
+    return *::std::move(CONCAT(ret_, __LINE__))
+
 // NOLINTEND

@@ -114,18 +114,10 @@ namespace detail {
         dyn_fmt_spec_t<FmtSpec> fp = {};
 
         if constexpr (FmtSpec.width) {
-            if (auto w = replace<FmtSpec.width.value()>(args)) {
-                fp.width = *w;
-            } else {
-                return make_unexpected(w.error());
-            }
+            fp.width = Try(replace<FmtSpec.width.value()>(args));
         }
         if constexpr (FmtSpec.precision) {
-            if (auto p = replace<FmtSpec.precision.value()>(args)) {
-                fp.precision = *p;
-            } else {
-                return make_unexpected(p.error());
-            }
+            fp.precision = Try(replace<FmtSpec.precision.value()>(args));
         }
 
         return fp;
@@ -147,12 +139,8 @@ namespace detail {
         }();
 
         formatter<char_type, fmt_arg_t> formatter;
-        auto fmt_spec = flatten<FmtSpec, char_type, fmt_arg_t>(args);
-        if (!fmt_spec) {
-            return make_unexpected(std::move(fmt_spec).error());
-        }
-
-        return formatter.format(ctx, *fmt_spec, get<R.value.argid()>(args));
+        auto fmt_spec = Try((flatten<FmtSpec, char_type, fmt_arg_t>(args)));
+        return formatter.format(ctx, fmt_spec, get<R.value.argid()>(args));
     }
 
     template<
@@ -167,21 +155,13 @@ namespace detail {
         using char_type = typename SB::char_type;
         using fmt_base_t = formatter_base<RawFmtStr, FmtStr[I], Args...>;
 
-        if (auto res = fmt_base_t::format(ctx, args); !res) {
-            return make_unexpected(std::move(res).error());
-        } else {  // NOLINT
-            if (!*res) {
-                return false;
-            }
+        if (!Try(fmt_base_t::format(ctx, args))) {
+            return false;
         }
 
         if constexpr (I != std::decay_t<decltype(FmtStr)>::FieldCount - 1) {
-            if (auto res = vformat_apply<RawFmtStr, I + 1, FmtStr>(ctx, args); !res) {
-                return make_unexpected(std::move(res).error());
-            } else {  // NOLINT
-                if (!*res) {
-                    return false;
-                }
+            if (!Try((vformat_apply<RawFmtStr, I + 1, FmtStr>(ctx, args)))) {
+                return false;
             }
         }
 
@@ -196,11 +176,8 @@ namespace detail {
     constexpr auto vformat(SB& sb, const detail::FmtArgs<Args...>& args) noexcept
         -> ktl::expected<Result, Error> {
         FormatContext ctx {sb};
-        auto res = vformat_apply<RawFmtStr, 0, FS>(ctx, args);
-        if (res) {
-            return Result {ctx.FormattedLen(), *res};
-        }
-        return make_unexpected(std::move(res).error());
+        auto is_complete = Try((vformat_apply<RawFmtStr, 0, FS>(ctx, args)));
+        return Result {ctx.FormattedLen(), is_complete};
     }
 
     template<typename CharT>
