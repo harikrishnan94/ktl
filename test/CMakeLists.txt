@@ -10,3 +10,6 @@ target_link_libraries(format_test PRIVATE platform)
 
 add_executable(string_view_test string_view_test.cpp)
 target_link_libraries(string_view_test PRIVATE platform)
+
+add_executable(vector_test vector_test.cpp)
+target_link_libraries(vector_test PRIVATE platform)
