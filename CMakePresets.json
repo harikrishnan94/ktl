@@ -41,23 +41,12 @@
             }
         },
         {
-            "name": "release_with_deb",
+            "name": "reldebinfo",
             "displayName": "ReleaseWithDebInfo",
             "description": "ReleaseWithDebInfo",
             "inherits": "default",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_CXX_FLAGS": "-DETL_DEBUG=1 -DENABLE_ASSERT=1"
-            }
-        },
-        {
-            "name": "release_with_asserts",
-            "displayName": "ReleaseWithAsserts",
-            "description": "ReleaseWithAsserts",
-            "inherits": "default",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_CXX_FLAGS": "-DETL_DEBUG=1 -DENABLE_ASSERT=1"
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
             }
         },
         {
