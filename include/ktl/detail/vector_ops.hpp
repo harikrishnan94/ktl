@@ -54,13 +54,10 @@ class vector_ops {
 
     constexpr auto size() const noexcept -> SizeT {
         auto [begin, end, _] = get_storage();
-        check_(begin <= end, "Invalid vector");
         return end - begin;
     }
     constexpr auto capacity() const noexcept -> SizeT {
         [[maybe_unused]] auto [begin, end, end_cap] = get_storage();
-        check_(end_cap >= begin, "Invalid vector");
-        check_(end_cap >= end, "Invalid vector");
         return end_cap - begin;
     }
     [[nodiscard]] constexpr auto empty() const noexcept -> bool {
@@ -152,21 +149,22 @@ class vector_ops {
         return rend();
     }
 
-    constexpr auto push_back(T&& val) noexcept -> expected<void, Error> {
+    [[nodiscard("must check if push_back succeeded")]] constexpr auto push_back(T&& val) noexcept
+        -> expected<void, Error> {
         TryV(emplace_back(std::move(val)));
         return {};
     }
-    constexpr auto push_back(const T& val) noexcept -> expected<void, Error> {
+    [[nodiscard("must check if push_back succeeded")]] constexpr auto
+    push_back(const T& val) noexcept -> expected<void, Error> {
         TryV(emplace_back(val));
         return {};
     }
 
     template<typename... Args>
-    constexpr auto emplace_back(Args&&... args) noexcept
-        -> expected<std::reference_wrapper<T>, Error> {
+    [[nodiscard("must check if emplace_back succeeded")]] constexpr auto
+    emplace_back(Args&&... args) noexcept -> expected<std::reference_wrapper<T>, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
-        check_(end_cap >= end, "vector pointers are invalid");
         if (end == end_cap) [[unlikely]] {
             if (auto err = grow(len + 1)) {
                 return make_unexpected(*std::move(err));
@@ -176,6 +174,40 @@ class vector_ops {
         }
         set_len(len + 1);
         return *std::construct_at(end, std::forward<Args>(args)...);
+    }
+
+    constexpr void pop_back() noexcept {
+        auto [begin, end, _] = get_storage();
+        auto len = end - begin;
+
+        check_(len != 0, "cannot pop_back empty vector");
+
+        set_len(len - 1);
+        if constexpr (!std::is_trivially_destructible_v<T>) {
+            std::destroy_at(end - 1);
+        }
+    }
+
+    constexpr void clear() noexcept {
+        auto [begin, end, _] = get_storage();
+
+        if (end != begin) {
+            if constexpr (!std::is_trivially_destructible_v<T>) {
+                std::destroy(begin, end);
+            }
+        }
+
+        set_len(0);
+    }
+
+    [[nodiscard("must check if resize succeeded")]] constexpr auto
+    resize(SizeT new_len, const T& new_value) noexcept -> expected<void, Error> {
+        return resize_with(new_len, [&]() -> const T& { return new_value; });
+    }
+
+    [[nodiscard("must check if resize succeeded")]] constexpr auto resize(SizeT new_len) noexcept
+        -> expected<void, Error> {
+        return resize_with(new_len, [&] { return T {}; });
     }
 
     // // constexpr auto assign(SizeT count, const T& value) noexcept -> expected<void,
@@ -222,13 +254,47 @@ class vector_ops {
     //     -> expected<iterator, InsertError>;
 
   private:
+    template<typename FillValueGetter>
+    constexpr auto resize_with(SizeT new_len, FillValueGetter&& get_fill_value) noexcept
+        -> expected<void, Error> {
+        auto [begin, end, end_cap] = get_storage();
+        auto len = end - begin;
+        auto capacity = end_cap - begin;
+
+        if (new_len > capacity) {
+            if (auto res = grow(new_len)) {
+                return make_unexpected(*std::move(res));
+            }
+            auto [nbegin, nend, nend_cap] = get_storage();
+            std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        }
+
+        if (new_len > len) {
+            auto&& new_value = std::invoke(std::forward<FillValueGetter>(get_fill_value));
+            std::uninitialized_fill_n(end, new_len - len, new_value);
+        } else {
+            if constexpr (!std::is_trivially_destructible_v<T>) {
+                std::destroy(begin + new_len, end);
+            }
+        }
+
+        set_len(new_len);
+        return {};
+    }
+
     constexpr auto get_storage() const noexcept -> vector_storage<const T> {
         static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
-        return static_cast<const VectorT*>(this)->get_storage();
+        auto res = static_cast<const VectorT*>(this)->get_storage();
+        check_(res.end_cap >= res.end, "vector pointers are invalid");
+        check_(res.end >= res.begin, "vector pointers are invalid");
+        return res;
     }
     constexpr auto get_storage() noexcept -> vector_storage<T> {
         static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
-        return static_cast<VectorT*>(this)->get_storage();
+        auto res = static_cast<VectorT*>(this)->get_storage();
+        check_(res.end_cap >= res.end, "vector pointers are invalid");
+        check_(res.end >= res.begin, "vector pointers are invalid");
+        return res;
     }
 
     constexpr auto grow(SizeT req_len) noexcept -> std::optional<Error> {

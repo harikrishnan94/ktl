@@ -15,11 +15,13 @@ auto main() -> int {
                   std::is_trivially_move_assignable<svector<u64, 3>>>);
     static_assert(make_svector<4>(1, 2, 3).size() == 3);
     static_assert(make_svector(1.0, 2, 3, .0f)[0] == 1.0);
+
+    // Size and element access
     {
         constexpr auto vec = [] {
             svector<int, 3> vec;
-            vec.push_back(1);
-            vec.push_back(2);
+            check_(vec.push_back(1), "push_back failed");
+            check_(vec.push_back(2), "push_back failed");
             return vec;
         }();
         static_assert(vec.size() == 2);
@@ -27,12 +29,14 @@ auto main() -> int {
         static_assert(vec[1] == 2);
     }
 
+    // Push back
     {
         svector<int, 1> vec;
         check_(vec.push_back(1).has_value(), "push_back must succeed");
         check_(!vec.push_back(2).has_value(), "push_back must fail");
     }
 
+    // Move/Copy count
     {
         static int cons_count = 0;
         static int copy_cons_count = 0;
@@ -76,13 +80,59 @@ auto main() -> int {
 
         check_(cons_count == 2, "construction count mismatch");
         check_(copy_cons_count == 0, "copy count failure");
-        check_(move_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 2, "move count failure");
 
-        auto ovec = vec;
+        auto vec1 = vec;
 
         check_(cons_count == 2, "construction count mismatch");
         check_(copy_cons_count == 2, "copy count failure");
-        check_(move_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 2, "move count failure");
+
+        auto vec2 = std::move(vec);
+
+        check_(cons_count == 2, "construction count mismatch");
+        check_(copy_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 4, "move count failure");
+
+        vec = std::move(vec2);
+
+        check_(cons_count == 2, "construction count mismatch");
+        check_(copy_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 6, "move count failure");
+    }
+
+    // Non-Trivial type
+    {
+        struct int_t {
+            int_t() = default;
+            int v = 0;
+        };
+        auto vec = make_svector(int_t {}, int_t {}, int_t {});
+        auto vec2 = vec;
+        check_(vec2[0].v == vec[0].v, "");
+    }
+
+    // Pop back
+    {
+        auto vec = make_svector(1);
+        vec.pop_back();
+        check_(vec.empty(), "must be empty after pop_back");
+    }
+
+    // Clear
+    {
+        auto vec = make_svector(1, 2, 3);
+        vec.clear();
+        check_(vec.empty(), "must be empty after clear");
+    }
+
+    // Resize
+    {
+        auto vec = make_svector(1, 2, 3);
+        check_(vec.resize(1), "resize must succeed");
+        check_(vec.resize(2, 2), "resize must succeed");
+        check_(vec[1] == 2, "must contain `filled_value` after resize");
+        check_(!vec.resize(4), "resize over capacity must fail");
     }
 
     return 0;

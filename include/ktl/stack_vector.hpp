@@ -63,7 +63,7 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
     constexpr svector(svector&& o) noexcept
         requires(!std::is_trivially_move_constructible_v<T>)
     {
-        swap(*this, o);
+        swap(o);
     }
 
     constexpr auto operator=(const svector&) -> svector&
@@ -76,32 +76,18 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
         requires(!std::is_trivially_copy_assignable_v<T>)
     {
         svector t {o};
-        swap(*this, t);
+        swap(t);
         return *this;
     }
     constexpr auto operator=(svector&& o) noexcept -> svector&
         requires(!std::is_trivially_move_assignable_v<T>)
     {
-        swap(*this, o);
+        swap(o);
         return *this;
     }
 
     friend constexpr void swap(svector& a, svector& b) noexcept {
-        auto a_len = a.m_len;
-        auto b_len = b.m_len;
-        auto a_begin = a.get_storage().begin;
-        auto b_begin = b.get_storage().begin;
-
-        if (a_len > b_len) {
-            std::swap_ranges(a_begin, a_begin + b_len, b_begin);
-            std::uninitialized_move_n(a_begin + b_len, a_len - b_len, b_begin);
-        } else {
-            std::swap_ranges(a_begin, a_begin + a_len, b_begin);
-            std::uninitialized_move_n(b_begin + a_len, b_len - a_len, a_begin);
-        }
-
-        using std::swap;
-        swap(a.m_len, b.m_len);
+        a.swap(b);
     }
 
     constexpr explicit svector(size_type count, const T& value) noexcept : m_len(count) {
@@ -110,6 +96,28 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
 
     constexpr explicit svector(size_type count) noexcept : m_len(count) {
         std::uninitialized_default_construct_n(get_storage().begin, count);
+    }
+
+    constexpr auto max_size() const noexcept -> size_type {
+        return Capacity;
+    }
+
+    constexpr void swap(svector& o) noexcept {
+        auto len = m_len;
+        auto o_len = o.m_len;
+        auto begin = get_storage().begin;
+        auto o_begin = o.get_storage().begin;
+
+        if (len > o_len) {
+            std::swap_ranges(begin, begin + o_len, o_begin);
+            std::uninitialized_move_n(begin + o_len, len - o_len, o_begin);
+        } else {
+            std::swap_ranges(begin, begin + len, o_begin);
+            std::uninitialized_move_n(o_begin + len, o_len - len, begin);
+        }
+
+        using std::swap;
+        swap(m_len, o.m_len);
     }
 
     template<typename U, typename... OT>
