@@ -19,6 +19,35 @@ struct vector_storage {
     T* end_cap;
 };
 
+template<typename ForwardIterator, typename Size, typename T>
+constexpr auto uninitialized_fill_n(ForwardIterator first, Size n, const T& x) -> ForwardIterator {
+    if constexpr (std::is_trivial_v<T>) {
+        return std::fill_n(first, n, x);
+    } else {
+        return std::uninitialized_fill_n(first, n, x);
+    }
+}
+
+template<typename InputIterator, typename Size, typename ForwardIterator>
+constexpr auto uninitialized_copy_n(InputIterator first, Size n, ForwardIterator result)
+    -> ForwardIterator {
+    if constexpr (std::is_trivial_v<std::iter_value_t<ForwardIterator>>) {
+        return std::copy_n(first, n, result);
+    } else {
+        return std::uninitialized_copy_n(first, n, result);
+    }
+}
+
+template<typename InputIterator, typename Size, typename ForwardIterator>
+inline auto uninitialized_move_n(InputIterator first, Size n, ForwardIterator result)
+    -> std::pair<InputIterator, ForwardIterator> {
+    if constexpr (std::is_trivial_v<std::iter_value_t<ForwardIterator>>) {
+        return std::copy_n(first, n, result);
+    } else {
+        return std::uninitialized_move_n(first, n, result);
+    }
+}
+
 template<typename VectorT, typename T, typename SizeT>
 concept vector_like = requires(VectorT vec, const VectorT cvec, SizeT req_len, SizeT new_len) {
                           { vec.get_storage() } -> std::same_as<vector_storage<T>>;
@@ -210,48 +239,87 @@ class vector_ops {
         return resize_with(new_len, [&] { return T {}; });
     }
 
-    // // constexpr auto assign(SizeT count, const T& value) noexcept -> expected<void,
-    // InsertError> {
-    // //     return {};
-    // }
+    constexpr auto assign(SizeT count, const T& value) noexcept -> expected<SizeT, InsertError> {
+        clear();
 
-    // template<std::input_iterator InputIt>
-    //     requires std::same_as<std::iter_value_t<InputIt>, T>
-    // constexpr auto assign(InputIt first, InputIt last) noexcept -> expected<void, InsertError> {
-    //     TryReturnV(insert(end(), first, last));
-    // }
+        auto [begin, _, end_cap] = get_storage();
+        usize capacity = end_cap - begin;
+        auto len = std::min<usize>(capacity, count);
 
-    // constexpr auto assign(std::initializer_list<T> ilist) noexcept -> expected<void, InsertError>
-    // {
-    //     TryReturnV(insert(end(), ilist.begin(), ilist.end()));
-    // }
+        uninitialized_fill_n(begin, len, value);
+        set_len(len);
 
-    // constexpr auto insert(const_iterator pos, const T& value) noexcept
-    //     -> expected<iterator, InsertError>;
+        if (count > capacity) [[unlikely]] {
+            return make_unexpected(InsertError {
+                .err = Error::BufferFull,
+                .num_inserted = static_cast<SizeT>(capacity)});
+        }
+        return count;
+    }
 
-    // constexpr auto insert(const_iterator pos, T&& value) noexcept
-    //     -> expected<iterator, InsertError>;
+    template<std::input_iterator InputIt>
+    constexpr auto assign(InputIt first, InputIt last) noexcept -> expected<SizeT, InsertError> {
+        clear();
 
-    // constexpr auto insert(const_iterator pos, SizeT count, const T& value) noexcept
-    //     -> expected<iterator, InsertError>;
+        auto [begin, _, end_cap] = get_storage();
+        usize capacity = end_cap - begin;
+        usize len = 0;
 
-    // template<std::input_iterator InputIt>
-    //     requires std::same_as<std::iter_value_t<InputIt>, T>
-    // constexpr auto insert(const_iterator pos, InputIt first, InputIt last) noexcept
-    //     -> expected<iterator, InsertError>;
+        while (len <= capacity && first != last) {
+            std::construct_at(begin, *first);
+            begin++;
+            first++;
+            len++;
+        }
+        set_len(len);
 
-    // template<std::forward_iterator ForwardIt>
-    //     requires std::same_as<std::iter_value_t<ForwardIt>, T>
-    // constexpr auto insert(const_iterator pos, ForwardIt first, ForwardIt last) noexcept
-    //     -> expected<iterator, InsertError>;
+        if (len > capacity) {
+            return make_unexpected(InsertError {
+                .err = Error::BufferFull,
+                .num_inserted = static_cast<SizeT>(capacity)});
+        }
+        return len;
+    }
 
-    // template<std::random_access_iterator RandAccIt>
-    //     requires std::same_as<std::iter_value_t<RandAccIt>, T>
-    // constexpr auto insert(const_iterator pos, RandAccIt first, RandAccIt last) noexcept
-    //     -> expected<iterator, InsertError>;
+    template<std::random_access_iterator RandomAccIt>
+    constexpr auto assign(RandomAccIt first, RandomAccIt last) noexcept
+        -> expected<SizeT, InsertError> {
+        clear();
 
-    // constexpr auto insert(const_iterator pos, std::initializer_list<T> ilist) noexcept
-    //     -> expected<iterator, InsertError>;
+        auto [begin, _, end_cap] = get_storage();
+        usize capacity = end_cap - begin;
+        usize count = std::distance(first, last);
+        auto len = std::min(count, capacity);
+
+        uninitialized_copy_n(first, std::min(count, capacity), begin);
+        set_len(len);
+
+        if (count > capacity) {
+            return make_unexpected(InsertError {
+                .err = Error::BufferFull,
+                .num_inserted = static_cast<SizeT>(capacity)});
+        }
+        return count;
+    }
+
+    constexpr auto assign(std::initializer_list<T> ilist) -> expected<SizeT, InsertError> {
+        clear();
+
+        auto [begin, _, end_cap] = get_storage();
+        usize capacity = end_cap - begin;
+        usize count = ilist.size();
+        auto len = std::min(count, capacity);
+
+        uninitialized_copy_n(ilist.begin(), len, begin);
+        set_len(len);
+
+        if (count > capacity) {
+            return make_unexpected(InsertError {
+                .err = Error::BufferFull,
+                .num_inserted = static_cast<SizeT>(capacity)});
+        }
+        return count;
+    }
 
   private:
     template<typename FillValueGetter>
@@ -271,7 +339,7 @@ class vector_ops {
 
         if (new_len > len) {
             auto&& new_value = std::invoke(std::forward<FillValueGetter>(get_fill_value));
-            std::uninitialized_fill_n(end, new_len - len, new_value);
+            uninitialized_fill_n(end, new_len - len, new_value);
         } else {
             if constexpr (!std::is_trivially_destructible_v<T>) {
                 std::destroy(begin + new_len, end);

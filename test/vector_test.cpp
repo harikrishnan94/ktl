@@ -135,5 +135,43 @@ auto main() -> int {
         check_(!vec.resize(4), "resize over capacity must fail");
     }
 
+    // assign
+    {
+        {
+            constexpr auto vec = [] {
+                auto vec = make_svector(1, 2, 3);
+                vec.assign({3, 2});
+
+                return vec;
+            }();
+
+            static_assert(vec.size() == 2, "count must match after assign");
+            static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
+        }
+        {
+            constexpr auto vec = [] {
+                auto vec = make_svector(1, 2, 3);
+                auto ovec = make_svector(3, 2);
+                vec.assign(ovec.begin(), ovec.end());
+
+                return vec;
+            }();
+
+            static_assert(vec.size() == 2, "count must match after assign");
+            static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
+        }
+        {
+            constexpr auto vec = [] {
+                auto vec = make_svector(1, 2, 3);
+                vec.assign(2, 1);
+
+                return vec;
+            }();
+
+            static_assert(vec.size() == 2, "count must match after assign");
+            static_assert(vec[0] == 1 && vec[1] == 1, "values must match after assign");
+        }
+    }
+
     return 0;
 }

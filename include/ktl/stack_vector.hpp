@@ -54,7 +54,7 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
     constexpr svector(const svector& o) noexcept
         requires(!std::is_trivially_copy_constructible_v<T>)
         : m_len(o.m_len) {
-        std::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        detail::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
     constexpr svector(svector&&) noexcept
@@ -91,7 +91,7 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
     }
 
     constexpr explicit svector(size_type count, const T& value) noexcept : m_len(count) {
-        std::uninitialized_fill_n(get_storage().begin, count, value);
+        detail::uninitialized_fill_n(get_storage().begin, count, value);
     }
 
     constexpr explicit svector(size_type count) noexcept : m_len(count) {
@@ -110,10 +110,10 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
 
         if (len > o_len) {
             std::swap_ranges(begin, begin + o_len, o_begin);
-            std::uninitialized_move_n(begin + o_len, len - o_len, o_begin);
+            detail::uninitialized_move_n(begin + o_len, len - o_len, o_begin);
         } else {
             std::swap_ranges(begin, begin + len, o_begin);
-            std::uninitialized_move_n(o_begin + len, o_len - len, begin);
+            detail::uninitialized_move_n(o_begin + len, o_len - len, begin);
         }
 
         using std::swap;
