@@ -58,7 +58,7 @@ class stack_vector:
     = default;
     constexpr stack_vector(const stack_vector& o) noexcept
         requires(!std::is_trivially_copy_constructible_v<T>)
-        : m_len(o.m_len) {
+        : m_len {o.m_len} {
         detail::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
@@ -94,11 +94,11 @@ class stack_vector:
         a.swap(b);
     }
 
-    constexpr explicit stack_vector(size_type count, const T& value) noexcept : m_len(count) {
+    constexpr explicit stack_vector(size_type count, const T& value) noexcept : m_len {count} {
         detail::uninitialized_fill_n(get_storage().begin, count, value);
     }
 
-    constexpr explicit stack_vector(size_type count) noexcept : m_len(count) {
+    constexpr explicit stack_vector(size_type count) noexcept : m_len {count} {
         std::uninitialized_default_construct_n(get_storage().begin, count);
     }
 
