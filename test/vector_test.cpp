@@ -59,8 +59,8 @@ static void svector_test() {
                   std::is_trivially_copy_assignable<stack_vector<u64, 3>>,
                   std::is_trivially_move_constructible<stack_vector<u64, 3>>,
                   std::is_trivially_move_assignable<stack_vector<u64, 3>>>);
-    static_assert(make_static_vector<4>(1, 2, 3).size() == 3);
-    static_assert(make_static_vector(1.0, 2, 3, .0f)[0] == 1.0);
+    static_assert(make_stack_vector<4>(1, 2, 3).size() == 3);
+    static_assert(make_stack_vector(1.0, 2, 3, .0f)[0] == 1.0);
 
     // Size and element access
     {
@@ -149,28 +149,28 @@ static void svector_test() {
 
     // Non-Trivial type
     {
-        auto vec = make_static_vector(int_t {}, int_t {}, int_t {});
+        auto vec = make_stack_vector(int_t {}, int_t {}, int_t {});
         auto vec2 = vec;
         check_(vec2[0].v == vec[0].v, "");
     }
 
     // Pop back
     {
-        auto vec = make_static_vector(1);
+        auto vec = make_stack_vector(1);
         vec.pop_back();
         check_(vec.empty(), "must be empty after pop_back");
     }
 
     // Clear
     {
-        auto vec = make_static_vector(1, 2, 3);
+        auto vec = make_stack_vector(1, 2, 3);
         vec.clear();
         check_(vec.empty(), "must be empty after clear");
     }
 
     // Resize
     {
-        auto vec = make_static_vector(1, 2, 3);
+        auto vec = make_stack_vector(1, 2, 3);
         check_(vec.resize(1), "resize must succeed");
         check_(vec.resize(2, 2), "resize must succeed");
         check_(vec[1] == 2, "must contain `filled_value` after resize");
@@ -185,7 +185,7 @@ static void svector_test() {
 static void svector_assign_test() {
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector(1, 2, 3);
+            auto vec = make_stack_vector(1, 2, 3);
             vec.assign({3, 2});
 
             return vec;
@@ -196,8 +196,8 @@ static void svector_assign_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector(1, 2, 3);
-            const auto ovec = make_static_vector(3, 2);
+            auto vec = make_stack_vector(1, 2, 3);
+            const auto ovec = make_stack_vector(3, 2);
             vec.assign(ovec.begin(), ovec.end());
 
             return vec;
@@ -208,7 +208,7 @@ static void svector_assign_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector(1, 2, 3);
+            auto vec = make_stack_vector(1, 2, 3);
             vec.assign(2, 1);
 
             return vec;
@@ -219,8 +219,8 @@ static void svector_assign_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector(1, 2, 3);
-            const auto ovec = make_static_vector(3, 2);
+            auto vec = make_stack_vector(1, 2, 3);
+            const auto ovec = make_stack_vector(3, 2);
             InputIterator begin {ovec.begin()};
             InputIterator end {ovec.end()};
 
@@ -238,8 +238,8 @@ static void svector_assign_test() {
 static void svector_insert_test() {
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector<6>(1, 2, 8);
-            const auto ovec = make_static_vector(3, 2);
+            auto vec = make_stack_vector<6>(1, 2, 8);
+            const auto ovec = make_stack_vector(3, 2);
 
             vec.insert(std::next(vec.begin()), ovec.begin(), ovec.end());
             return vec;
@@ -252,8 +252,8 @@ static void svector_insert_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector<6>(1, 2, 8);
-            const auto ovec = make_static_vector(3, 2);
+            auto vec = make_stack_vector<6>(1, 2, 8);
+            const auto ovec = make_stack_vector(3, 2);
             InputIterator begin {ovec.begin()};
             InputIterator end {ovec.end()};
 
@@ -270,7 +270,7 @@ static void svector_insert_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector<6>(1, 2, 3);
+            auto vec = make_stack_vector<6>(1, 2, 3);
 
             auto res = vec.insert(vec.begin(), {3, 2});
             check_(res, "insert must succeed");
@@ -285,7 +285,7 @@ static void svector_insert_test() {
     }
     {
         static constinit auto vec = [] {
-            auto vec = make_static_vector<4>(1, 2, 3);
+            auto vec = make_stack_vector<4>(1, 2, 3);
             auto res = vec.insert(vec.end(), 4);
             check_(res, "insert must succeed");
             check_(**res == 4, "iterator must point to first inserted value");
@@ -294,7 +294,7 @@ static void svector_insert_test() {
     }
     // Non-Trivial type
     {
-        auto vec = make_static_vector<5>(int_t {1}, int_t {2}, int_t {3});
+        auto vec = make_stack_vector<5>(int_t {1}, int_t {2}, int_t {3});
         auto res = vec.insert(vec.begin(), {int_t {4}, int_t {5}});
 
         check_(res, "insert must succeed");
@@ -309,7 +309,7 @@ static void svector_insert_test() {
 void svector_erase_test() {
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector<4>(1, 2, 3);
+            auto vec = make_stack_vector<4>(1, 2, 3);
             auto it = vec.erase(vec.begin());
             check_(*it == 2, "iterator must point to last removed element");
             return vec;
@@ -320,7 +320,7 @@ void svector_erase_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector<4>(1, 2, 3);
+            auto vec = make_stack_vector<4>(1, 2, 3);
             auto it = vec.erase(std::next(vec.begin()), vec.end());
             check_(it == vec.end(), "iterator must point to last removed element");
             return vec;
@@ -331,7 +331,7 @@ void svector_erase_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector<4>(1, 2, 3);
+            auto vec = make_stack_vector<4>(1, 2, 3);
             auto it = vec.erase(vec.begin(), vec.end());
             check_(it == vec.end(), "iterator must point to last removed element");
             return vec;
@@ -341,7 +341,7 @@ void svector_erase_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector<4>(1, 2, 3);
+            auto vec = make_stack_vector<4>(1, 2, 3);
             erase(vec, 3);
             return vec;
         }();
@@ -351,7 +351,7 @@ void svector_erase_test() {
     }
     {
         constexpr auto vec = [] {
-            auto vec = make_static_vector<4>(1, 2, 3);
+            auto vec = make_stack_vector<4>(1, 2, 3);
             erase_if(vec, [](auto e) { return e < 3; });
             return vec;
         }();
