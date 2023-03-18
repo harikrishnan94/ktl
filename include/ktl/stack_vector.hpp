@@ -20,7 +20,8 @@ namespace detail {
 
 template<typename T, auto Capacity>
     requires std::integral<std::decay_t<decltype(Capacity)>>
-class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svector<T, Capacity>> {
+class stack_vector:
+    public detail::vector_ops<T, detail::capacity_t<Capacity>, stack_vector<T, Capacity>> {
   public:
     using value_type = T;
     using size_type = detail::capacity_t<Capacity>;
@@ -31,7 +32,7 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
     using const_pointer = const T*;
 
   private:
-    using base = detail::vector_ops<T, size_type, svector<T, Capacity>>;
+    using base = detail::vector_ops<T, size_type, stack_vector<T, Capacity>>;
 
   public:
     static_assert(
@@ -39,12 +40,12 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
         && std::is_nothrow_destructible_v<T>);
 
     // Special member function definitions
-    constexpr svector() = default;
+    constexpr stack_vector() = default;
 
-    constexpr ~svector()
+    constexpr ~stack_vector()
         requires std::is_trivially_destructible_v<T>
     = default;
-    constexpr ~svector()
+    constexpr ~stack_vector()
         requires(!std::is_trivially_destructible_v<T>)
     {
         if (m_len) {
@@ -52,53 +53,52 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
         }
     }
 
-    constexpr svector(const svector&)
+    constexpr stack_vector(const stack_vector&)
         requires std::is_trivially_copy_constructible_v<T>
     = default;
-    constexpr svector(const svector& o) noexcept
+    constexpr stack_vector(const stack_vector& o) noexcept
         requires(!std::is_trivially_copy_constructible_v<T>)
         : m_len(o.m_len) {
         detail::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
-    constexpr svector(svector&&) noexcept
+    constexpr stack_vector(stack_vector&&) noexcept
         requires std::is_trivially_move_constructible_v<T>
     = default;
-    constexpr svector(svector&& o) noexcept
+    constexpr stack_vector(stack_vector&& o) noexcept
         requires(!std::is_trivially_move_constructible_v<T>)
     {
         swap(o);
     }
 
-    constexpr auto operator=(const svector&) -> svector&
+    constexpr auto operator=(const stack_vector&) -> stack_vector&
         requires std::is_trivially_copy_assignable_v<T>
     = default;
-    constexpr auto operator=(svector&&) noexcept -> svector&
+    constexpr auto operator=(stack_vector&&) noexcept -> stack_vector&
         requires std::is_trivially_move_assignable_v<T>
     = default;
-    constexpr auto operator=(const svector& o) noexcept -> svector&  // NOLINT(*-oop54-cpp)
+    constexpr auto operator=(const stack_vector& o) noexcept -> stack_vector&
         requires(!std::is_trivially_copy_assignable_v<T>)
     {
-        svector t {o};
-        swap(t);
+        stack_vector {o}.swap(*this);
         return *this;
     }
-    constexpr auto operator=(svector&& o) noexcept -> svector&
+    constexpr auto operator=(stack_vector&& o) noexcept -> stack_vector&
         requires(!std::is_trivially_move_assignable_v<T>)
     {
         swap(o);
         return *this;
     }
 
-    friend constexpr void swap(svector& a, svector& b) noexcept {
+    friend constexpr void swap(stack_vector& a, stack_vector& b) noexcept {
         a.swap(b);
     }
 
-    constexpr explicit svector(size_type count, const T& value) noexcept : m_len(count) {
+    constexpr explicit stack_vector(size_type count, const T& value) noexcept : m_len(count) {
         detail::uninitialized_fill_n(get_storage().begin, count, value);
     }
 
-    constexpr explicit svector(size_type count) noexcept : m_len(count) {
+    constexpr explicit stack_vector(size_type count) noexcept : m_len(count) {
         std::uninitialized_default_construct_n(get_storage().begin, count);
     }
 
@@ -106,7 +106,7 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
         return Capacity;
     }
 
-    constexpr void swap(svector& o) noexcept {
+    constexpr void swap(stack_vector& o) noexcept {
         auto len = m_len;
         auto o_len = o.m_len;
         auto begin = get_storage().begin;
@@ -126,11 +126,11 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
 
     template<typename U, typename... OT>
     friend constexpr auto make_svector(U&& first_val, OT&&... other_vals) noexcept
-        -> svector<std::common_type_t<U, OT...>, sizeof...(OT) + 1>;
+        -> stack_vector<std::common_type_t<U, OT...>, sizeof...(OT) + 1>;
 
     template<auto VCapacity, typename U, typename... OT>
     friend constexpr auto make_svector(U&& first_val, OT&&... other_vals) noexcept
-        -> svector<std::common_type_t<U, OT...>, VCapacity>;
+        -> stack_vector<std::common_type_t<U, OT...>, VCapacity>;
 
     using base::insert;
 
@@ -147,7 +147,7 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
             return base::insert_at_end(first, last);
         }
 
-        svector tmp;
+        stack_vector tmp;
         auto tmp_res = tmp.assign(first, last);
         auto res = base::insert(pos, tmp.begin(), tmp.end());
 
@@ -163,7 +163,7 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
     static constexpr auto is_trivial = std::is_trivial_v<T>;
 
     // Allow access to internal members. Classic CRTP.
-    friend class detail::vector_ops<T, size_type, svector<T, Capacity>>;
+    friend class detail::vector_ops<T, size_type, stack_vector<T, Capacity>>;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
         auto data = [&] {
@@ -221,8 +221,8 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
 
 template<typename T, typename... OT>
 constexpr auto make_svector(T&& first_val, OT&&... other_vals) noexcept
-    -> svector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> {
-    svector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> vec;
+    -> stack_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> {
+    stack_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> vec;
     auto data = vec.get_storage().begin;
 
     std::construct_at(data, std::forward<T>(first_val));
@@ -234,11 +234,11 @@ constexpr auto make_svector(T&& first_val, OT&&... other_vals) noexcept
 
 template<auto VCapacity, typename T, typename... OT>
 constexpr auto make_svector(T&& first_val, OT&&... other_vals) noexcept
-    -> svector<std::common_type_t<T, OT...>, VCapacity> {
+    -> stack_vector<std::common_type_t<T, OT...>, VCapacity> {
     static_assert(VCapacity >= sizeof...(OT) + 1);
 
     using ValueT = std::common_type_t<T, OT...>;
-    svector<ValueT, VCapacity> vec;
+    stack_vector<ValueT, VCapacity> vec;
     auto data = vec.get_storage().begin;
 
     std::construct_at(data, std::forward<T>(first_val));
@@ -256,8 +256,8 @@ constexpr auto make_svector(T&& first_val, OT&&... other_vals) noexcept
 }
 
 template<typename T, auto Capacity, typename U>
-constexpr auto erase(svector<T, Capacity>& c, const U& value) ->
-    typename svector<T, Capacity>::size_type {
+constexpr auto erase(stack_vector<T, Capacity>& c, const U& value) ->
+    typename stack_vector<T, Capacity>::size_type {
     auto it = std::remove(c.begin(), c.end(), value);
     auto r = std::distance(it, c.end());
     c.erase(it, c.end());
@@ -265,8 +265,8 @@ constexpr auto erase(svector<T, Capacity>& c, const U& value) ->
 }
 
 template<typename T, auto Capacity, typename Pred>
-constexpr auto erase_if(svector<T, Capacity>& c, Pred pred) ->
-    typename svector<T, Capacity>::size_type {
+constexpr auto erase_if(stack_vector<T, Capacity>& c, Pred pred) ->
+    typename stack_vector<T, Capacity>::size_type {
     auto it = std::remove_if(c.begin(), c.end(), pred);
     auto r = std::distance(it, c.end());
     c.erase(it, c.end());

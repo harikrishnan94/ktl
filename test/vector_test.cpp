@@ -48,23 +48,23 @@ static void svector_assign_test();
 static void svector_erase_test();
 
 static void svector_test() {
-    static_assert(sizeof(svector<u8, 3>) == sizeof(u8) * 4);
-    static_assert(sizeof(svector<u16, 3>) == sizeof(u16) * 4);
-    static_assert(sizeof(svector<u32, 3>) == sizeof(u32) * 4);
-    static_assert(sizeof(svector<u64, 3>) == sizeof(u64) * 4);
+    static_assert(sizeof(stack_vector<u8, 3>) == sizeof(u8) * 4);
+    static_assert(sizeof(stack_vector<u16, 3>) == sizeof(u16) * 4);
+    static_assert(sizeof(stack_vector<u32, 3>) == sizeof(u32) * 4);
+    static_assert(sizeof(stack_vector<u64, 3>) == sizeof(u64) * 4);
     static_assert(std::conjunction_v<
-                  std::is_trivially_destructible<svector<u64, 3>>,
-                  std::is_trivially_copy_constructible<svector<u64, 3>>,
-                  std::is_trivially_copy_assignable<svector<u64, 3>>,
-                  std::is_trivially_move_constructible<svector<u64, 3>>,
-                  std::is_trivially_move_assignable<svector<u64, 3>>>);
+                  std::is_trivially_destructible<stack_vector<u64, 3>>,
+                  std::is_trivially_copy_constructible<stack_vector<u64, 3>>,
+                  std::is_trivially_copy_assignable<stack_vector<u64, 3>>,
+                  std::is_trivially_move_constructible<stack_vector<u64, 3>>,
+                  std::is_trivially_move_assignable<stack_vector<u64, 3>>>);
     static_assert(make_svector<4>(1, 2, 3).size() == 3);
     static_assert(make_svector(1.0, 2, 3, .0f)[0] == 1.0);
 
     // Size and element access
     {
         constexpr auto vec = [] {
-            svector<int, 3> vec;
+            stack_vector<int, 3> vec;
             check_(vec.push_back(1), "push_back failed");
             check_(vec.push_back(2), "push_back failed");
             return vec;
@@ -76,7 +76,7 @@ static void svector_test() {
 
     // Push back
     {
-        svector<int, 1> vec;
+        stack_vector<int, 1> vec;
         check_(vec.push_back(1).has_value(), "push_back must succeed");
         check_(!vec.push_back(2).has_value(), "push_back must fail");
     }
@@ -117,7 +117,7 @@ static void svector_test() {
             }
         };
 
-        svector<move_test, 4> vec;
+        stack_vector<move_test, 4> vec;
 
         check_(vec.empty(), "vector must be empty");
         check_(vec.push_back({}), "push_back must succeed");
