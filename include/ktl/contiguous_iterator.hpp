@@ -44,8 +44,18 @@ namespace detail {
         using iterator_category = std::contiguous_iterator_tag;
 
         checked_iterator() = default;
+        constexpr ~checked_iterator() = default;
+        constexpr checked_iterator(const checked_iterator&) = default;
+        constexpr checked_iterator(checked_iterator&&) noexcept = default;
+        constexpr auto operator=(const checked_iterator&) -> checked_iterator& = default;
+        constexpr auto operator=(checked_iterator&&) noexcept -> checked_iterator& = default;
 
         constexpr checked_iterator(T* current, T* start, T* end) : storage {current, start, end} {}
+
+        // NOLINTNEXTLINE(*-explicit-conversions)
+        constexpr checked_iterator(const checked_iterator<std::remove_const_t<T>>& o)
+            requires(std::is_const_v<T>)
+            : storage {o.storage.current, o.storage.start, o.storage.end} {}
 
         [[nodiscard]] constexpr auto is_dereferencable() const -> bool {
             return storage.is_dereferencable();
@@ -136,6 +146,7 @@ namespace detail {
         }
 
       private:
+        friend class checked_iterator<const T>;
         iterator_storage<T> storage;
     };
     // NOLINTEND(misc-non-private-member-variables-in-classes)
