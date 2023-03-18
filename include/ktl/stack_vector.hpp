@@ -254,22 +254,4 @@ constexpr auto make_svector(T&& first_val, OT&&... other_vals) noexcept
 
     return vec;
 }
-
-template<typename T, auto Capacity, typename U>
-constexpr auto erase(stack_vector<T, Capacity>& c, const U& value) ->
-    typename stack_vector<T, Capacity>::size_type {
-    auto it = std::remove(c.begin(), c.end(), value);
-    auto r = std::distance(it, c.end());
-    c.erase(it, c.end());
-    return r;
-}
-
-template<typename T, auto Capacity, typename Pred>
-constexpr auto erase_if(stack_vector<T, Capacity>& c, Pred pred) ->
-    typename stack_vector<T, Capacity>::size_type {
-    auto it = std::remove_if(c.begin(), c.end(), pred);
-    auto r = std::distance(it, c.end());
-    c.erase(it, c.end());
-    return r;
-}
 }  // namespace ktl
