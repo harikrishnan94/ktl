@@ -113,11 +113,11 @@ class stack_vector:
     }
 
     template<typename U, typename... OT>
-    friend constexpr auto make_svector(U&& first_val, OT&&... other_vals) noexcept
+    friend constexpr auto make_static_vector(U&& first_val, OT&&... other_vals) noexcept
         -> stack_vector<std::common_type_t<U, OT...>, sizeof...(OT) + 1>;
 
     template<auto VCapacity, typename U, typename... OT>
-    friend constexpr auto make_svector(U&& first_val, OT&&... other_vals) noexcept
+    friend constexpr auto make_static_vector(U&& first_val, OT&&... other_vals) noexcept
         -> stack_vector<std::common_type_t<U, OT...>, VCapacity>;
 
     using base::insert;
@@ -208,7 +208,7 @@ class stack_vector:
 };
 
 template<typename T, typename... OT>
-constexpr auto make_svector(T&& first_val, OT&&... other_vals) noexcept
+constexpr auto make_static_vector(T&& first_val, OT&&... other_vals) noexcept
     -> stack_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> {
     stack_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> vec;
     auto data = vec.get_storage().begin;
@@ -221,7 +221,7 @@ constexpr auto make_svector(T&& first_val, OT&&... other_vals) noexcept
 }
 
 template<auto VCapacity, typename T, typename... OT>
-constexpr auto make_svector(T&& first_val, OT&&... other_vals) noexcept
+constexpr auto make_static_vector(T&& first_val, OT&&... other_vals) noexcept
     -> stack_vector<std::common_type_t<T, OT...>, VCapacity> {
     static_assert(VCapacity >= sizeof...(OT) + 1);
 
