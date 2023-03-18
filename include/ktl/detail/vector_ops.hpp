@@ -321,7 +321,82 @@ class vector_ops {
         return count;
     }
 
+    constexpr auto insert(const_iterator pos, const T& value) noexcept
+        -> expected<iterator, InsertError> {
+        auto it = Try(make_space_at(pos, 1));
+        std::construct_at(&*it, value);
+        return it;
+    }
+
+    constexpr auto insert(const_iterator pos, T&& value) noexcept
+        -> expected<iterator, InsertError> {
+        auto it = Try(make_space_at(pos, 1));
+        std::construct_at(&*it, std::move(value));
+        return it;
+    }
+
+    constexpr auto insert(const_iterator pos, SizeT count, const T& value) noexcept
+        -> expected<iterator, InsertError> {
+        auto it = Try(make_space_at(pos, count));
+        uninitialized_fill_n(it, count, value);
+        return it;
+    }
+
+    template<std::random_access_iterator RandAccIt>
+    constexpr auto insert(const_iterator pos, RandAccIt first, RandAccIt last) noexcept
+        -> expected<iterator, InsertError> {
+        auto count = std::distance(first, last);
+        auto it = Try(make_space_at(pos, count));
+        uninitialized_copy_n(first, count, it);
+        return it;
+    }
+
+    constexpr auto insert(const_iterator pos, std::initializer_list<T> ilist) noexcept
+        -> expected<iterator, InsertError> {
+        auto count = ilist.size();
+        auto it = Try(make_space_at(pos, count));
+        uninitialized_copy_n(ilist.begin(), count, it);
+        return it;
+    }
+
+  protected:
+    template<std::input_iterator InputIt>
+    constexpr auto insert_at_end(InputIt first, InputIt last) -> expected<iterator, InsertError> {
+        SizeT num_inserted = 0;
+        while (first != last) {
+            if (auto r = emplace_back(std::move(*first)); !r) {
+                return make_unexpected(
+                    InsertError {.err = std::move(r).error(), .num_inserted = num_inserted});
+            }
+            num_inserted++;
+        }
+        set_len(size() + num_inserted);
+        return end();
+    }
+
   private:
+    constexpr auto make_space_at(const_iterator pos, usize count) noexcept
+        -> expected<iterator, InsertError> {
+        check_(pos >= begin() && pos <= end(), "iterator does not belong to the container");
+
+        auto [beg, end, end_cap] = get_storage();
+        auto size = end - beg;
+        auto capacity = end_cap - beg;
+        auto pos_i = std::distance(cbegin(), pos);
+
+        if (size + count > capacity) {
+            if (auto err = grow(size + count)) {
+                return make_unexpected(InsertError {*std::move(err), 0});
+            }
+            auto [nbeg, nend, nend_cap] = get_storage();
+            std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
+        }
+        // NOTE: Cannot use `pos` here as it might have been invalidated by previous call to grow.
+        std::move_backward(beg + pos_i, end, end + count);
+        set_len(size + count);
+        return begin() + pos_i;
+    }
+
     template<typename FillValueGetter>
     constexpr auto resize_with(SizeT new_len, FillValueGetter&& get_fill_value) noexcept
         -> expected<void, Error> {
@@ -365,7 +440,7 @@ class vector_ops {
         return res;
     }
 
-    constexpr auto grow(SizeT req_len) noexcept -> std::optional<Error> {
+    constexpr auto grow(usize req_len) noexcept -> std::optional<Error> {
         static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
         return static_cast<VectorT*>(this)->grow(req_len);
     }

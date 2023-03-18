@@ -30,6 +30,10 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
     using pointer = T*;
     using const_pointer = const T*;
 
+  private:
+    using base = detail::vector_ops<T, size_type, svector<T, Capacity>>;
+
+  public:
     static_assert(
         std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_assignable_v<T>
         && std::is_nothrow_destructible_v<T>);
@@ -128,6 +132,33 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
     friend constexpr auto make_svector(U&& first_val, OT&&... other_vals) noexcept
         -> svector<std::common_type_t<U, OT...>, VCapacity>;
 
+    using base::insert;
+
+    template<std::random_access_iterator RandAccIt>
+    constexpr auto insert(typename base::const_iterator pos, RandAccIt first, RandAccIt last)
+        -> expected<typename base::iterator, typename base::InsertError> {
+        return base::insert(pos, first, last);
+    }
+
+    template<std::input_iterator InputIt>
+    constexpr auto insert(typename base::const_iterator pos, InputIt first, InputIt last)
+        -> expected<typename base::iterator, typename base::InsertError> {
+        if (pos == base::end()) {
+            return base::insert_at_end(first, last);
+        }
+
+        svector tmp;
+        auto tmp_res = tmp.assign(first, last);
+        auto res = base::insert(pos, tmp.begin(), tmp.end());
+
+        // All rows inseted into `tmp` vector? If so, return the `res`.
+        if (tmp_res || !res) {
+            return res;
+        }
+        // If, all rows were not inserted into the `tmp` vector, error must be returned.
+        return make_unexpected(std::move(tmp_res).error());
+    }
+
   private:
     static constexpr auto is_trivial = std::is_trivial_v<T>;
 
@@ -155,7 +186,7 @@ class svector: public detail::vector_ops<T, detail::capacity_t<Capacity>, svecto
         return {.begin = data, .end = data + m_len, .end_cap = data + Capacity};
     }
 
-    constexpr auto grow(size_type req_len) noexcept -> std::optional<Error> {
+    constexpr auto grow(usize req_len) noexcept -> std::optional<Error> {
         if (req_len > Capacity) [[unlikely]] {
             return Error::BufferFull;
         }

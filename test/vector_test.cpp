@@ -2,7 +2,51 @@
 
 using namespace ktl;
 
-auto main() -> int {
+template<std::input_iterator It>
+class InputIterator {
+  public:
+    using value_type = std::iter_value_t<It>;
+    using difference_type = std::iter_difference_t<It>;
+    using reference = std::iter_reference_t<It>;
+
+    constexpr explicit InputIterator(It it) : m_it(it) {}
+
+    constexpr auto operator*() const noexcept -> reference {
+        return *m_it;
+    }
+    constexpr auto operator->() const noexcept -> value_type* {
+        return &*m_it;
+    }
+
+    constexpr auto operator++() noexcept -> InputIterator& {
+        ++m_it;
+        return *this;
+    }
+    constexpr auto operator++(int) noexcept -> InputIterator {
+        auto copy = *this;
+        ++*this;
+        return copy;
+    }
+
+    constexpr auto operator<=>(const InputIterator& o) const = default;
+
+  private:
+    It m_it;
+};
+
+struct int_t {
+    int_t() = default;
+    explicit int_t(int v) : v(v) {}
+
+    auto operator<=>(const int_t&) const = default;
+
+    int v = 0;
+};
+
+static void svector_insert_test();
+static void svector_assign_test();
+
+static void svector_test() {
     static_assert(sizeof(svector<u8, 3>) == sizeof(u8) * 4);
     static_assert(sizeof(svector<u16, 3>) == sizeof(u16) * 4);
     static_assert(sizeof(svector<u32, 3>) == sizeof(u32) * 4);
@@ -103,10 +147,6 @@ auto main() -> int {
 
     // Non-Trivial type
     {
-        struct int_t {
-            int_t() = default;
-            int v = 0;
-        };
         auto vec = make_svector(int_t {}, int_t {}, int_t {});
         auto vec2 = vec;
         check_(vec2[0].v == vec[0].v, "");
@@ -136,42 +176,136 @@ auto main() -> int {
     }
 
     // assign
+
+    svector_assign_test();
+    svector_insert_test();
+}
+
+static void svector_assign_test() {
     {
-        {
-            constexpr auto vec = [] {
-                auto vec = make_svector(1, 2, 3);
-                vec.assign({3, 2});
+        constexpr auto vec = [] {
+            auto vec = make_svector(1, 2, 3);
+            vec.assign({3, 2});
 
-                return vec;
-            }();
+            return vec;
+        }();
 
-            static_assert(vec.size() == 2, "count must match after assign");
-            static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
-        }
-        {
-            constexpr auto vec = [] {
-                auto vec = make_svector(1, 2, 3);
-                auto ovec = make_svector(3, 2);
-                vec.assign(ovec.begin(), ovec.end());
-
-                return vec;
-            }();
-
-            static_assert(vec.size() == 2, "count must match after assign");
-            static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
-        }
-        {
-            constexpr auto vec = [] {
-                auto vec = make_svector(1, 2, 3);
-                vec.assign(2, 1);
-
-                return vec;
-            }();
-
-            static_assert(vec.size() == 2, "count must match after assign");
-            static_assert(vec[0] == 1 && vec[1] == 1, "values must match after assign");
-        }
+        static_assert(vec.size() == 2, "count must match after assign");
+        static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
     }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector(1, 2, 3);
+            const auto ovec = make_svector(3, 2);
+            vec.assign(ovec.begin(), ovec.end());
 
+            return vec;
+        }();
+
+        static_assert(vec.size() == 2, "count must match after assign");
+        static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector(1, 2, 3);
+            vec.assign(2, 1);
+
+            return vec;
+        }();
+
+        static_assert(vec.size() == 2, "count must match after assign");
+        static_assert(vec[0] == 1 && vec[1] == 1, "values must match after assign");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector(1, 2, 3);
+            const auto ovec = make_svector(3, 2);
+            InputIterator begin {ovec.begin()};
+            InputIterator end {ovec.end()};
+
+            vec.assign(begin, end);
+
+            return vec;
+        }();
+
+        static_assert(vec.size() == 2, "count must match after assign");
+        static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
+    }
+}
+
+// NOLINTBEGIN(*-magic-numbers)
+static void svector_insert_test() {
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector<6>(1, 2, 8);
+            const auto ovec = make_svector(3, 2);
+
+            vec.insert(std::next(vec.begin()), ovec.begin(), ovec.end());
+            return vec;
+        }();
+
+        static_assert(vec.size() == 5, "count must match after insert");
+        static_assert(
+            vec[0] == 1 && vec[1] == 3 && vec[2] == 2 && vec[3] == 2 && vec[4] == 8,
+            "values must match after insert");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector<6>(1, 2, 8);
+            const auto ovec = make_svector(3, 2);
+            InputIterator begin {ovec.begin()};
+            InputIterator end {ovec.end()};
+
+            auto res = vec.insert(vec.begin() + 2, begin, end);
+            check_(res, "insert must succeed");
+            check_(**res == 3, "iterator must point to first inserted value");
+            return vec;
+        }();
+
+        static_assert(vec.size() == 5, "count must match after insert");
+        static_assert(
+            vec[0] == 1 && vec[1] == 2 && vec[2] == 3 && vec[3] == 2 && vec[4] == 8,
+            "values must match after insert");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector<6>(1, 2, 3);
+
+            auto res = vec.insert(vec.begin(), {3, 2});
+            check_(res, "insert must succeed");
+            check_(**res == 3, "iterator must point to first inserted value");
+            return vec;
+        }();
+
+        static_assert(vec.size() == 5, "count must match after insert");
+        static_assert(
+            vec[0] == 3 && vec[1] == 2 && vec[2] == 1 && vec[3] == 2 && vec[4] == 3,
+            "values must match after insert");
+    }
+    {
+        static constinit auto vec = [] {
+            auto vec = make_svector<4>(1, 2, 3);
+            auto res = vec.insert(vec.end(), 4);
+            check_(res, "insert must succeed");
+            check_(**res == 4, "iterator must point to first inserted value");
+            return vec;
+        }();
+    }
+    // Non-Trivial type
+    {
+        auto vec = make_svector<5>(int_t {1}, int_t {2}, int_t {3});
+        auto res = vec.insert(vec.begin(), {int_t {4}, int_t {5}});
+
+        check_(res, "insert must succeed");
+        check_(
+            vec[0] == int_t {4} && vec[1] == int_t {5} && vec[2] == int_t {1} && vec[3] == int_t {2}
+                && vec[4] == int_t {3},
+            "values must match after insert");
+    }
+}
+// NOLINTEND(*-magic-numbers)
+
+auto main() -> int {
+    svector_test();
     return 0;
 }
