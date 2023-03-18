@@ -1,3 +1,4 @@
+#include <ktl/fixed_vector.hpp>
 #include <ktl/stack_vector.hpp>
 
 using namespace ktl;
@@ -360,7 +361,41 @@ void svector_erase_test() {
     }
 }
 
+static void fvector_test() {
+    // sanity test
+    static constinit auto _ = [] {
+        std::array<int, 4> storage;  // NOLINT(*-member-init)
+        fixed_vector vec {storage, 0};
+
+        check_(vec.capacity() == storage.size(), "capacity must match array's size");
+        check_(vec.push_back(1), "push_back failed");
+        check_(vec.push_back(2), "push_back failed");
+        check_(vec.size() == 2, "");
+        check_(vec[0] == 1, "");
+        check_(vec[1] == 2, "");
+
+        vec.insert(vec.begin(), {0});
+        check_(vec[0] == 0, "");
+
+        vec.assign({1, 2, 3});
+        check_(vec[0] == 1, "");
+        check_(vec[1] == 2, "");
+        check_(vec[2] == 3, "");
+
+        erase_if(vec, [](auto e) { return e < 3; });
+        check_(vec.size() == 1, "");
+        check_(vec[0] == 3, "");
+
+        return vec.size();
+    }();
+
+    std::array<int, 4> storage {};
+    fixed_vector vec {storage.data(), storage.size()};
+    check_(vec.max_size() == storage.size(), "max_size must equal to array's size");
+}
+
 auto main() -> int {
     svector_test();
+    fvector_test();
     return 0;
 }
