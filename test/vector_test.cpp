@@ -45,6 +45,7 @@ struct int_t {
 
 static void svector_insert_test();
 static void svector_assign_test();
+static void svector_erase_test();
 
 static void svector_test() {
     static_assert(sizeof(svector<u8, 3>) == sizeof(u8) * 4);
@@ -175,10 +176,9 @@ static void svector_test() {
         check_(!vec.resize(4), "resize over capacity must fail");
     }
 
-    // assign
-
     svector_assign_test();
     svector_insert_test();
+    svector_erase_test();
 }
 
 static void svector_assign_test() {
@@ -304,6 +304,61 @@ static void svector_insert_test() {
     }
 }
 // NOLINTEND(*-magic-numbers)
+
+void svector_erase_test() {
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector<4>(1, 2, 3);
+            auto it = vec.erase(vec.begin());
+            check_(*it == 2, "iterator must point to last removed element");
+            return vec;
+        }();
+
+        static_assert(vec.size() == 2, "count must match after erase");
+        static_assert(vec[0] == 2 && vec[1] == 3, "values must match after erase");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector<4>(1, 2, 3);
+            auto it = vec.erase(std::next(vec.begin()), vec.end());
+            check_(it == vec.end(), "iterator must point to last removed element");
+            return vec;
+        }();
+
+        static_assert(vec.size() == 1, "count must match after erase");
+        static_assert(vec[0] == 1, "values must match after erase");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector<4>(1, 2, 3);
+            auto it = vec.erase(vec.begin(), vec.end());
+            check_(it == vec.end(), "iterator must point to last removed element");
+            return vec;
+        }();
+
+        static_assert(vec.empty(), "vector must be empty after reset");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector<4>(1, 2, 3);
+            erase(vec, 3);
+            return vec;
+        }();
+
+        static_assert(vec.size() == 2, "count must match after erase");
+        static_assert(vec[0] == 1 && vec[1] == 2, "values must match after erase");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_svector<4>(1, 2, 3);
+            erase_if(vec, [](auto e) { return e < 3; });
+            return vec;
+        }();
+
+        static_assert(vec.size() == 1, "count must match after erase");
+        static_assert(vec[0] == 3, "values must match after erase");
+    }
+}
 
 auto main() -> int {
     svector_test();

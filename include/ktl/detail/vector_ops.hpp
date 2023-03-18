@@ -359,6 +359,34 @@ class vector_ops {
         return it;
     }
 
+    template<typename... Args>
+    constexpr auto emplace(const_iterator pos, Args&&... args) noexcept
+        -> expected<iterator, InsertError> {
+        auto it = Try(make_space_at(pos, 1));
+        std::construct_at(&*it, std::forward<Args>(args)...);
+        return it;
+    }
+
+    constexpr auto erase(const_iterator pos) noexcept -> iterator {
+        if (pos == end())
+            return end();
+        return erase(pos, std::next(pos));
+    }
+
+    constexpr auto erase(const_iterator first, const_iterator last) -> iterator {
+        check_(first >= cbegin() && first <= cend(), "iterator does not belong to the container");
+        check_(last >= first && last <= cend(), "iterator range does not belong to the container");
+
+        if (first == last) {
+            return begin() + std::distance(cbegin(), last);
+        }
+
+        auto it = begin() + std::distance(cbegin(), first);
+        std::move(last, cend(), it);
+        set_len(size() - std::distance(first, last));
+        return it;
+    }
+
   protected:
     template<std::input_iterator InputIt>
     constexpr auto insert_at_end(InputIt first, InputIt last) -> expected<iterator, InsertError> {
@@ -375,6 +403,10 @@ class vector_ops {
     }
 
   private:
+    constexpr auto erase(const_iterator first, SizeT count) -> iterator {
+        auto [beg, end, end_cap] = get_storage();
+    }
+
     constexpr auto make_space_at(const_iterator pos, usize count) noexcept
         -> expected<iterator, InsertError> {
         check_(pos >= begin() && pos <= end(), "iterator does not belong to the container");
