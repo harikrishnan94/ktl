@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <optional>
 
 #include <ktl/contiguous_iterator.hpp>
@@ -9,6 +10,16 @@
 
 namespace ktl {
 namespace detail {
+    // Determine the size_type for the given capacity
+    template<auto Capacity>
+    using size_t = std::conditional_t<
+        (Capacity > std::numeric_limits<u32>::max()),
+        u64,
+        std::conditional_t<
+            (Capacity > std::numeric_limits<u16>::max()),
+            u32,
+            std::conditional_t<(Capacity > std::numeric_limits<u8>::max()), u16, u8>>>;
+
     // Describes the boundary of contiguous range of elements stored in the vector
     template<typename T>
     struct vector_storage {

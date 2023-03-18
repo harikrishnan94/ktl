@@ -1,30 +1,18 @@
 #pragma once
 
 #include <bit>
-#include <limits>
 #include <memory>
 
 #include "detail/vector_ops.hpp"
 
 namespace ktl {
-namespace detail {
-    template<auto Capacity>
-    using capacity_t = std::conditional_t<
-        (Capacity > std::numeric_limits<u32>::max()),
-        u64,
-        std::conditional_t<
-            (Capacity > std::numeric_limits<u16>::max()),
-            u32,
-            std::conditional_t<(Capacity > std::numeric_limits<u8>::max()), u16, u8>>>;
-}  // namespace detail
-
 template<typename T, auto Capacity>
     requires std::integral<std::decay_t<decltype(Capacity)>>
 class stack_vector:
-    public detail::vector_ops<T, detail::capacity_t<Capacity>, stack_vector<T, Capacity>> {
+    public detail::vector_ops<T, detail::size_t<Capacity>, stack_vector<T, Capacity>> {
   public:
     using value_type = T;
-    using size_type = detail::capacity_t<Capacity>;
+    using size_type = detail::size_t<Capacity>;
     using difference_type = isize;
     using reference = T&;
     using const_reference = const T&;
