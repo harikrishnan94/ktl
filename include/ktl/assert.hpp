@@ -31,4 +31,9 @@ Abort(const char* message, const char* file, unsigned int line, const char* func
 
 // Used for contract checking (validating inputs external to the API)
 // NOLINTNEXTLINE(*-macro-usage)
-#define check_(expr, msg) (static_cast<bool>(expr) ? void(0) : abort_("failed: " #expr "[" msg "]"))
+#ifndef DISABLE_CHECKS
+    #define check_(expr, msg) \
+        (static_cast<bool>(expr) ? void(0) : abort_("failed: " #expr "[" msg "]"))
+#else
+    #define check_(expr, msg)
+#endif

@@ -50,6 +50,16 @@
             }
         },
         {
+            "name": "relwithchecks",
+            "displayName": "ReleaseWithChecks",
+            "description": "ReleaseWithChecks",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "KTL_ENABLE_CHECKS": "On"
+            }
+        },
+        {
             "name": "release",
             "displayName": "Release",
             "description": "Release",
