@@ -13,3 +13,6 @@ target_link_libraries(string_view_test PRIVATE platform)
 
 add_executable(vector_test vector_test.cpp)
 target_link_libraries(vector_test PRIVATE platform)
+
+add_executable(bitops_test bitops_test.cpp)
+target_link_libraries(bitops_test PRIVATE platform)
