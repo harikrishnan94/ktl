@@ -10,6 +10,7 @@ using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
 using usize = size_t;
+using uint = unsigned;
 
 using i8 = std::make_signed_t<u8>;
 using i16 = std::make_signed_t<u16>;
