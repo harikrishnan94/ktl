@@ -23,7 +23,6 @@ if ((NOT KTL_ENABLE_CHECKS) AND (CMAKE_BUILD_TYPE STREQUAL "Release"))
     target_compile_definitions(ktl PUBLIC DISABLE_CHECKS=1)
 endif()
 
-
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     target_compile_definitions(ktl PUBLIC ARCH_IS_X86_64=1)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
