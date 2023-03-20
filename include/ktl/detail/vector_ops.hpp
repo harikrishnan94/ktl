@@ -257,86 +257,23 @@ namespace detail {
 
         constexpr auto assign(SizeT count, const T& value) noexcept
             -> expected<SizeT, InsertError> {
-            clear();
-
-            auto [begin, _, end_cap] = get_storage();
-            usize capacity = end_cap - begin;
-            auto len = std::min<usize>(capacity, count);
-
-            uninitialized_fill_n(begin, len, value);
-            set_len(len);
-
-            if (count > capacity) [[unlikely]] {
-                return make_unexpected(InsertError {
-                    .err = Error::BufferFull,
-                    .num_inserted = static_cast<SizeT>(capacity)});
-            }
-            return count;
+            return assign_fill(count, value);
         }
 
         template<std::input_iterator InputIt>
         constexpr auto assign(InputIt first, InputIt last) noexcept
             -> expected<SizeT, InsertError> {
-            clear();
-
-            auto [begin, _, end_cap] = get_storage();
-            usize capacity = end_cap - begin;
-            usize len = 0;
-
-            while (len <= capacity && first != last) {
-                std::construct_at(begin, *first);
-                begin++;
-                first++;
-                len++;
-            }
-            set_len(len);
-
-            if (len > capacity) {
-                return make_unexpected(InsertError {
-                    .err = Error::BufferFull,
-                    .num_inserted = static_cast<SizeT>(capacity)});
-            }
-            return len;
+            return assign_iter(first, last);
         }
 
         template<std::random_access_iterator RandomAccIt>
         constexpr auto assign(RandomAccIt first, RandomAccIt last) noexcept
             -> expected<SizeT, InsertError> {
-            clear();
-
-            auto [begin, _, end_cap] = get_storage();
-            usize capacity = end_cap - begin;
-            usize count = std::distance(first, last);
-            auto len = std::min(count, capacity);
-
-            uninitialized_copy_n(first, std::min(count, capacity), begin);
-            set_len(len);
-
-            if (count > capacity) {
-                return make_unexpected(InsertError {
-                    .err = Error::BufferFull,
-                    .num_inserted = static_cast<SizeT>(capacity)});
-            }
-            return count;
+            return assign_elems(first, std::distance(first, last));
         }
 
         constexpr auto assign(std::initializer_list<T> ilist) -> expected<SizeT, InsertError> {
-            clear();
-
-            auto [begin, _, end_cap] = get_storage();
-            usize capacity = end_cap - begin;
-            usize count = ilist.size();
-            auto len = std::min(count, capacity);
-
-            uninitialized_copy_n(ilist.begin(), len, begin);
-            set_len(len);
-
-            if (count > capacity) {
-                return make_unexpected(InsertError {
-                    .err = Error::BufferFull,
-                    .num_inserted = static_cast<SizeT>(capacity)});
-            }
-            return count;
+            return assign_elems(ilist.begin(), ilist.size());
         }
 
         constexpr auto insert(const_iterator pos, const T& value) noexcept
@@ -451,6 +388,68 @@ namespace detail {
             std::move_backward(beg + pos_i, end, end + count);
             set_len(size + count);
             return begin() + pos_i;
+        }
+
+        template<std::input_iterator InputIter>
+        constexpr auto assign_iter(InputIter first, InputIter last)
+            -> expected<SizeT, InsertError> {
+            clear();
+
+            auto [begin, _, end_cap] = get_storage();
+            usize capacity = end_cap - begin;
+            usize new_len = 0;
+
+            while (new_len <= capacity && first != last) {
+                std::construct_at(begin, *first);
+                begin++;
+                first++;
+                new_len++;
+            }
+            set_len(new_len);
+
+            if (first != last) {
+                return make_unexpected(InsertError {
+                    .err = Error::BufferFull,
+                    .num_inserted = static_cast<SizeT>(capacity)});
+            }
+            return new_len;
+        }
+
+        constexpr auto assign_elems(std::input_iterator auto first, usize count)
+            -> expected<SizeT, InsertError> {
+            clear();
+
+            auto [begin, _, end_cap] = get_storage();
+            usize capacity = end_cap - begin;
+            auto new_len = std::min(count, capacity);
+
+            uninitialized_copy_n(first, new_len, begin);
+            set_len(new_len);
+
+            if (new_len != count) {
+                return make_unexpected(InsertError {
+                    .err = Error::BufferFull,
+                    .num_inserted = static_cast<SizeT>(capacity)});
+            }
+            return new_len;
+        }
+
+        constexpr auto assign_fill(SizeT count, const T& value) -> expected<SizeT, InsertError> {
+            clear();
+
+            auto [begin, _, end_cap] = get_storage();
+            usize capacity = end_cap - begin;
+            auto new_len = std::min<usize>(capacity, count);
+
+            uninitialized_fill_n(begin, new_len, value);
+            set_len(new_len);
+
+            if (new_len != count) [[unlikely]] {
+                return make_unexpected(InsertError {
+                    .err = Error::BufferFull,
+                    .num_inserted = static_cast<SizeT>(capacity)});
+            }
+            return count;
         }
 
         template<typename FillValueGetter>
