@@ -37,7 +37,7 @@ namespace detail {
             auto val = get<argid>(args);
             if constexpr (std::is_signed_v<rep_type>) {
                 if (val < 0) {
-                    return make_unexpected(Error::ValueOutOfDomain);
+                    Throw(Error::ValueOutOfDomain);
                 }
             }
             return static_cast<u64>(val);
@@ -114,10 +114,10 @@ namespace detail {
         dyn_fmt_spec_t<FmtSpec> fp = {};
 
         if constexpr (FmtSpec.width) {
-            fp.width = Try(replace<FmtSpec.width.value()>(args));
+            TryA(fp.width, replace<FmtSpec.width.value()>(args));
         }
         if constexpr (FmtSpec.precision) {
-            fp.precision = Try(replace<FmtSpec.precision.value()>(args));
+            TryA(fp.precision, replace<FmtSpec.precision.value()>(args));
         }
 
         return fp;
@@ -139,7 +139,7 @@ namespace detail {
         }();
 
         formatter<char_type, fmt_arg_t> formatter;
-        auto fmt_spec = Try((flatten<FmtSpec, char_type, fmt_arg_t>(args)));
+        Try(fmt_spec, (flatten<FmtSpec, char_type, fmt_arg_t>(args)));
         return formatter.format(ctx, fmt_spec, get<R.value.argid()>(args));
     }
 
@@ -155,12 +155,16 @@ namespace detail {
         using char_type = typename SB::char_type;
         using fmt_base_t = formatter_base<RawFmtStr, FmtStr[I], Args...>;
 
-        if (!Try(fmt_base_t::format(ctx, args))) {
-            return false;
+        {
+            Try(r, fmt_base_t::format(ctx, args));
+            if (!r) {
+                return false;
+            }
         }
 
         if constexpr (I != std::decay_t<decltype(FmtStr)>::FieldCount - 1) {
-            if (!Try((vformat_apply<RawFmtStr, I + 1, FmtStr>(ctx, args)))) {
+            Try(r, (vformat_apply<RawFmtStr, I + 1, FmtStr>(ctx, args)));
+            if (!r) {
                 return false;
             }
         }
@@ -176,7 +180,7 @@ namespace detail {
     constexpr auto vformat(SB& sb, const detail::FmtArgs<Args...>& args) noexcept
         -> ktl::expected<Result, Error> {
         FormatContext ctx {sb};
-        auto is_complete = Try((vformat_apply<RawFmtStr, 0, FS>(ctx, args)));
+        Try(is_complete, (vformat_apply<RawFmtStr, 0, FS>(ctx, args)));
         return Result {ctx.FormattedLen(), is_complete};
     }
 
@@ -263,7 +267,7 @@ class FormatContext {
         to_chars_res res;
 
         if (auto error = to_chars<FS>(res, val)) {
-            return make_unexpected(std::move(*error));
+            Throw(std::move(*error));
         }
 
         return format(fmt_spec, res);

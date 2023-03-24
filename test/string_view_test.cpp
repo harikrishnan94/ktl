@@ -99,6 +99,7 @@ auto main() -> int {
         static_assert("abcd"_sv.compare("abc"_sv) > 0);
         static_assert("abc"_sv.compare("abc"_sv) == 0);
         static_assert(""_sv.compare(""_sv) == 0);
+        static_assert("abc"_sv.compare(4, 0, "abc"_sv).error() == Error::IndexOutOfBounds);
     }
 
     // find

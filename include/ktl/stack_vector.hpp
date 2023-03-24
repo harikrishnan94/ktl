@@ -166,7 +166,7 @@ class stack_vector:
             return res;
         }
         // If, all rows were not inserted into the `tmp` vector, error must be returned.
-        return make_unexpected(std::move(tmp_res).error().second);
+        Throw(std::move(tmp_res).error().second);
     }
 
   private:
@@ -198,7 +198,7 @@ class stack_vector:
 
     constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
         if (req_len > Capacity) [[unlikely]] {
-            return make_unexpected(Error::BufferFull);
+            Throw(Error::BufferFull);
         }
         return {};
     }

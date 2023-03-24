@@ -1747,40 +1747,45 @@ void swap(expected<T, E>& lhs, expected<T, E>& rhs) noexcept {
 }
 }  // namespace ktl
 
-#define TryAutoV2(tvar, expr) \
+#define TryAV2(tvar, expr) \
     static_assert(::ktl::detail::is_expected<std::decay_t<decltype((expr))>>::value); \
     auto tvar = (expr); \
     if (!tvar) [[unlikely]] { \
-        return ::ktl::make_unexpected(::std::move(tvar).error()); \
+        Rethrow(tvar); \
     }
-#define TryAuto2(var, tvar, expr) \
-    TryAutoV2(tvar, (expr)); \
+#define TryA2(var, tvar, expr) \
+    TryAV2(tvar, (expr)); \
     auto&& var = *std::move(tvar)
 
 #define TryV(expr) \
     do { \
-        TryAutoV2(CONCAT(tmp_, __LINE__), (expr)); \
+        TryAV2(CONCAT(tmp_, __LINE__), (expr)); \
     } while (false)
-#define Try(expr) \
+#define Try(var, expr) TryA2((var), CONCAT(tmp_, __LINE__), (expr))
+
+#define TryA(lvalue, expr) \
+    TryAV2(CONCAT(tmp_, __LINE__), (expr)); \
+    (lvalue) = *::std::move(CONCAT(tmp_, __LINE__))
+
+#define TryRV(expr) \
+    TryAV2(CONCAT(tmp_, __LINE__), (expr)); \
+    return {}
+#define TryR(expr) \
+    TryA2(CONCAT(ret_, __LINE__), CONCAT(tmp_, __LINE__), (expr)); \
+    return *::std::move(CONCAT(ret_, __LINE__))
+
+// Constexpr Un-Friendly (on error)
+#define try$(expr) \
     ({ \
         static_assert(::ktl::detail::is_expected<std::decay_t<decltype((expr))>>::value); \
         auto res = (expr); \
         if (!res) [[unlikely]] { \
-            return ::ktl::make_unexpected(::std::move(res).error()); \
+            Rethrow(res); \
         }; \
         *std::move(res); \
     })
 
-#define TryAuto(var, expr) TryAuto2((var), CONCAT(tmp_, __LINE__), (expr))
-#define TryAssign(lvalue, expr) \
-    TryAutoV2(CONCAT(tmp_, __LINE__), (expr)); \
-    (lvalue) = *::std::move(CONCAT(tmp_, __LINE__))
-
-#define TryReturnV(expr) \
-    TryAutoV2(CONCAT(tmp_, __LINE__), (expr)); \
-    return {}
-#define TryReturn(expr) \
-    TryAuto2(CONCAT(ret_, __LINE__), CONCAT(tmp_, __LINE__), (expr)); \
-    return *::std::move(CONCAT(ret_, __LINE__))
+#define Throw(e) return ::ktl::make_unexpected(e)
+#define Rethrow(e) return ::ktl::make_unexpected(::std::move(e).error())
 
 // NOLINTEND

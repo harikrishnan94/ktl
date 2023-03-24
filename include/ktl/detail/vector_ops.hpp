@@ -115,13 +115,13 @@ namespace detail {
         constexpr auto at(SizeT i) const noexcept
             -> expected<std::reference_wrapper<const T>, Error> {
             if (i >= size()) {
-                return make_unexpected(Error::IndexOutOfBounds);
+                Throw(Error::IndexOutOfBounds);
             }
             return data()[i];
         }
         constexpr auto at(SizeT i) noexcept -> expected<std::reference_wrapper<T>, Error> {
             if (i >= size()) {
-                return make_unexpected(Error::IndexOutOfBounds);
+                Throw(Error::IndexOutOfBounds);
             }
             return data()[i];
         }
@@ -268,20 +268,20 @@ namespace detail {
 
         constexpr auto insert(const_iterator pos, const T& value) noexcept
             -> expected<iterator, Error> {
-            TryAuto(it, make_space_at(pos, 1));
+            Try(it, make_space_at(pos, 1));
             std::construct_at(&*it, value);
             return it;
         }
 
         constexpr auto insert(const_iterator pos, T&& value) noexcept -> expected<iterator, Error> {
-            TryAuto(it, make_space_at(pos, 1));
+            Try(it, make_space_at(pos, 1));
             std::construct_at(&*it, std::move(value));
             return it;
         }
 
         constexpr auto insert(const_iterator pos, SizeT count, const T& value) noexcept
             -> expected<iterator, Error> {
-            auto it = Try(make_space_at(pos, count));
+            Try(it, make_space_at(pos, count));
             uninitialized_fill_n(it, count, value);
             return it;
         }
@@ -290,7 +290,7 @@ namespace detail {
         constexpr auto insert(const_iterator pos, RandAccIt first, RandAccIt last) noexcept
             -> expected<iterator, Error> {
             auto count = std::distance(first, last);
-            auto it = Try(make_space_at(pos, count));
+            Try(it, make_space_at(pos, count));
             uninitialized_copy_n(first, count, it);
             return it;
         }
@@ -298,7 +298,7 @@ namespace detail {
         constexpr auto insert(const_iterator pos, std::initializer_list<T> ilist) noexcept
             -> expected<iterator, Error> {
             auto count = ilist.size();
-            TryAuto(it, make_space_at(pos, count));
+            Try(it, make_space_at(pos, count));
             uninitialized_copy_n(ilist.begin(), count, it);
             return it;
         }
@@ -306,7 +306,7 @@ namespace detail {
         template<typename... Args>
         constexpr auto emplace(const_iterator pos, Args&&... args) noexcept
             -> expected<iterator, Error> {
-            TryAuto(it, make_space_at(pos, 1));
+            Try(it, make_space_at(pos, 1));
             std::construct_at(&*it, std::forward<Args>(args)...);
             return it;
         }
@@ -353,7 +353,7 @@ namespace detail {
             assert(empty() && "assign_iter must be called on empty vector");
             for (; first != last; ++first) {
                 if (auto res = emplace_back(*first); !res) {
-                    return make_unexpected(std::make_pair(first, std::move(res).error()));
+                    Throw(std::make_pair(first, std::move(res).error()));
                 }
             }
             return {};
@@ -401,7 +401,7 @@ namespace detail {
             set_len(new_len);
 
             if (new_len != count) [[unlikely]] {
-                return make_unexpected(Error::BufferFull);
+                Throw(Error::BufferFull);
             }
             return {};
         }
@@ -425,7 +425,7 @@ namespace detail {
             set_len(new_len);
 
             if (new_len != count) [[unlikely]] {
-                return make_unexpected(Error::BufferFull);
+                Throw(Error::BufferFull);
             }
             return {};
         }
