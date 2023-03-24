@@ -578,6 +578,7 @@ constexpr auto operator<=>(
     }
 }
 
+#if __cplusplus < 202002  // C++20
 // operator !=
 template<typename CharT, typename Traits>
 constexpr inline auto
@@ -693,6 +694,7 @@ constexpr inline auto operator>=(
     basic_string_view<CharT, Traits> rhs) noexcept -> bool {
     return lhs.compare(rhs) >= 0;
 }
+#endif
 }  // namespace ktl
 
 namespace std {
