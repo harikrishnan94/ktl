@@ -1766,7 +1766,7 @@ void swap(expected<T, E>& lhs, expected<T, E>& rhs) noexcept {
         static_assert(::ktl::detail::is_expected<std::decay_t<decltype((expr))>>::value); \
         auto res = (expr); \
         if (!res) [[unlikely]] { \
-            return ::ktl::unexpected(::std::move(res).error()); \
+            return ::ktl::make_unexpected(::std::move(res).error()); \
         }; \
         *std::move(res); \
     })

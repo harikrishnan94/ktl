@@ -68,7 +68,7 @@ namespace detail {
 
                               // Grow must ensure capacity for atleast 'req_len' (1st parameter)
                               // elements.
-                              { vec.grow(req_len) } -> std::same_as<std::optional<Error>>;
+                              { vec.grow(req_len) } -> std::same_as<expected<void, Error>>;
 
                               { vec.set_len(new_len) };
                           };
@@ -82,11 +82,6 @@ namespace detail {
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
         static constexpr bool is_vector = true;
-
-        struct InsertError {
-            Error err;
-            SizeT num_inserted;
-        };
 
         // Element access and size
         constexpr auto data() noexcept -> T* {
@@ -211,9 +206,7 @@ namespace detail {
             auto [begin, end, end_cap] = get_storage();
             auto len = end - begin;
             if (end == end_cap) [[unlikely]] {
-                if (auto err = grow(len + 1)) {
-                    return make_unexpected(*std::move(err));
-                }
+                TryV(grow(len + 1));
                 auto [nbegin, nend, nend_cap] = get_storage();
                 std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
             }
@@ -240,9 +233,8 @@ namespace detail {
                 if constexpr (!std::is_trivially_destructible_v<T>) {
                     std::destroy(begin, end);
                 }
+                set_len(0);
             }
-
-            set_len(0);
         }
 
         [[nodiscard("must check if resize succeeded")]] constexpr auto
@@ -255,43 +247,40 @@ namespace detail {
             return resize_with(new_len, [&] { return T {}; });
         }
 
-        constexpr auto assign(SizeT count, const T& value) noexcept
-            -> expected<SizeT, InsertError> {
+        constexpr auto assign(SizeT count, const T& value) noexcept -> expected<void, Error> {
             return assign_fill(count, value);
         }
 
         template<std::input_iterator InputIt>
         constexpr auto assign(InputIt first, InputIt last) noexcept
-            -> expected<SizeT, InsertError> {
+            -> expected<void, std::pair<InputIt, Error>> {
             return assign_iter(first, last);
         }
 
-        template<std::random_access_iterator RandomAccIt>
-        constexpr auto assign(RandomAccIt first, RandomAccIt last) noexcept
-            -> expected<SizeT, InsertError> {
-            return assign_elems(first, std::distance(first, last));
+        template<std::random_access_iterator RandAccIt>
+        constexpr auto assign(RandAccIt first, RandAccIt last) noexcept -> expected<void, Error> {
+            return assign_range(first, std::distance(first, last));
         }
 
-        constexpr auto assign(std::initializer_list<T> ilist) -> expected<SizeT, InsertError> {
-            return assign_elems(ilist.begin(), ilist.size());
+        constexpr auto assign(std::initializer_list<T> ilist) -> expected<void, Error> {
+            return assign_range(ilist.begin(), ilist.size());
         }
 
         constexpr auto insert(const_iterator pos, const T& value) noexcept
-            -> expected<iterator, InsertError> {
-            auto it = Try(make_space_at(pos, 1));
+            -> expected<iterator, Error> {
+            TryAuto(it, make_space_at(pos, 1));
             std::construct_at(&*it, value);
             return it;
         }
 
-        constexpr auto insert(const_iterator pos, T&& value) noexcept
-            -> expected<iterator, InsertError> {
-            auto it = Try(make_space_at(pos, 1));
+        constexpr auto insert(const_iterator pos, T&& value) noexcept -> expected<iterator, Error> {
+            TryAuto(it, make_space_at(pos, 1));
             std::construct_at(&*it, std::move(value));
             return it;
         }
 
         constexpr auto insert(const_iterator pos, SizeT count, const T& value) noexcept
-            -> expected<iterator, InsertError> {
+            -> expected<iterator, Error> {
             auto it = Try(make_space_at(pos, count));
             uninitialized_fill_n(it, count, value);
             return it;
@@ -299,7 +288,7 @@ namespace detail {
 
         template<std::random_access_iterator RandAccIt>
         constexpr auto insert(const_iterator pos, RandAccIt first, RandAccIt last) noexcept
-            -> expected<iterator, InsertError> {
+            -> expected<iterator, Error> {
             auto count = std::distance(first, last);
             auto it = Try(make_space_at(pos, count));
             uninitialized_copy_n(first, count, it);
@@ -307,17 +296,17 @@ namespace detail {
         }
 
         constexpr auto insert(const_iterator pos, std::initializer_list<T> ilist) noexcept
-            -> expected<iterator, InsertError> {
+            -> expected<iterator, Error> {
             auto count = ilist.size();
-            auto it = Try(make_space_at(pos, count));
+            TryAuto(it, make_space_at(pos, count));
             uninitialized_copy_n(ilist.begin(), count, it);
             return it;
         }
 
         template<typename... Args>
         constexpr auto emplace(const_iterator pos, Args&&... args) noexcept
-            -> expected<iterator, InsertError> {
-            auto it = Try(make_space_at(pos, 1));
+            -> expected<iterator, Error> {
+            TryAuto(it, make_space_at(pos, 1));
             std::construct_at(&*it, std::forward<Args>(args)...);
             return it;
         }
@@ -348,27 +337,31 @@ namespace detail {
 
       protected:
         template<std::input_iterator InputIt>
-        constexpr auto insert_at_end(InputIt first, InputIt last)
-            -> expected<iterator, InsertError> {
+        constexpr auto insert_at_end(InputIt first, InputIt last) -> expected<iterator, Error> {
             SizeT num_inserted = 0;
             while (first != last) {
-                if (auto r = emplace_back(std::move(*first)); !r) {
-                    return make_unexpected(
-                        InsertError {.err = std::move(r).error(), .num_inserted = num_inserted});
-                }
+                TryV(emplace_back(std::move(*first)));
                 num_inserted++;
             }
             set_len(size() + num_inserted);
             return end();
         }
 
-      private:
-        constexpr auto erase(const_iterator first, SizeT count) -> iterator {
-            auto [beg, end, end_cap] = get_storage();
+        template<std::input_iterator InputIter>
+        constexpr auto assign_iter(InputIter first, InputIter last) noexcept
+            -> expected<void, std::pair<InputIter, Error>> {
+            assert(empty() && "assign_iter must be called on empty vector");
+            for (; first != last; ++first) {
+                if (auto res = emplace_back(*first); !res) {
+                    return make_unexpected(std::make_pair(first, std::move(res).error()));
+                }
+            }
+            return {};
         }
 
+      private:
         constexpr auto make_space_at(const_iterator pos, usize count) noexcept
-            -> expected<iterator, InsertError> {
+            -> expected<iterator, Error> {
             check_(pos >= begin() && pos <= end(), "iterator does not belong to the container");
 
             auto [beg, end, end_cap] = get_storage();
@@ -377,9 +370,7 @@ namespace detail {
             auto pos_i = std::distance(cbegin(), pos);
 
             if (size + count > capacity) {
-                if (auto err = grow(size + count)) {
-                    return make_unexpected(InsertError {*std::move(err), 0});
-                }
+                TryV(grow(size + count));
                 auto [nbeg, nend, nend_cap] = get_storage();
                 std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
             }
@@ -390,66 +381,53 @@ namespace detail {
             return begin() + pos_i;
         }
 
-        template<std::input_iterator InputIter>
-        constexpr auto assign_iter(InputIter first, InputIter last)
-            -> expected<SizeT, InsertError> {
-            clear();
-
+        constexpr auto assign_range(std::input_iterator auto first, usize count) noexcept
+            -> expected<void, Error> {
             auto [begin, _, end_cap] = get_storage();
             usize capacity = end_cap - begin;
-            usize new_len = 0;
 
-            while (new_len <= capacity && first != last) {
-                std::construct_at(begin, *first);
-                begin++;
-                first++;
-                new_len++;
+            if (count > capacity) {
+                TryV(grow(count));
+
+                auto [nbeg, nend, nend_cap] = get_storage();
+                std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
+                capacity = end_cap - begin;
             }
-            set_len(new_len);
 
-            if (first != last) {
-                return make_unexpected(InsertError {
-                    .err = Error::BufferFull,
-                    .num_inserted = static_cast<SizeT>(capacity)});
-            }
-            return new_len;
-        }
-
-        constexpr auto assign_elems(std::input_iterator auto first, usize count)
-            -> expected<SizeT, InsertError> {
-            clear();
-
-            auto [begin, _, end_cap] = get_storage();
-            usize capacity = end_cap - begin;
             auto new_len = std::min(count, capacity);
 
+            clear();
             uninitialized_copy_n(first, new_len, begin);
             set_len(new_len);
 
-            if (new_len != count) {
-                return make_unexpected(InsertError {
-                    .err = Error::BufferFull,
-                    .num_inserted = static_cast<SizeT>(capacity)});
+            if (new_len != count) [[unlikely]] {
+                return make_unexpected(Error::BufferFull);
             }
-            return new_len;
+            return {};
         }
 
-        constexpr auto assign_fill(SizeT count, const T& value) -> expected<SizeT, InsertError> {
-            clear();
-
+        constexpr auto assign_fill(SizeT count, const T& value) -> expected<void, Error> {
             auto [begin, _, end_cap] = get_storage();
             usize capacity = end_cap - begin;
+
+            if (count > capacity) {
+                TryV(grow(count));
+
+                auto [nbeg, nend, nend_cap] = get_storage();
+                std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
+                capacity = end_cap - begin;
+            }
+
             auto new_len = std::min<usize>(capacity, count);
 
+            clear();
             uninitialized_fill_n(begin, new_len, value);
             set_len(new_len);
 
             if (new_len != count) [[unlikely]] {
-                return make_unexpected(InsertError {
-                    .err = Error::BufferFull,
-                    .num_inserted = static_cast<SizeT>(capacity)});
+                return make_unexpected(Error::BufferFull);
             }
-            return count;
+            return {};
         }
 
         template<typename FillValueGetter>
@@ -460,9 +438,7 @@ namespace detail {
             auto capacity = end_cap - begin;
 
             if (new_len > capacity) {
-                if (auto res = grow(new_len)) {
-                    return make_unexpected(*std::move(res));
-                }
+                TryV(grow(new_len));
                 auto [nbegin, nend, nend_cap] = get_storage();
                 std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
             }
@@ -495,7 +471,7 @@ namespace detail {
             return res;
         }
 
-        constexpr auto grow(usize req_len) noexcept -> std::optional<Error> {
+        constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
             static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
             return static_cast<VectorT*>(this)->grow(req_len);
         }
