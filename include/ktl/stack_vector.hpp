@@ -120,17 +120,39 @@ class stack_vector:
     friend constexpr auto make_stack_vector(U&& first_val, OT&&... other_vals) noexcept
         -> stack_vector<std::common_type_t<U, OT...>, VCapacity>;
 
+    using base::assign;
+
+    template<std::random_access_iterator RandAccIt>
+    constexpr auto assign(RandAccIt first, RandAccIt last) noexcept -> expected<void, Error> {
+        return base::assign(first, last);
+    }
+
+    template<std::input_iterator InputIter>
+    constexpr auto assign(InputIter first, InputIter last) noexcept
+        -> expected<void, std::pair<InputIter, Error>> {
+        if (this->empty()) {
+            TryV(this->assign_iter(first, last));
+        } else {
+            stack_vector tmp;
+
+            TryV(tmp.assign_iter(first, last));
+            *this = std::move(tmp);
+        }
+
+        return {};
+    }
+
     using base::insert;
 
     template<std::random_access_iterator RandAccIt>
     constexpr auto insert(typename base::const_iterator pos, RandAccIt first, RandAccIt last)
-        -> expected<typename base::iterator, typename base::InsertError> {
+        -> expected<typename base::iterator, Error> {
         return base::insert(pos, first, last);
     }
 
     template<std::input_iterator InputIt>
     constexpr auto insert(typename base::const_iterator pos, InputIt first, InputIt last)
-        -> expected<typename base::iterator, typename base::InsertError> {
+        -> expected<typename base::iterator, Error> {
         if (pos == base::end()) {
             return base::insert_at_end(first, last);
         }
@@ -144,7 +166,7 @@ class stack_vector:
             return res;
         }
         // If, all rows were not inserted into the `tmp` vector, error must be returned.
-        return make_unexpected(std::move(tmp_res).error());
+        return make_unexpected(std::move(tmp_res).error().second);
     }
 
   private:
@@ -174,9 +196,9 @@ class stack_vector:
         return {.begin = data, .end = data + m_len, .end_cap = data + Capacity};
     }
 
-    constexpr auto grow(usize req_len) noexcept -> std::optional<Error> {
+    constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
         if (req_len > Capacity) [[unlikely]] {
-            return Error::BufferFull;
+            return make_unexpected(Error::BufferFull);
         }
         return {};
     }

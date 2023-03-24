@@ -78,15 +78,22 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
 
     using base::insert;
 
+    template<std::input_iterator InputIter>
+    constexpr auto clear_and_assign(InputIter first, InputIter last) noexcept
+        -> expected<void, std::pair<InputIter, Error>> {
+        this->clear();
+        return this->assign_iter(first, last);
+    }
+
     template<std::random_access_iterator RandAccIt>
     constexpr auto insert(typename base::const_iterator pos, RandAccIt first, RandAccIt last)
-        -> expected<typename base::iterator, typename base::InsertError> {
+        -> expected<typename base::iterator, Error> {
         return base::insert(pos, first, last);
     }
 
     template<std::input_iterator InputIt>
     constexpr auto insert(typename base::const_iterator pos, InputIt first, InputIt last)
-        -> expected<typename base::iterator, typename base::InsertError> {
+        -> expected<typename base::iterator, Error> {
         if (pos == base::end()) {
             return base::insert_at_end(first, last);
         }
@@ -114,9 +121,9 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
         return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
     }
 
-    constexpr auto grow(usize req_len) noexcept -> std::optional<Error> {
+    constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
         if (req_len > m_capacity) [[unlikely]] {
-            return Error::BufferFull;
+            return make_unexpected(Error::BufferFull);
         }
         return {};
     }

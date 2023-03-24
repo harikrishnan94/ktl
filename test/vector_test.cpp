@@ -232,6 +232,48 @@ static void svector_assign_test() {
         static_assert(vec.size() == 2, "count must match after assign");
         static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
     }
+
+    // Tests for post conditions of a failed assign operation
+    {
+        constexpr auto vec = [] {
+            auto vec = make_stack_vector(1, 2, 3);
+            const auto ovec = make_stack_vector(3, 2, 1, 0);
+            InputIterator begin {ovec.begin()};
+            InputIterator end {ovec.end()};
+
+            auto res = vec.assign(begin, end);
+            check_(res.error().second == Error::BufferFull, "large assign must fail");
+
+            return vec;
+        }();
+
+        static_assert(vec.size() == 3, "count must not change after assign failure");
+        static_assert(vec[0] == 1 && vec[1] == 2 && vec[2] == 3, "values must match after assign");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_stack_vector(1, 2, 3);
+            auto res = vec.assign(4, 1);
+            check_(res.error() == Error::BufferFull, "large assign must fail");
+
+            return vec;
+        }();
+
+        static_assert(vec.size() == 3, "count must not change after assign failure");
+        static_assert(vec[0] == 1 && vec[1] == 2 && vec[2] == 3, "values must match after assign");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_stack_vector(1, 2, 3);
+            auto res = vec.assign({1, 2, 3, 4});
+            check_(res.error() == Error::BufferFull, "large assign must fail");
+
+            return vec;
+        }();
+
+        static_assert(vec.size() == 3, "count must not change after assign failure");
+        static_assert(vec[0] == 1 && vec[1] == 2 && vec[2] == 3, "values must match after assign");
+    }
 }
 
 // NOLINTBEGIN(*-magic-numbers)
@@ -302,6 +344,30 @@ static void svector_insert_test() {
             vec[0] == int_t {4} && vec[1] == int_t {5} && vec[2] == int_t {1} && vec[3] == int_t {2}
                 && vec[4] == int_t {3},
             "values must match after insert");
+    }
+
+    // Tests for post conditions of a failed insert operation
+    {
+        constexpr auto vec = [] {
+            auto vec = make_stack_vector(1, 2, 3);
+            auto res = vec.insert(vec.begin(), {3, 2});
+            check_(!res, "insert must fail");
+            return vec;
+        }();
+
+        static_assert(vec.size() == 3, "count must not change after failed insert");
+        static_assert(vec[0] == 1 && vec[1] == 2 && vec[2] == 3, "values must match after insert");
+    }
+    {
+        constexpr auto vec = [] {
+            auto vec = make_stack_vector(1, 2, 3);
+            auto res = vec.insert(vec.end(), 4);
+            check_(!res, "insert must not succeed");
+            return vec;
+        }();
+
+        static_assert(vec.size() == 3, "count must not change after failed insert");
+        static_assert(vec[0] == 1 && vec[1] == 2 && vec[2] == 3, "values must match after insert");
     }
 }
 // NOLINTEND(*-magic-numbers)
@@ -385,6 +451,12 @@ static void fvector_test() {
         erase_if(vec, [](auto e) { return e < 3; });
         check_(vec.size() == 1, "");
         check_(vec[0] == 3, "");
+
+        {
+            const std::array arr = {1};
+            vec.clear_and_assign(InputIterator {arr.begin()}, InputIterator {arr.end()});
+            check_(vec[0] == 1, "");
+        }
 
         return vec.size();
     }();
