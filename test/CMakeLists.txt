@@ -4,15 +4,17 @@ target_compile_definitions(platform PRIVATE -DENTRYPOINT=${ENTRYPOINT})
 target_link_libraries(platform PUBLIC ktl)
 target_link_options(platform PUBLIC -e ${ENTRYPOINT})
 
-# Tests - All tests must link against `platform`
-add_executable(format_test format_test.cpp)
-target_link_libraries(format_test PRIVATE platform)
+include(CTest)
 
-add_executable(string_view_test string_view_test.cpp)
-target_link_libraries(string_view_test PRIVATE platform)
+function(define_test name)
+    add_executable(${name} ${name}.cpp)
 
-add_executable(vector_test vector_test.cpp)
-target_link_libraries(vector_test PRIVATE platform)
+    # Tests - All tests must link against `platform`
+    target_link_libraries(${name} PRIVATE platform)
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
 
-add_executable(bitops_test bitops_test.cpp)
-target_link_libraries(bitops_test PRIVATE platform)
+define_test(format_test)
+define_test(string_view_test)
+define_test(vector_test)
+define_test(bitops_test)

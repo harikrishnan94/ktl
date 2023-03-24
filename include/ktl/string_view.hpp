@@ -152,7 +152,7 @@ class basic_string_view {
     [[nodiscard]] constexpr inline auto at(size_type pos) const noexcept
         -> expected<std::reference_wrapper<const value_type>, Error> {
         if (pos >= size()) {
-            return make_unexpected(Error::IndexOutOfBounds);
+            Throw(Error::IndexOutOfBounds);
         }
         return m_data[pos];
     }
@@ -194,7 +194,7 @@ class basic_string_view {
     inline constexpr auto copy(CharT* s, size_type n, size_type pos = 0) const noexcept
         -> expected<size_type, Error> {
         if (pos > size()) {
-            return make_unexpected(Error::IndexOutOfBounds);
+            Throw(Error::IndexOutOfBounds);
         }
         size_type rlen = std::min(n, size() - pos);
         Traits::copy(s, data() + pos, rlen);
@@ -204,7 +204,7 @@ class basic_string_view {
     [[nodiscard]] constexpr inline auto substr(size_type pos = 0, size_type n = npos) const noexcept
         -> expected<basic_string_view, Error> {
         if (pos > size()) {
-            return make_unexpected(Error::IndexOutOfBounds);
+            Throw(Error::IndexOutOfBounds);
         }
 
         return basic_string_view {data() + pos, std::min(n, size() - pos)};
@@ -221,13 +221,16 @@ class basic_string_view {
     [[nodiscard]] constexpr inline auto
     compare(size_type pos1, size_type n1, basic_string_view sv) const noexcept
         -> expected<int, Error> {
-        return Try(substr(pos1, n1)).compare(sv);
+        Try(ss, substr(pos1, n1));
+        return ss.compare(sv);
     }
 
     [[nodiscard]] constexpr inline auto
     compare(size_type pos1, size_type n1, basic_string_view sv, size_type pos2, size_type n2)
         const noexcept -> expected<int, Error> {
-        return Try(substr(pos1, n1)).compare(Try(sv.substr(pos2, n2)));
+        Try(ss1, substr(pos1, n1));
+        Try(ss2, sv.substr(pos2, n2));
+        return ss1.compare(ss2);
     }
 
     constexpr inline auto compare(const CharT* s) const noexcept -> int {
@@ -236,13 +239,15 @@ class basic_string_view {
 
     constexpr inline auto compare(size_type pos1, size_type n1, const CharT* s) const noexcept
         -> expected<int, Error> {
-        return Try(substr(pos1, n1)).compare(s);
+        Try(ss, substr(pos1, n1));
+        return ss.compare(s);
     }
 
     constexpr inline auto
     compare(size_type pos1, size_type n1, const CharT* s, size_type n2) const noexcept
         -> expected<int, Error> {
-        return Try(substr(pos1, n1)).compare(s, n2);
+        Try(ss, substr(pos1, n1));
+        return ss.compare(s, n2);
     }
 
     // find

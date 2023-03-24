@@ -18,5 +18,6 @@ add_subdirectory(src)
 option(KTL_ENABLE_TESTS "Enable KTL tests" OFF)
 
 if(KTL_ENABLE_TESTS)
+    enable_testing()
     add_subdirectory(test)
 endif()

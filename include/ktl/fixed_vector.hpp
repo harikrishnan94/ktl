@@ -107,7 +107,7 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
             return res;
         }
         // If, all rows were not inserted into the `tmp` vector, error must be returned.
-        return make_unexpected(std::move(tmp_res).error());
+        Rethrow(tmp_res);
     }
 
   private:
@@ -123,7 +123,7 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
 
     constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
         if (req_len > m_capacity) [[unlikely]] {
-            return make_unexpected(Error::BufferFull);
+            Throw(Error::BufferFull);
         }
         return {};
     }
