@@ -100,6 +100,9 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
         }
         return {};
     }
+    constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
+        return grow(req_len);
+    }
 
     constexpr auto set_len(size_type new_len) noexcept {
         assert(new_len <= m_capacity && "length cannot exceed capacity");

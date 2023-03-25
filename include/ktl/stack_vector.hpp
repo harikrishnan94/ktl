@@ -202,6 +202,9 @@ class stack_vector:
         }
         return {};
     }
+    constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
+        return grow(req_len);
+    }
 
     constexpr auto set_len(size_type new_len) noexcept {
         assert(new_len <= Capacity && "length cannot exceed capacity");
