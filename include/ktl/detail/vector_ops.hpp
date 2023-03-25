@@ -69,6 +69,7 @@ namespace detail {
                               // Grow must ensure capacity for atleast 'req_len' (1st parameter)
                               // elements.
                               { vec.grow(req_len) } -> std::same_as<expected<void, Error>>;
+                              { vec.grow_uninit(req_len) } -> std::same_as<expected<void, Error>>;
 
                               { vec.set_len(new_len) };
                           };
@@ -387,22 +388,19 @@ namespace detail {
             usize capacity = end_cap - begin;
 
             if (count > capacity) {
-                TryV(grow(count));
+                TryV(grow_uninit(count));
+                // Vector is cleared and contains enough space to construct count elements
 
                 auto [nbeg, nend, nend_cap] = get_storage();
                 std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
                 capacity = end_cap - begin;
             }
 
-            auto new_len = std::min(count, capacity);
+            assert(capacity >= count);
 
-            clear();
-            uninitialized_copy_n(first, new_len, begin);
-            set_len(new_len);
+            uninitialized_copy_n(first, count, begin);
+            set_len(count);
 
-            if (new_len != count) [[unlikely]] {
-                Throw(Error::BufferFull);
-            }
             return {};
         }
 
@@ -411,22 +409,19 @@ namespace detail {
             usize capacity = end_cap - begin;
 
             if (count > capacity) {
-                TryV(grow(count));
+                TryV(grow_uninit(count));
+                // Vector is cleared and contains enough space to construct count elements
 
                 auto [nbeg, nend, nend_cap] = get_storage();
                 std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
                 capacity = end_cap - begin;
             }
 
-            auto new_len = std::min<usize>(capacity, count);
+            assert(capacity >= count);
 
-            clear();
-            uninitialized_fill_n(begin, new_len, value);
-            set_len(new_len);
+            uninitialized_fill_n(begin, count, value);
+            set_len(count);
 
-            if (new_len != count) [[unlikely]] {
-                Throw(Error::BufferFull);
-            }
             return {};
         }
 
@@ -474,6 +469,11 @@ namespace detail {
         constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
             static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
             return static_cast<VectorT*>(this)->grow(req_len);
+        }
+
+        constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
+            static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
+            return static_cast<VectorT*>(this)->grow_uninit(req_len);
         }
 
         constexpr void set_len(SizeT new_len) noexcept {
