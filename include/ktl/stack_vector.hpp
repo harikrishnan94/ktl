@@ -6,6 +6,10 @@
 #include "detail/vector_ops.hpp"
 
 namespace ktl {
+template<typename T, std::integral Size>
+    requires(!std::is_const_v<T>)
+class fixed_vector;
+
 template<typename T, auto Capacity>
     requires std::integral<std::decay_t<decltype(Capacity)>>
 class stack_vector:
@@ -82,14 +86,6 @@ class stack_vector:
         a.swap(b);
     }
 
-    constexpr explicit stack_vector(size_type count, const T& value) noexcept : m_len {count} {
-        detail::uninitialized_fill_n(get_storage().begin, count, value);
-    }
-
-    constexpr explicit stack_vector(size_type count) noexcept : m_len {count} {
-        std::uninitialized_default_construct_n(get_storage().begin, count);
-    }
-
     constexpr auto max_size() const noexcept -> size_type {
         return Capacity;
     }
@@ -110,6 +106,11 @@ class stack_vector:
 
         using std::swap;
         swap(m_len, o.m_len);
+    }
+
+    // NOLINTNEXTLINE(*-explicit-conversions)
+    constexpr operator fixed_vector<value_type, size_type>() noexcept {
+        return fixed_vector {this->data(), this->capacity(), this->size()};
     }
 
     template<typename U, typename... OT>

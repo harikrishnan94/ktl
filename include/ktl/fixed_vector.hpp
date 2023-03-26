@@ -7,6 +7,10 @@
 #include "detail/vector_ops.hpp"
 
 namespace ktl {
+template<typename T, auto Capacity>
+    requires std::integral<std::decay_t<decltype(Capacity)>>
+class stack_vector;
+
 template<typename T, std::integral Size>
     requires(!std::is_const_v<T>)
 class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
@@ -35,37 +39,48 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
     constexpr auto operator=(const fixed_vector&) -> fixed_vector& = default;
     constexpr auto operator=(fixed_vector&& o) noexcept -> fixed_vector& = default;
 
-    // Initialize as fixed_vector vec {ptr, {.capacity = CAP, .length = LEN}};
-    constexpr explicit fixed_vector(pointer base, size_type capacity, size_type len = 0) noexcept :
+    // NOLINTNEXTLINE(*-easily-swappable-parameters)
+    constexpr fixed_vector(pointer base, size_type capacity, size_type len = 0) noexcept :
         m_data {base},
         m_capacity {capacity},
         m_len {len} {}
 
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
-    constexpr explicit fixed_vector(std::array<T, Capacity>& arr, Size len = 0) noexcept :
+                     && (std::numeric_limits<size_type>::max() >= Capacity)
+    // NOLINTNEXTLINE(*-explicit-conversions)
+    constexpr fixed_vector(std::array<T, Capacity>& arr, Size len = Capacity) noexcept :
         m_data {arr.data()},
         m_capacity {Capacity},
         m_len {static_cast<size_type>(len)} {}
+
+    template<auto Capacity>
+        requires std::integral<std::decay_t<decltype(Capacity)>>
+    // NOLINTNEXTLINE(*-explicit-conversions)
+    constexpr fixed_vector(stack_vector<T, Capacity>& vec) noexcept :
+        m_data {vec.data()},
+        m_capacity {vec.capacity()},
+        m_len {vec.size()} {}
 
     constexpr auto max_size() const noexcept -> size_type {
         return m_capacity;
     }
 
-    constexpr auto deep_swap(fixed_vector& o) noexcept -> std::optional<Error> {
+    constexpr auto deep_swap(fixed_vector& o) noexcept -> expected<void, Error> {
         if (m_len > o.m_capacity || o.m_len > m_capacity)
-            return Error::BufferFull;
+            Throw(Error::BufferFull);
 
         if (m_len > o.m_len) {
             std::swap_ranges(m_data, m_data + o.m_len, o.m_data);
-            detail::uninitialized_move_n(m_data + o.m_len, m_len - o.m_len, o.m_data);
+            detail::uninitialized_move_n(m_data + o.m_len, m_len - o.m_len, o.m_data + o.m_len);
         } else {
             std::swap_ranges(m_data, m_data + m_len, o.m_data);
-            detail::uninitialized_move_n(o.m_data + m_len, o.m_len - m_len, m_data);
+            detail::uninitialized_move_n(o.m_data + m_len, o.m_len - m_len, m_data + m_len);
         }
 
         using std::swap;
         swap(m_len, o.m_len);
+        return {};
     }
 
     constexpr void destroy() noexcept {
@@ -115,7 +130,13 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
 };
 
 template<typename T, auto Capacity>
+fixed_vector(std::array<T, Capacity>&) -> fixed_vector<T, detail::size_t<Capacity>>;
+
+template<typename T, auto Capacity>
 fixed_vector(std::array<T, Capacity>&, usize) -> fixed_vector<T, detail::size_t<Capacity>>;
+
+template<typename T, auto Capacity>
+fixed_vector(stack_vector<T, Capacity>&) -> fixed_vector<T, detail::size_t<Capacity>>;
 
 template<typename T, typename SizeT>
 fixed_vector(T* ptr, SizeT) -> fixed_vector<T, SizeT>;
@@ -123,3 +144,11 @@ fixed_vector(T* ptr, SizeT) -> fixed_vector<T, SizeT>;
 template<typename T, typename SizeT>
 fixed_vector(T* ptr, SizeT, SizeT) -> fixed_vector<T, SizeT>;
 }  // namespace ktl
+
+namespace std {
+template<typename T, std::integral Capacity>
+inline constexpr bool ranges::enable_borrowed_range<ktl::fixed_vector<T, Capacity>> = true;
+
+template<typename ElementType, std::integral Capacity>
+inline constexpr bool ranges::enable_view<ktl::fixed_vector<ElementType, Capacity>> = true;
+}  // namespace std
