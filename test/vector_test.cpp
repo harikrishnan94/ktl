@@ -1,4 +1,5 @@
 #include <ktl/fixed_vector.hpp>
+#include <ktl/span.hpp>
 #include <ktl/stack_vector.hpp>
 
 using namespace ktl;
@@ -429,7 +430,14 @@ void svector_erase_test() {
 
 static void fvector_test() {
     // sanity test
+
     static constinit auto _ = [] {
+        {
+            std::array<int, 4> storage {};
+            fixed_vector vec = storage;
+            check_(vec.max_size() == storage.size(), "max_size must equal to array's size");
+        }
+
         std::array<int, 4> storage;  // NOLINT(*-member-init)
         fixed_vector vec {storage, 0};
 
@@ -458,12 +466,46 @@ static void fvector_test() {
             check_(vec[0] == 1, "");
         }
 
+        // Cast operators
+        {
+            auto svec = make_stack_vector(0);
+            fixed_vector vec = svec;
+            span s1 = vec;
+            span s2 = svec;
+        }
+
+        // Swap
+        {
+            std::array arr1 = {1, 2};
+            std::array arr2 = {3, 4, 0};
+            fixed_vector vec1 {arr1, 2};
+            fixed_vector vec2 {arr2, 3};
+
+            auto res = vec1.deep_swap(vec2);
+            check_(
+                res.error() == Error::BufferFull,
+                "deep_copy must fail when capacity doesn't match");
+
+            check_(vec2[0] == 3 && vec2[1] == 4 && vec2[2] == 0, "deep_swap failure");
+            check_(vec1[0] == 1 && vec1[1] == 2, "deep_swap failure");
+        }
+        {
+            std::array arr1 = {1, 2, 4};
+            std::array arr2 = {3, 4, 0};
+            fixed_vector vec1 {arr1, 2};
+            fixed_vector vec2 {arr2, 3};
+
+            vec1.deep_swap(vec2);
+
+            check_(vec1[0] == 3 && vec1[1] == 4 && vec1[2] == 0, "deep_swap failure");
+            check_(vec2[0] == 1 && vec2[1] == 2, "deep_swap failure");
+
+            vec1.deep_swap(vec2);
+            check_(vec1[0] == 1 && vec1[1] == 2, "deep_swap failure");
+            check_(vec2[0] == 3 && vec2[1] == 4 && vec2[2] == 0, "deep_swap failure");
+        }
         return vec.size();
     }();
-
-    std::array<int, 4> storage {};
-    fixed_vector vec {storage.data(), storage.size()};
-    check_(vec.max_size() == storage.size(), "max_size must equal to array's size");
 }
 
 auto main() -> int {

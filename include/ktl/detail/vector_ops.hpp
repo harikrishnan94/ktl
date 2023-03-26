@@ -52,12 +52,12 @@ namespace detail {
     }
 
     template<typename InputIterator, typename Size, typename ForwardIterator>
-    inline auto uninitialized_move_n(InputIterator first, Size n, ForwardIterator result)
-        -> std::pair<InputIterator, ForwardIterator> {
+    constexpr auto uninitialized_move_n(InputIterator first, Size n, ForwardIterator result)
+        -> ForwardIterator {
         if constexpr (std::is_trivial_v<std::iter_value_t<ForwardIterator>>) {
             return std::copy_n(first, n, result);
         } else {
-            return std::uninitialized_move_n(first, n, result);
+            return std::uninitialized_move_n(first, n, result).second;
         }
     }
 
