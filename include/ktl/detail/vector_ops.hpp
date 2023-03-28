@@ -8,6 +8,8 @@
 #include <ktl/expected.hpp>
 #include <ktl/int.hpp>
 
+#include "erase.hpp"
+
 namespace ktl {
 namespace detail {
     // Determine the size_type for the given capacity
@@ -81,8 +83,6 @@ namespace detail {
         using const_iterator = contiguous_iterator<const T>;
         using reverse_iterator = std::reverse_iterator<iterator>;
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-
-        static constexpr bool is_vector = true;
 
         // Element access and size
         constexpr auto data() noexcept -> T* {
@@ -259,6 +259,7 @@ namespace detail {
         }
 
         template<std::random_access_iterator RandAccIt>
+            requires std::convertible_to<std::iter_value_t<RandAccIt>, T>
         constexpr auto assign(RandAccIt first, RandAccIt last) noexcept -> expected<void, Error> {
             return assign_range(first, std::distance(first, last));
         }
@@ -288,6 +289,7 @@ namespace detail {
         }
 
         template<std::random_access_iterator RandAccIt>
+            requires std::convertible_to<std::iter_value_t<RandAccIt>, T>
         constexpr auto insert(const_iterator pos, RandAccIt first, RandAccIt last) noexcept
             -> expected<iterator, Error> {
             auto count = std::distance(first, last);
@@ -482,22 +484,4 @@ namespace detail {
         }
     };
 }  // namespace detail
-
-template<typename Vector, typename U>
-    requires(Vector::is_vector == true)
-constexpr auto erase(Vector& c, const U& value) -> typename Vector::size_type {
-    auto it = std::remove(c.begin(), c.end(), value);
-    auto r = std::distance(it, c.end());
-    c.erase(it, c.end());
-    return r;
-}
-
-template<typename Vector, typename Pred>
-    requires(Vector::is_vector == true)
-constexpr auto erase_if(Vector& c, Pred pred) -> typename Vector::size_type {
-    auto it = std::remove_if(c.begin(), c.end(), pred);
-    auto r = std::distance(it, c.end());
-    c.erase(it, c.end());
-    return r;
-}
 }  // namespace ktl

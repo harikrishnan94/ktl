@@ -124,11 +124,13 @@ class stack_vector:
     using base::assign;
 
     template<std::random_access_iterator RandAccIt>
+        requires std::convertible_to<std::iter_value_t<RandAccIt>, T>
     constexpr auto assign(RandAccIt first, RandAccIt last) noexcept -> expected<void, Error> {
         return base::assign(first, last);
     }
 
     template<std::input_iterator InputIter>
+        requires std::convertible_to<std::iter_value_t<InputIter>, T>
     constexpr auto assign(InputIter first, InputIter last) noexcept
         -> expected<void, std::pair<InputIter, Error>> {
         if (this->empty()) {
@@ -146,12 +148,14 @@ class stack_vector:
     using base::insert;
 
     template<std::random_access_iterator RandAccIt>
+        requires std::convertible_to<std::iter_value_t<RandAccIt>, T>
     constexpr auto insert(typename base::const_iterator pos, RandAccIt first, RandAccIt last)
         -> expected<typename base::iterator, Error> {
         return base::insert(pos, first, last);
     }
 
     template<std::input_iterator InputIt>
+        requires std::convertible_to<std::iter_value_t<InputIt>, T>
     constexpr auto insert(typename base::const_iterator pos, InputIt first, InputIt last)
         -> expected<typename base::iterator, Error> {
         if (pos == base::end()) {
