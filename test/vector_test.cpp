@@ -47,11 +47,12 @@ static void svector_test() {
     }
 
     // Push back
-    {
+    static constinit auto push_back = [] {
         stack_vector<int, 1> vec;
         check_(vec.push_back(1).has_value(), "push_back must succeed");
         check_(!vec.push_back(2).has_value(), "push_back must fail");
-    }
+        return vec.empty();
+    }();
 
     // Move/Copy count
     {
@@ -126,27 +127,33 @@ static void svector_test() {
     }
 
     // Pop back
-    {
+    static constinit auto pop_back = [] {
         auto vec = make_stack_vector(1);
         vec.pop_back();
         check_(vec.empty(), "must be empty after pop_back");
-    }
+
+        return vec.empty();
+    }();
 
     // Clear
-    {
+    static constinit auto clear = [] {
         auto vec = make_stack_vector(1, 2, 3);
         vec.clear();
         check_(vec.empty(), "must be empty after clear");
-    }
+
+        return vec.empty();
+    }();
 
     // Resize
-    {
+    static constinit auto resize = [] {
         auto vec = make_stack_vector(1, 2, 3);
         check_(vec.resize(1), "resize must succeed");
         check_(vec.resize(2, 2), "resize must succeed");
         check_(vec[1] == 2, "must contain `filled_value` after resize");
         check_(!vec.resize(4), "resize over capacity must fail");
-    }
+
+        return vec.empty();
+    }();
 
     svector_assign_test();
     svector_insert_test();
