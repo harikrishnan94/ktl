@@ -1,5 +1,5 @@
 #include <ktl/fixed_string.hpp>
-#include <ktl/stack_string.hpp>
+#include <ktl/static_string.hpp>
 #include <ktl/string_view.hpp>
 
 #include "input_iterator.hpp"
@@ -19,24 +19,24 @@ static void sstring_operators_test();
 static void fstring_test();
 
 static void sstring_test() {
-    static_assert(sizeof(stack_string<3>) == sizeof(char) * 4);
+    static_assert(sizeof(static_string<3>) == sizeof(char) * 4);
 
     static_assert(std::conjunction_v<
-                  std::is_trivially_destructible<stack_string<3>>,
-                  std::is_trivially_copy_constructible<stack_string<3>>,
-                  std::is_trivially_copy_assignable<stack_string<3>>,
-                  std::is_trivially_move_constructible<stack_string<3>>,
-                  std::is_trivially_move_assignable<stack_string<3>>>);
+                  std::is_trivially_destructible<static_string<3>>,
+                  std::is_trivially_copy_constructible<static_string<3>>,
+                  std::is_trivially_copy_assignable<static_string<3>>,
+                  std::is_trivially_move_constructible<static_string<3>>,
+                  std::is_trivially_move_assignable<static_string<3>>>);
 
-    static_assert(make_stack_string("012").size() == 3);
-    static_assert(make_stack_string<4>("abc").size() == 3);
-    static_assert(make_stack_string<4>("abc").capacity() == 4);
-    static_assert(make_stack_string<4>("abc")[0] == 'a');
+    static_assert(make_static_string("012").size() == 3);
+    static_assert(make_static_string<4>("abc").size() == 3);
+    static_assert(make_static_string<4>("abc").capacity() == 4);
+    static_assert(make_static_string<4>("abc")[0] == 'a');
 
     // Size and element access
     {
         constexpr auto str = [] {
-            stack_string<3> str;
+            static_string<3> str;
             check_(str.push_back('a'), "push_back failed");
             check_(str.push_back('b'), "push_back failed");
             return str;
@@ -53,7 +53,7 @@ static void sstring_test() {
 
     // Push back
     static constinit auto push_back = [] {
-        stack_string<2> str;
+        static_string<2> str;
         check_(str.push_back('a').has_value(), "push_back must succeed");
         check_(!str.push_back('b').has_value(), "push_back must fail");
         return str.size();
@@ -61,7 +61,7 @@ static void sstring_test() {
 
     // Pop back
     static constinit auto pop_back = [] {
-        auto str = make_stack_string("12");
+        auto str = make_static_string("12");
         str.pop_back();
         check_(str.back() == '1', "pop_back must remove last char");
         str.pop_back();
@@ -71,7 +71,7 @@ static void sstring_test() {
 
     // clear
     static constinit auto clear = [] {
-        auto str = make_stack_string("str");
+        auto str = make_static_string("str");
         str.clear();
         check_(str.empty(), "must be empty after clear");
         return str.size();
@@ -79,7 +79,7 @@ static void sstring_test() {
 
     // Resize
     static constinit auto resize = [] {
-        auto str = make_stack_string("hello");
+        auto str = make_static_string("hello");
         check_(str.resize(1), "resize must succeed");
         check_(str.resize(2, 'x'), "resize must succeed");
         check_(str.front() == 'h', "must contain `filled_value` after resize");
@@ -103,7 +103,7 @@ static void sstring_test() {
 
 void sstring_assign_test() {
     static constinit auto cstr = [] {
-        stack_string<4> str;
+        static_string<4> str;
 
         check_(str.assign("123"), "assigning len elements must pass");
         check_(str.front() == '1', "");
@@ -121,7 +121,7 @@ void sstring_assign_test() {
     }();
 
     static constinit auto fill = [] {
-        stack_string<4> str;
+        static_string<4> str;
 
         check_(str.assign(2, 'x'), "assigning len elements must pass");
         check_(str.front() == 'x', "");
@@ -136,10 +136,10 @@ void sstring_assign_test() {
     }();
 
     static constinit auto other_str = [] {
-        stack_string<4> str;
-        auto str2 = make_stack_string("hel");
+        static_string<4> str;
+        auto str2 = make_static_string("hel");
 
-        check_(!str.assign(make_stack_string("helo")), "assigning larger string must fail");
+        check_(!str.assign(make_static_string("helo")), "assigning larger string must fail");
         check_(str.empty(), "failed assign must not modify str");
         check_(str.assign(str2), "assigning valid string must pass");
         check_(str == "hel", "");
@@ -148,8 +148,8 @@ void sstring_assign_test() {
     }();
 
     static constinit auto other_substr = [] {
-        stack_string<4> str;
-        auto str2 = make_stack_string("hel");
+        static_string<4> str;
+        auto str2 = make_static_string("hel");
 
         check_(str.assign(str2, 1, 2), "assigning valid string must pass");
         check_(str == "el", "");
@@ -161,8 +161,8 @@ void sstring_assign_test() {
     }();
 
     static constinit auto input_it = [] {
-        stack_string<4> str;
-        auto str2 = make_stack_string("hel");
+        static_string<4> str;
+        auto str2 = make_static_string("hel");
 
         check_(
             str.assign(InputIterator {str2.begin()}, InputIterator {str2.end()}),
@@ -172,7 +172,7 @@ void sstring_assign_test() {
         check_(str.assign(str2.begin(), str2.end()), "assigning valid string must pass");
         check_(str == "hel", "");
 
-        auto str3 = make_stack_string("large string");
+        auto str3 = make_static_string("large string");
         check_(
             !str.assign(InputIterator {str3.begin()}, InputIterator {str3.end()}),
             "assigning large string must fail");
@@ -182,7 +182,7 @@ void sstring_assign_test() {
     }();
 
     static constinit auto ilist = [] {
-        stack_string<4> str;
+        static_string<4> str;
 
         check_(str.assign({'h', 'e', 'l'}), "assigning valid ilist must pass");
         check_(str == "hel", "");
@@ -191,7 +191,7 @@ void sstring_assign_test() {
     }();
 
     static constinit auto view = [] {
-        stack_string<4> str;
+        static_string<4> str;
 
         check_(str.assign("hel"_sv), "assigning valid string_view must pass");
         check_(str == "hel", "");
@@ -203,8 +203,8 @@ void sstring_assign_test() {
     }();
 
     static constinit auto str = [] {
-        stack_string<4> str;
-        auto str2 = make_stack_string("hel");
+        static_string<4> str;
+        auto str2 = make_static_string("hel");
 
         check_(str.assign(str2, 0), "assigning valid string_view must pass");
         check_(str == basic_string_view {str2}, "");
@@ -218,7 +218,7 @@ void sstring_assign_test() {
 
 void sstring_append_test() {
     static constinit auto cstr = [] {
-        stack_string<4> str;
+        static_string<4> str;
 
         check_(str.append("123"), "appending len elements must pass");
         check_(str == "123", "");
@@ -231,7 +231,7 @@ void sstring_append_test() {
     }();
 
     static constinit auto fill = [] {
-        stack_string<4> str;
+        static_string<4> str;
 
         check_(str.append(2, 'x'), "appending len elements must pass");
         check_(str == "xx", "");
@@ -244,10 +244,10 @@ void sstring_append_test() {
     }();
 
     static constinit auto other_str = [] {
-        stack_string<4> str;
-        auto str2 = make_stack_string("hel");
+        static_string<4> str;
+        auto str2 = make_static_string("hel");
 
-        check_(!str.append(make_stack_string("helo")), "appending larger string must fail");
+        check_(!str.append(make_static_string("helo")), "appending larger string must fail");
         check_(str.empty(), "failed append must not modify str");
         check_(str.append(str2), "appending valid string must pass");
         check_(str == "hel", "");
@@ -256,8 +256,8 @@ void sstring_append_test() {
     }();
 
     static constinit auto other_substr = [] {
-        stack_string<4> str;
-        auto str2 = make_stack_string("hel");
+        static_string<4> str;
+        auto str2 = make_static_string("hel");
 
         check_(str.append(str2, 1, 2), "appending valid string must pass");
         check_(str == "el", "");
@@ -269,8 +269,8 @@ void sstring_append_test() {
     }();
 
     static constinit auto input_it = [] {
-        stack_string<4> str;
-        auto str2 = make_stack_string("hel");
+        static_string<4> str;
+        auto str2 = make_static_string("hel");
 
         check_(
             str.append(InputIterator {str2.begin()}, InputIterator {str2.end()}),
@@ -284,7 +284,7 @@ void sstring_append_test() {
     }();
 
     static constinit auto ilist = [] {
-        stack_string<4> str;
+        static_string<4> str;
 
         check_(str.append({'h', 'e', 'l'}), "appending valid ilist must pass");
         check_(str == "hel", "");
@@ -293,7 +293,7 @@ void sstring_append_test() {
     }();
 
     static constinit auto view = [] {
-        stack_string<4> str;
+        static_string<4> str;
 
         check_(str.append("hel"_sv), "appending valid string_view must pass");
         check_(str == "hel", "");
@@ -308,7 +308,7 @@ void sstring_append_test() {
 void sstring_insert_test() {
     static constinit auto sanity_test = [] {
         constexpr auto FinalString = "Exemplar is an:== example string."_sv;
-        auto s = make_stack_string<FinalString.size() + 1>("xmplr");
+        auto s = make_static_string<FinalString.size() + 1>("xmplr");
 
         s.insert(0, 1, 'E');
         check_("Exmplr" == s, "");
@@ -316,10 +316,10 @@ void sstring_insert_test() {
         s.insert(2, "e");
         check_("Exemplr" == s, "");
 
-        s.insert(6, make_stack_string("a"));
+        s.insert(6, make_static_string("a"));
         check_("Exemplar" == s, "");
 
-        s.insert(8, make_stack_string(" is an example string."), 0, 14);
+        s.insert(8, make_static_string(" is an example string."), 0, 14);
         check_("Exemplar is an example" == s, "");
 
         s.insert(s.cbegin() + basic_string_view {s}.find_first_of('n') + 1, ':');
@@ -348,7 +348,7 @@ void sstring_insert_test() {
     }();
 
     static constinit auto fill = [] {
-        auto s = make_stack_string<4>("1");
+        auto s = make_static_string<4>("1");
 
         check_(s.insert(0, 2, '2'), "");
         check_(s == "221", "");
@@ -364,7 +364,7 @@ void sstring_insert_test() {
     }();
 
     static constinit auto cstr = [] {
-        auto s = make_stack_string<4>("1");
+        auto s = make_static_string<4>("1");
 
         check_(s.insert(0, "22", 2), "");
         check_(s == "221", "");
@@ -380,7 +380,7 @@ void sstring_insert_test() {
     }();
 
     static constinit auto input_it = [] {
-        auto s = make_stack_string<4>("1");
+        auto s = make_static_string<4>("1");
         auto sv = "22"_sv;
 
         check_(s.insert(s.end(), InputIterator {sv.begin()}, InputIterator {sv.end()}), "");
@@ -388,14 +388,14 @@ void sstring_insert_test() {
     }();
 
     static constinit auto ilist = [] {
-        auto s = make_stack_string<4>("1");
+        auto s = make_static_string<4>("1");
 
         check_(s.insert(s.end(), {'2', '2'}), "");
         return s.empty();
     }();
 
     static constinit auto sv = [] {
-        auto s = make_stack_string<4>("1");
+        auto s = make_static_string<4>("1");
         auto sv = "22"_sv;
 
         check_(s.insert(1, sv, 0), "");
@@ -420,14 +420,14 @@ void sstring_replace_test() {
             return replace_all(inout, what, "");
         };
 
-        auto str = make_stack_string("The quick brown fox jumps over the lazy dog.");
+        auto str = make_static_string("The quick brown fox jumps over the lazy dog.");
 
         check_(str.replace(str.begin() + 10, str.begin() + 15, "red"), "");  // (5)
         check_(str.replace(str.begin(), str.begin() + 3, 1, 'A'), "");  // (6)
         check_(str == "A quick red fox jumps over the lazy dog.", "");
 
         constexpr auto FinalString = "http: httphttp: http:"_sv;
-        auto str2 = make_stack_string<FinalString.size() + 1>("ftp: ftpftp: ftp:");
+        auto str2 = make_static_string<FinalString.size() + 1>("ftp: ftpftp: ftp:");
 
         auto count = replace_all(str2, "ftp", "http");
         check_(count == 4, "");
@@ -445,7 +445,7 @@ void sstring_replace_test() {
     }();
 
     static constinit auto ind_sv = [] {
-        auto str = make_stack_string<15>("100, {}, 300");
+        auto str = make_static_string<15>("100, {}, 300");
 
         check_(str.replace(str.begin() + 5, str.begin() + 7, "200"_sv), "");
         check_(str == "100, 200, 300", "");
@@ -460,7 +460,7 @@ void sstring_replace_test() {
     }();
 
     static constinit auto fill = [] {
-        auto str = make_stack_string<5>("1");
+        auto str = make_static_string<5>("1");
 
         check_(str.replace(0, 1, 2, '2'), "");
         check_(str == "22", "");
@@ -473,7 +473,7 @@ void sstring_replace_test() {
     }();
 
     static constinit auto ilist = [] {
-        auto str = make_stack_string<5>("1");
+        auto str = make_static_string<5>("1");
 
         check_(str.replace(str.begin(), str.end(), {'2', '2'}), "");
         check_(str == "22", "");
@@ -486,7 +486,7 @@ void sstring_replace_test() {
     }();
 
     static constinit auto ip_it = [] {
-        auto str = make_stack_string<4>("MI");
+        auto str = make_static_string<4>("MI");
         auto csk = "CSK"_sv;
 
         check_(
@@ -505,8 +505,8 @@ void sstring_replace_test() {
     }();
 
     static constinit auto str = [] {
-        auto str = make_stack_string<4>("MI");
-        auto csk = make_stack_string("CSK");
+        auto str = make_static_string<4>("MI");
+        auto csk = make_static_string("CSK");
 
         check_(str.replace(str.begin(), str.end(), csk), "");
         check_(str == csk, "");
@@ -518,7 +518,7 @@ void sstring_replace_test() {
     }();
 
     static constinit auto cstr = [] {
-        auto str = make_stack_string<4>("MI");
+        auto str = make_static_string<4>("MI");
         const auto* csk = "CSK";
 
         check_(str.replace(str.begin(), str.end(), csk), "");
@@ -533,7 +533,7 @@ void sstring_replace_test() {
 
 void sstring_erase_test() {
     static constinit auto _ = [] {
-        auto str = make_stack_string("11223");
+        auto str = make_static_string("11223");
 
         check_(erase(str, '3') == 1, "");
         check_(str == "1122", "");
@@ -549,12 +549,12 @@ void sstring_erase_test() {
 
 void sstring_substr_test() {
     static constinit auto _ = [] {
-        auto str = make_stack_string("12334");
+        auto str = make_static_string("12334");
         auto res = str.substr(0, 3);
 
         check_(res, "");
 
-        basic_stack_string ss {*res};
+        basic_static_string ss {*res};
         check_(ss == "123", "");
         check_(ss.substr(ss.size())->view().empty(), "");
         check_(!ss.substr(ss.size() + 1), "");
@@ -567,7 +567,7 @@ void sstring_substr_test() {
 
 void sstring_copy_test() {
     static constinit auto _ = [] {
-        auto str = make_stack_string("12334");
+        auto str = make_static_string("12334");
         std::array<char, 4> dest {};
 
         check_(str.copy(dest.data(), 2, 3), "");
@@ -579,8 +579,8 @@ void sstring_copy_test() {
 
 void sstring_compare_test() {
     static constinit auto _ = [] {
-        auto rajni = make_stack_string("Rajni");
-        auto kamal = make_stack_string("Kamal");
+        auto rajni = make_static_string("Rajni");
+        auto kamal = make_static_string("Kamal");
 
         check_(*rajni.compare(kamal) > 0, "");
         check_(*rajni.compare(1, 4, kamal) > 0, "");
@@ -599,7 +599,7 @@ void sstring_compare_test() {
 void sstring_find_test() {
     // starts_with
     {
-        constexpr auto str = make_stack_string("hello world");
+        constexpr auto str = make_static_string("hello world");
 
         static_assert(str.starts_with("hello"));
         static_assert(!str.starts_with("goodbye"));
@@ -609,7 +609,7 @@ void sstring_find_test() {
 
     // ends_with
     {
-        constexpr auto str = make_stack_string("hello world");
+        constexpr auto str = make_static_string("hello world");
 
         static_assert(str.ends_with("world"));
         static_assert(!str.ends_with("goodbye"));
@@ -619,7 +619,7 @@ void sstring_find_test() {
 
     // contains
     {
-        constexpr auto str = make_stack_string("hello world");
+        constexpr auto str = make_static_string("hello world");
 
         static_assert(str.contains("lo wor"));
         static_assert(!str.contains("goodbye"));
@@ -630,7 +630,7 @@ void sstring_find_test() {
     // find
     {
         // constexpr auto str {11_ss};
-        constexpr basic_stack_string str {" long long int;"};
+        constexpr basic_static_string str {" long long int;"};
 
         // NOLINTBEGIN
         static_assert(
@@ -644,70 +644,72 @@ void sstring_find_test() {
 
     // rfind
     {
-        constexpr auto N = stack_string<1>::npos;
+        constexpr auto N = static_string<1>::npos;
         // NOLINTBEGIN
         static_assert(
-            true && (6 == make_stack_string("AB AB AB").rfind("AB"_sv))
-            && (6 == make_stack_string("AB AB AB").rfind("ABCD", N, 2))
-            && (3 == make_stack_string("AB AB AB").rfind("AB", 5))
-            && (2 == make_stack_string("B AB AB ").rfind("AB", 2))
-            && (N == make_stack_string("B AB AB ").rfind("AB"_sv, 1))
-            && (5 == make_stack_string("B AB AB ").rfind('A'))
-            && (4 == make_stack_string("AB AB AB").rfind('B', 4))
-            && (N == make_stack_string("AB AB AB").rfind('C'))
-            && (N == make_stack_string("AB AB AB").rfind('C', 100)));
+            true && (6 == make_static_string("AB AB AB").rfind("AB"_sv))
+            && (6 == make_static_string("AB AB AB").rfind("ABCD", N, 2))
+            && (3 == make_static_string("AB AB AB").rfind("AB", 5))
+            && (2 == make_static_string("B AB AB ").rfind("AB", 2))
+            && (N == make_static_string("B AB AB ").rfind("AB"_sv, 1))
+            && (5 == make_static_string("B AB AB ").rfind('A'))
+            && (4 == make_static_string("AB AB AB").rfind('B', 4))
+            && (N == make_static_string("AB AB AB").rfind('C'))
+            && (N == make_static_string("AB AB AB").rfind('C', 100)));
         // NOLINTEND
     }
 
     // find_first_of
     {
-        constexpr auto N = stack_string<1>::npos;
+        constexpr auto N = static_string<1>::npos;
 
         auto is_white_space = [](const char c) noexcept {
-            return make_stack_string(" \t\n\f\r\v").find_first_of(c) != N;
+            return make_static_string(" \t\n\f\r\v").find_first_of(c) != N;
         };
 
         // NOLINTBEGIN
         static_assert(
-            1 == make_stack_string("alignas").find_first_of(make_stack_string("klmn"))
-            && N == make_stack_string("alignof").find_first_of(make_stack_string("wxyz"))
+            1 == make_static_string("alignas").find_first_of(make_static_string("klmn"))
+            && N == make_static_string("alignof").find_first_of(make_static_string("wxyz"))
             && 3
-                == make_stack_string("concept").find_first_of(
-                    make_stack_string("bcde"),
+                == make_static_string("concept").find_first_of(
+                    make_static_string("bcde"),
                     /* pos= */ 1)
-            && N == make_stack_string("consteval").find_first_of("oxyz"_sv, /* pos= */ 2)
-            && 6 == make_stack_string("constexpr").find_first_of('x')
-            && N == make_stack_string("constinit").find_first_of('x')
-            && 6 == make_stack_string("const_cast").find_first_of('c', /* pos= */ 4)
-            && N == make_stack_string("continue").find_first_of('c', /* pos= */ 42)
-            && 5 == make_stack_string("co_await").find_first_of("cba", /* pos= */ 4)
-            && 7 == make_stack_string("decltype").find_first_of("def", /* pos= */ 2, /* count= */ 2)
-            && N == make_stack_string("decltype").find_first_of("def", /* pos= */ 2, /* count= */ 1)
+            && N == make_static_string("consteval").find_first_of("oxyz"_sv, /* pos= */ 2)
+            && 6 == make_static_string("constexpr").find_first_of('x')
+            && N == make_static_string("constinit").find_first_of('x')
+            && 6 == make_static_string("const_cast").find_first_of('c', /* pos= */ 4)
+            && N == make_static_string("continue").find_first_of('c', /* pos= */ 42)
+            && 5 == make_static_string("co_await").find_first_of("cba", /* pos= */ 4)
+            && 7
+                == make_static_string("decltype").find_first_of("def", /* pos= */ 2, /* count= */ 2)
+            && N
+                == make_static_string("decltype").find_first_of("def", /* pos= */ 2, /* count= */ 1)
             && is_white_space(' ') && is_white_space('\r') && !is_white_space('\a')
             && N
-                == make_stack_string("decltype")
+                == make_static_string("decltype")
                        .find_first_of("def", /* pos= */ 200, /* count= */ 1));
         // NOLINTEND
     }
 
     // find_last_of
     {
-        constexpr auto N = stack_string<1>::npos;
+        constexpr auto N = static_string<1>::npos;
         // NOLINTBEGIN
         static_assert(
-            5 == make_stack_string("delete").find_last_of("cdef"_sv)
-            && N == make_stack_string("double").find_last_of("fghi"_sv)
-            && 0 == make_stack_string("else").find_last_of("bcde"_sv, 2 /* pos [0..2]: "els" */)
-            && N == make_stack_string("explicit").find_last_of("abcd", 4 /* pos [0..4]: "expli" */)
-            && 3 == make_stack_string("extern").find_last_of('e')
-            && N == make_stack_string("false").find_last_of('x')
-            && 0 == make_stack_string("inline").find_last_of('i', 2 /* pos [0..2]: "inl" */)
-            && N == make_stack_string("mutable").find_last_of('a', 2 /* pos [0..2]: "mut" */)
+            5 == make_static_string("delete").find_last_of("cdef"_sv)
+            && N == make_static_string("double").find_last_of("fghi"_sv)
+            && 0 == make_static_string("else").find_last_of("bcde"_sv, 2 /* pos [0..2]: "els" */)
+            && N == make_static_string("explicit").find_last_of("abcd", 4 /* pos [0..4]: "expli" */)
+            && 3 == make_static_string("extern").find_last_of('e')
+            && N == make_static_string("false").find_last_of('x')
+            && 0 == make_static_string("inline").find_last_of('i', 2 /* pos [0..2]: "inl" */)
+            && N == make_static_string("mutable").find_last_of('a', 2 /* pos [0..2]: "mut" */)
             && 3
-                == make_stack_string("namespace")
+                == make_static_string("namespace")
                        .find_last_of("cdef", 3 /* pos [0..3]: "name" */, 3 /* "cde" */)
             && N
-                == make_stack_string("namespace")
+                == make_static_string("namespace")
                        .find_last_of("cdef", 3 /* pos [0..3]: "name" */, 2 /* "cd" */));
         // NOLINTEND
     }
@@ -715,29 +717,29 @@ void sstring_find_test() {
     // find_first_not_of
     {
         // NOLINTBEGIN
-        static_assert(2 == make_stack_string("BCDEF").find_first_not_of("ABC"));
-        static_assert(4 == make_stack_string("BCDEF").find_first_not_of("ABC"_sv, 4));
-        static_assert(1 == make_stack_string("BCDEF").find_first_not_of('B'));
-        static_assert(3 == make_stack_string("BCDEF").find_first_not_of('D', 2));
+        static_assert(2 == make_static_string("BCDEF").find_first_not_of("ABC"));
+        static_assert(4 == make_static_string("BCDEF").find_first_not_of("ABC"_sv, 4));
+        static_assert(1 == make_static_string("BCDEF").find_first_not_of('B'));
+        static_assert(3 == make_static_string("BCDEF").find_first_not_of('D', 2));
         static_assert(
-            stack_string<1>::npos == make_stack_string("BCDEF").find_first_not_of('D', 200));
+            static_string<1>::npos == make_static_string("BCDEF").find_first_not_of('D', 200));
         // NOLINTEND
     }
 
     // find_last_not_of
     {
         // NOLINTBEGIN
-        static_assert(1 == make_stack_string("BCDEF").find_last_not_of("DEF_sv"));
-        static_assert(2 == make_stack_string("BCDEFG").find_last_not_of("EFG", 3));
-        static_assert(2 == make_stack_string("ABBA").find_last_not_of('A'));
-        static_assert(1 == make_stack_string("ABBA").find_last_not_of('A', 1));
+        static_assert(1 == make_static_string("BCDEF").find_last_not_of("DEF_sv"));
+        static_assert(2 == make_static_string("BCDEFG").find_last_not_of("EFG", 3));
+        static_assert(2 == make_static_string("ABBA").find_last_not_of('A'));
+        static_assert(1 == make_static_string("ABBA").find_last_not_of('A', 1));
         // NOLINTEND
     }
 }
 
 void sstring_operators_test() {
     static constinit auto op_plus_eq = [] {
-        auto str = make_stack_string<10>("1222");
+        auto str = make_static_string<10>("1222");
 
         check_(**(str += "44") == "122244", "");
         check_((str += "4444444") == unexpected(Error::BufferFull), "");
@@ -746,8 +748,8 @@ void sstring_operators_test() {
     }();
 
     static constinit auto three_way = [] {
-        auto rajni = make_stack_string("Rajni");
-        auto kamal = make_stack_string("Kamal");
+        auto rajni = make_static_string("Rajni");
+        auto kamal = make_static_string("Kamal");
 
         check_(rajni > kamal, "");
         check_(kamal < rajni.c_str(), "");

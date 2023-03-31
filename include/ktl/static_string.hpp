@@ -7,7 +7,7 @@
 namespace ktl {
 template<typename CharT, auto Capacity, typename Traits = std::char_traits<CharT>>
     requires std::is_trivial_v<CharT> && std::integral<std::decay_t<decltype(Capacity)>>
-class basic_stack_string;
+class basic_static_string;
 
 template<typename CharT, std::integral Size, typename Traits>
     requires(!std::is_const_v<CharT>)
@@ -22,12 +22,12 @@ namespace detail {
             m_substr(substr) {}
 
         // NOLINTNEXTLINE(*-explicit-conversions)
-        constexpr operator basic_stack_string<CharT, Capacity, TraitsT>() const noexcept {
+        constexpr operator basic_static_string<CharT, Capacity, TraitsT>() const noexcept {
             return str();
         }
 
-        constexpr auto str() const noexcept -> basic_stack_string<CharT, Capacity, TraitsT> {
-            basic_stack_string<CharT, Capacity, TraitsT> str;
+        constexpr auto str() const noexcept -> basic_static_string<CharT, Capacity, TraitsT> {
+            basic_static_string<CharT, Capacity, TraitsT> str;
 
             [[maybe_unused]] auto res = str.assign(m_substr.begin(), m_substr.end());
             assert(res);
@@ -46,12 +46,12 @@ namespace detail {
 
 template<typename CharT, auto Capacity, typename Traits>
     requires std::is_trivial_v<CharT> && std::integral<std::decay_t<decltype(Capacity)>>
-class basic_stack_string:
+class basic_static_string:
     public detail::string_ops<
         CharT,
         Traits,
         detail::size_t<Capacity>,
-        basic_stack_string<CharT, Capacity, Traits>> {
+        basic_static_string<CharT, Capacity, Traits>> {
   public:
     using traits_type = Traits;
     using value_type = CharT;
@@ -67,15 +67,15 @@ class basic_stack_string:
         CharT,
         Traits,
         detail::size_t<Capacity>,
-        basic_stack_string<CharT, Capacity, Traits>>;
+        basic_static_string<CharT, Capacity, Traits>>;
 
   public:
-    constexpr basic_stack_string() = default;
+    constexpr basic_static_string() = default;
 
     template<typename CharU, auto Cap, typename TraitsT>
         requires(std::same_as<CharU, CharT> && Cap == Capacity && std::same_as<Traits, TraitsT>)
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr basic_stack_string(detail::substr_proxy<CharU, Cap, TraitsT> proxy) {
+    constexpr basic_static_string(detail::substr_proxy<CharU, Cap, TraitsT> proxy) {
         auto view = proxy.view();
         assert(Capacity > view.length());
 
@@ -85,7 +85,7 @@ class basic_stack_string:
     }
 
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr basic_stack_string(const CharT (&str)[Capacity]) : m_len {Capacity} {
+    constexpr basic_static_string(const CharT (&str)[Capacity]) : m_len {Capacity} {
         std::copy(std::begin(str), std::end(str), m_chars.data());
     }
 
@@ -116,7 +116,7 @@ class basic_stack_string:
         if (this->empty()) {
             TryV(this->assign_iter(first, last));
         } else {
-            basic_stack_string tmp;
+            basic_static_string tmp;
 
             TryV(tmp.assign_iter(first, last));
             *this = tmp;
@@ -144,7 +144,7 @@ class basic_stack_string:
             return base::insert_at_end(first, last);
         }
 
-        basic_stack_string tmp;
+        basic_static_string tmp;
         auto tmp_res = tmp.assign(first, last);
         auto res = base::insert(pos, tmp.begin(), tmp.end());
 
@@ -178,7 +178,7 @@ class basic_stack_string:
         InputIt first2,
         InputIt last2) noexcept
         -> expected<typename base::non_null_ptr, std::pair<InputIt, Error>> {
-        basic_stack_string tmp;
+        basic_static_string tmp;
 
         if (auto res = tmp.append(this->cbegin(), first); !res) {
             Throw(std::make_pair(first2, std::move(res).error()));
@@ -227,7 +227,7 @@ class basic_stack_string:
         CharT,
         Traits,
         detail::size_t<Capacity>,
-        basic_stack_string<CharT, Capacity, Traits>>;
+        basic_static_string<CharT, Capacity, Traits>>;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
         -> detail::string_storage<const CharT> {
@@ -263,23 +263,24 @@ class basic_stack_string:
 };
 
 template<typename CharT, auto Capacity, typename Traits = std::char_traits<CharT>>
-basic_stack_string(detail::substr_proxy<CharT, Capacity, Traits>)
-    -> basic_stack_string<CharT, Capacity, Traits>;
+basic_static_string(detail::substr_proxy<CharT, Capacity, Traits>)
+    -> basic_static_string<CharT, Capacity, Traits>;
 
 template<auto Capacity>
-using stack_string = basic_stack_string<char, Capacity>;
+using static_string = basic_static_string<char, Capacity>;
 template<auto Capacity>
-using stack_u8string = basic_stack_string<char8_t, Capacity>;
+using static_u8string = basic_static_string<char8_t, Capacity>;
 template<auto Capacity>
-using stack_u16string = basic_stack_string<char16_t, Capacity>;
+using static_u16string = basic_static_string<char16_t, Capacity>;
 template<auto Capacity>
-using stack_u32string = basic_stack_string<char32_t, Capacity>;
+using static_u32string = basic_static_string<char32_t, Capacity>;
 template<auto Capacity>
-using stack_wstring = basic_stack_string<wchar_t, Capacity>;
+using static_wstring = basic_static_string<wchar_t, Capacity>;
 
 template<typename CharT, auto N>
-constexpr auto make_stack_string(const CharT (&chars)[N]) noexcept -> basic_stack_string<CharT, N> {
-    using str_t = basic_stack_string<CharT, N>;
+constexpr auto make_static_string(const CharT (&chars)[N]) noexcept
+    -> basic_static_string<CharT, N> {
+    using str_t = basic_static_string<CharT, N>;
     str_t str;
 
     str.assign(chars, N - 1);
@@ -287,11 +288,11 @@ constexpr auto make_stack_string(const CharT (&chars)[N]) noexcept -> basic_stac
 }
 
 template<auto VCapacity, typename CharT, auto N>
-constexpr auto make_stack_string(const CharT (&chars)[N]) noexcept
-    -> basic_stack_string<CharT, VCapacity> {
+constexpr auto make_static_string(const CharT (&chars)[N]) noexcept
+    -> basic_static_string<CharT, VCapacity> {
     static_assert(VCapacity >= N);
 
-    using str_t = basic_stack_string<CharT, VCapacity>;
+    using str_t = basic_static_string<CharT, VCapacity>;
     str_t str;
 
     str.assign(chars, N - 1);

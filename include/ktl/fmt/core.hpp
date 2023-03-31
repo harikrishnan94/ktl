@@ -12,7 +12,7 @@
 #include <ktl/detail/preproc.hpp>
 #include <ktl/error.hpp>
 #include <ktl/expected.hpp>
-#include <ktl/stack_string.hpp>
+#include <ktl/static_string.hpp>
 
 namespace ktl::fmt {
 // NOLINTBEGIN(hicpp-avoid-c-arrays, hicpp-explicit-conversions,
@@ -1096,13 +1096,13 @@ struct format_string_t {
         return len;
     }
 
-    // Format the string in compile time (consteval) and return stack_string<char_type, size(...)>
+    // Format the string in compile time (consteval) and return static_string<char_type, size(...)>
     // containing the formatted chars.
     template<auto... Args>
     constexpr auto format() const noexcept {
         constexpr auto Len = *std::decay_t<decltype(*this)> {}.size(Args...);
 
-        basic_stack_string<char_type, Len + 1> buf;
+        basic_static_string<char_type, Len + 1> buf;
         [[maybe_unused]] auto resize_res = buf.resize_uninitialized(Len);
         assert(resize_res);
 
