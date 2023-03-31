@@ -18,6 +18,7 @@ struct int_t {
 static void svector_insert_test();
 static void svector_assign_test();
 static void svector_erase_test();
+static void svector_operators_test();
 
 static void svector_test() {
     static_assert(sizeof(stack_vector<u8, 3>) == sizeof(u8) * 4);
@@ -158,6 +159,7 @@ static void svector_test() {
     svector_assign_test();
     svector_insert_test();
     svector_erase_test();
+    svector_operators_test();
 }
 
 static void svector_assign_test() {
@@ -482,6 +484,26 @@ static void fvector_test() {
             check_(vec2[0] == 3 && vec2[1] == 4 && vec2[2] == 0, "deep_swap failure");
         }
         return vec.size();
+    }();
+}
+
+void svector_operators_test() {
+    static constinit auto _ = [] {
+        auto v1 = make_stack_vector(1, 2, 3);
+        std::array a1 = {1, 2, 3};
+        fixed_vector v2 {a1};
+        fixed_vector v3 {a1, 2};
+
+        check_(v1 == v2, "");
+        check_(v1 != v3, "");
+
+        check_(v1 > v3, "");
+        check_(v3 < v1, "");
+
+        check_(v1 >= v2, "");
+        check_(v2 <= v1, "");
+
+        return v1.size();
     }();
 }
 
