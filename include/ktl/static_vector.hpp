@@ -12,8 +12,8 @@ class fixed_vector;
 
 template<typename T, auto Capacity>
     requires std::integral<std::decay_t<decltype(Capacity)>>
-class stack_vector:
-    public detail::vector_ops<T, detail::size_t<Capacity>, stack_vector<T, Capacity>> {
+class static_vector:
+    public detail::vector_ops<T, detail::size_t<Capacity>, static_vector<T, Capacity>> {
   public:
     using value_type = T;
     using size_type = detail::size_t<Capacity>;
@@ -24,7 +24,7 @@ class stack_vector:
     using const_pointer = const T*;
 
   private:
-    using base = detail::vector_ops<T, size_type, stack_vector<T, Capacity>>;
+    using base = detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
 
   public:
     static_assert(
@@ -32,12 +32,12 @@ class stack_vector:
         && std::is_nothrow_destructible_v<T>);
 
     // Special member function definitions
-    constexpr stack_vector() = default;
+    constexpr static_vector() = default;
 
-    constexpr ~stack_vector()
+    constexpr ~static_vector()
         requires std::is_trivially_destructible_v<T>
     = default;
-    constexpr ~stack_vector()
+    constexpr ~static_vector()
         requires(!std::is_trivially_destructible_v<T>)
     {
         if (m_len) {
@@ -45,44 +45,44 @@ class stack_vector:
         }
     }
 
-    constexpr stack_vector(const stack_vector&)
+    constexpr static_vector(const static_vector&)
         requires std::is_trivially_copy_constructible_v<T>
     = default;
-    constexpr stack_vector(const stack_vector& o) noexcept
+    constexpr static_vector(const static_vector& o) noexcept
         requires(!std::is_trivially_copy_constructible_v<T>)
         : m_len {o.m_len} {
         detail::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
-    constexpr stack_vector(stack_vector&&) noexcept
+    constexpr static_vector(static_vector&&) noexcept
         requires std::is_trivially_move_constructible_v<T>
     = default;
-    constexpr stack_vector(stack_vector&& o) noexcept
+    constexpr static_vector(static_vector&& o) noexcept
         requires(!std::is_trivially_move_constructible_v<T>)
     {
         swap(o);
     }
 
-    constexpr auto operator=(const stack_vector&) -> stack_vector&
+    constexpr auto operator=(const static_vector&) -> static_vector&
         requires std::is_trivially_copy_assignable_v<T>
     = default;
-    constexpr auto operator=(stack_vector&&) noexcept -> stack_vector&
+    constexpr auto operator=(static_vector&&) noexcept -> static_vector&
         requires std::is_trivially_move_assignable_v<T>
     = default;
-    constexpr auto operator=(const stack_vector& o) noexcept -> stack_vector&
+    constexpr auto operator=(const static_vector& o) noexcept -> static_vector&
         requires(!std::is_trivially_copy_assignable_v<T>)
     {
-        stack_vector {o}.swap(*this);
+        static_vector {o}.swap(*this);
         return *this;
     }
-    constexpr auto operator=(stack_vector&& o) noexcept -> stack_vector&
+    constexpr auto operator=(static_vector&& o) noexcept -> static_vector&
         requires(!std::is_trivially_move_assignable_v<T>)
     {
         swap(o);
         return *this;
     }
 
-    friend constexpr void swap(stack_vector& a, stack_vector& b) noexcept {
+    friend constexpr void swap(static_vector& a, static_vector& b) noexcept {
         a.swap(b);
     }
 
@@ -90,7 +90,7 @@ class stack_vector:
         return Capacity;
     }
 
-    constexpr void swap(stack_vector& o) noexcept {
+    constexpr void swap(static_vector& o) noexcept {
         auto len = m_len;
         auto o_len = o.m_len;
         auto begin = get_storage().begin;
@@ -114,12 +114,12 @@ class stack_vector:
     }
 
     template<typename U, typename... OT>
-    friend constexpr auto make_stack_vector(U&& first_val, OT&&... other_vals) noexcept
-        -> stack_vector<std::common_type_t<U, OT...>, sizeof...(OT) + 1>;
+    friend constexpr auto make_static_vector(U&& first_val, OT&&... other_vals) noexcept
+        -> static_vector<std::common_type_t<U, OT...>, sizeof...(OT) + 1>;
 
     template<auto VCapacity, typename U, typename... OT>
-    friend constexpr auto make_stack_vector(U&& first_val, OT&&... other_vals) noexcept
-        -> stack_vector<std::common_type_t<U, OT...>, VCapacity>;
+    friend constexpr auto make_static_vector(U&& first_val, OT&&... other_vals) noexcept
+        -> static_vector<std::common_type_t<U, OT...>, VCapacity>;
 
     using base::assign;
 
@@ -136,7 +136,7 @@ class stack_vector:
         if (this->empty()) {
             TryV(this->assign_iter(first, last));
         } else {
-            stack_vector tmp;
+            static_vector tmp;
 
             TryV(tmp.assign_iter(first, last));
             *this = std::move(tmp);
@@ -162,7 +162,7 @@ class stack_vector:
             return base::insert_at_end(first, last);
         }
 
-        stack_vector tmp;
+        static_vector tmp;
         auto tmp_res = tmp.assign(first, last);
         auto res = base::insert(pos, tmp.begin(), tmp.end());
 
@@ -178,7 +178,7 @@ class stack_vector:
     static constexpr auto is_trivial = std::is_trivial_v<T>;
 
     // Allow access to internal members. Classic CRTP.
-    friend class detail::vector_ops<T, size_type, stack_vector<T, Capacity>>;
+    friend class detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
         auto data = [&] {
@@ -238,9 +238,9 @@ class stack_vector:
 };
 
 template<typename T, typename... OT>
-constexpr auto make_stack_vector(T&& first_val, OT&&... other_vals) noexcept
-    -> stack_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> {
-    stack_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> vec;
+constexpr auto make_static_vector(T&& first_val, OT&&... other_vals) noexcept
+    -> static_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> {
+    static_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> vec;
     auto data = vec.get_storage().begin;
 
     std::construct_at(data, std::forward<T>(first_val));
@@ -251,12 +251,12 @@ constexpr auto make_stack_vector(T&& first_val, OT&&... other_vals) noexcept
 }
 
 template<auto VCapacity, typename T, typename... OT>
-constexpr auto make_stack_vector(T&& first_val, OT&&... other_vals) noexcept
-    -> stack_vector<std::common_type_t<T, OT...>, VCapacity> {
+constexpr auto make_static_vector(T&& first_val, OT&&... other_vals) noexcept
+    -> static_vector<std::common_type_t<T, OT...>, VCapacity> {
     static_assert(VCapacity >= sizeof...(OT) + 1);
 
     using ValueT = std::common_type_t<T, OT...>;
-    stack_vector<ValueT, VCapacity> vec;
+    static_vector<ValueT, VCapacity> vec;
     auto data = vec.get_storage().begin;
 
     std::construct_at(data, std::forward<T>(first_val));

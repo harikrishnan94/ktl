@@ -7,7 +7,7 @@
 namespace ktl {
 template<typename CharT, auto Capacity, typename Traits>
     requires std::is_trivial_v<CharT> && std::integral<std::decay_t<decltype(Capacity)>>
-class basic_stack_string;
+class basic_static_string;
 
 template<typename CharT, std::integral Size, typename Traits = std::char_traits<CharT>>
     requires(!std::is_const_v<CharT>)
@@ -44,7 +44,7 @@ class fixed_string:
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr fixed_string(basic_stack_string<CharT, Capacity, Traits>& str) :
+    constexpr fixed_string(basic_static_string<CharT, Capacity, Traits>& str) :
         m_chars {str.data()},
         m_capacity {str.capacity()},
         m_len {str.length() + 1} {}
@@ -116,7 +116,7 @@ template<typename CharT, auto Capacity>
 fixed_string(std::array<CharT, Capacity>&, usize) -> fixed_string<CharT, detail::size_t<Capacity>>;
 
 template<typename CharT, auto Capacity, typename Traits>
-fixed_string(basic_stack_string<CharT, Capacity, Traits>&)
+fixed_string(basic_static_string<CharT, Capacity, Traits>&)
     -> fixed_string<CharT, detail::size_t<Capacity>, Traits>;
 
 template<typename CharT, typename SizeT>

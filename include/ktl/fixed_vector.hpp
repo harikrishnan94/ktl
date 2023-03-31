@@ -9,7 +9,7 @@
 namespace ktl {
 template<typename T, auto Capacity>
     requires std::integral<std::decay_t<decltype(Capacity)>>
-class stack_vector;
+class static_vector;
 
 template<typename T, std::integral Size>
     requires(!std::is_const_v<T>)
@@ -57,7 +57,7 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr fixed_vector(stack_vector<T, Capacity>& vec) noexcept :
+    constexpr fixed_vector(static_vector<T, Capacity>& vec) noexcept :
         m_data {vec.data()},
         m_capacity {vec.capacity()},
         m_len {vec.size()} {}
@@ -136,7 +136,7 @@ template<typename T, auto Capacity>
 fixed_vector(std::array<T, Capacity>&, usize) -> fixed_vector<T, detail::size_t<Capacity>>;
 
 template<typename T, auto Capacity>
-fixed_vector(stack_vector<T, Capacity>&) -> fixed_vector<T, detail::size_t<Capacity>>;
+fixed_vector(static_vector<T, Capacity>&) -> fixed_vector<T, detail::size_t<Capacity>>;
 
 template<typename T, typename SizeT>
 fixed_vector(T* ptr, SizeT) -> fixed_vector<T, SizeT>;

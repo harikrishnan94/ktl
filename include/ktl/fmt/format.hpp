@@ -634,7 +634,7 @@ class fixed_buffer {
     }
 
     template<auto Capacity>
-    constexpr explicit fixed_buffer(basic_stack_string<CharT, Capacity>& str) :
+    constexpr explicit fixed_buffer(basic_static_string<CharT, Capacity>& str) :
         m_buf {str.data()},
         m_len {static_cast<usize>(str.size())} {}
 
