@@ -4,7 +4,6 @@
 #include <array>
 #include <iterator>
 #include <optional>
-#include <string_view>
 #include <variant>
 
 #include <ktl/access.hpp>
@@ -13,16 +12,17 @@
 #include <ktl/detail/preproc.hpp>
 #include <ktl/error.hpp>
 #include <ktl/expected.hpp>
+#include <ktl/stack_string.hpp>
 
 namespace ktl::fmt {
 // NOLINTBEGIN(hicpp-avoid-c-arrays, hicpp-explicit-conversions,
 // misc-non-private-member-variables-in-classes)
 // Compile time string used to capture the `format string`
 template<typename CharT, usize N>
-struct fixed_string {
+struct const_string {
     using char_type = CharT;
 
-    constexpr fixed_string(const CharT (&str)[N]) {
+    constexpr const_string(const CharT (&str)[N]) {
         std::copy_n(str, N, value);
     }
 
@@ -34,7 +34,7 @@ struct fixed_string {
         return begin() + N - 1;  // Ignore trailing `NUL` char
     }
 
-    constexpr auto view() const noexcept -> std::string_view {
+    constexpr auto view() const noexcept -> basic_string_view<char_type> {
         return {begin(), end()};
     }
 
@@ -417,9 +417,10 @@ namespace detail {
     };
     // NOLINTEND(hicpp-explicit-conversions, misc-non-private-member-variables-in-classes)
 
+    template<typename CharT>
     class Parser {
       public:
-        constexpr explicit Parser(std::string_view fmt_str) : m_fmt_str(fmt_str) {}
+        constexpr explicit Parser(basic_string_view<CharT> fmt_str) : m_fmt_str {fmt_str} {}
 
         constexpr auto parse(std::invocable<field_t> auto&& take) -> expected<void, parse_error> {
             while (m_cur_pos < m_fmt_str.length()) {
@@ -840,12 +841,13 @@ namespace detail {
             InsideReplacement
         };
 
-        std::string_view m_fmt_str;
+        basic_string_view<CharT> m_fmt_str;
         usize m_cur_pos = 0;
         State m_cur_state = Empty;
     };
 
-    constexpr auto field_count(std::string_view fmt_str) -> expected<usize, parse_error> {
+    template<typename CharT>
+    constexpr auto field_count(basic_string_view<CharT> fmt_str) -> expected<usize, parse_error> {
         detail::Parser parser(fmt_str);
 
         usize count = 0;
@@ -907,7 +909,7 @@ namespace detail {
         return rewritten_fmt_str;
     }
 
-    template<fixed_string FmtStr, usize N = detail::field_count(FmtStr.view()).value()>
+    template<const_string FmtStr, usize N = detail::field_count(FmtStr.view()).value()>
     constexpr auto parse() -> detail::expected<detail::format_string_t<N>, parse_error> {
         detail::Parser parser(FmtStr.view());
         detail::format_string_t<N> fmt_str;
@@ -926,7 +928,7 @@ namespace detail {
 #undef TryEV
 #undef TryEVT
 
-    template<fixed_string FmtStr, usize N = detail::field_count(FmtStr.view()).value()>
+    template<const_string FmtStr, usize N = detail::field_count(FmtStr.view()).value()>
     constexpr auto parse_and_check() -> detail::format_string_t<N> {
         constexpr auto fmt_str = parse<FmtStr>();
         static_assert(fmt_str, "cannot compile format string");
@@ -1001,7 +1003,7 @@ namespace detail {
         return *std::get<I>(std::forward<FmtArgs>(args).m_data);
     }
 
-    template<fixed_string FmtStr, field_t F, typename... Args>
+    template<const_string FmtStr, field_t F, typename... Args>
     struct formatter_base {
         using FmtArgs = class FmtArgs<Args...>;
         using char_type = typename std::decay_t<decltype(FmtStr)>::char_type;
@@ -1034,7 +1036,7 @@ namespace detail {
     };
 
     template<
-        fixed_string RawFmtStr,
+        const_string RawFmtStr,
         format_string_t FS,
         string_buffer_of<typename std::decay_t<decltype(RawFmtStr)>::char_type> SB,
         typename... Args>
@@ -1042,7 +1044,7 @@ namespace detail {
         -> ktl::expected<Result, Error>;
 
     template<
-        fixed_string FmtStr,
+        const_string FmtStr,
         string_buffer_of<typename std::decay_t<decltype(FmtStr)>::char_type> SB,
         typename... Args>
     constexpr auto vformat(SB& sb, const detail::FmtArgs<Args...>& args) noexcept
@@ -1062,7 +1064,7 @@ template<typename CharT>
 class fixed_buffer;
 
 // Holds both the Raw Format string and Transformed one.
-template<fixed_string RawFmtStr>
+template<const_string RawFmtStr>
 struct format_string_t {
     // NOLINTNEXTLINE(*-dynamic-static-initializers)
     static constexpr auto underlying_value = detail::parse_and_check<RawFmtStr>();
@@ -1094,37 +1096,39 @@ struct format_string_t {
         return len;
     }
 
-    // Format the string in compile time (consteval) and return array<char_type, size(...)>
+    // Format the string in compile time (consteval) and return stack_string<char_type, size(...)>
     // containing the formatted chars.
     template<auto... Args>
     constexpr auto format() const noexcept {
-        constexpr auto Len = *std::decay_t<decltype(*this)> {}.size(Args...) + 1;
+        constexpr auto Len = *std::decay_t<decltype(*this)> {}.size(Args...);
 
-        std::array<char_type, Len> buf;
-        fixed_buffer ab {buf.begin(), buf.end() - 1};
+        basic_stack_string<char_type, Len + 1> buf;
+        [[maybe_unused]] auto resize_res = buf.resize_uninitialized(Len);
+        assert(resize_res);
+
+        fixed_buffer ab {buf};
+
         auto res = detail::vformat<RawFmtStr, underlying_value>(ab, detail::FmtArgs {Args...});
 
         assert(res && "cannot format string");
-        assert(res->formatted_len() == Len - 1);
-
-        buf[res->formatted_len()] = '\0';
+        assert(res->formatted_len() == Len);
 
         return buf;
     }
 };
 
-template<fixed_string FmtStr>
+template<const_string FmtStr>
 constexpr auto make_format_string() noexcept -> format_string_t<FmtStr> {
     return {};
 }
 
 namespace literals {
-    template<fixed_string FmtStr>
+    template<const_string FmtStr>
     constexpr auto operator""_cs() {
         return FmtStr;
     }
 
-    template<fixed_string FmtStr>
+    template<const_string FmtStr>
     constexpr auto operator""_f() {
         return make_format_string<FmtStr>();
     }
@@ -1133,7 +1137,7 @@ namespace literals {
 // Writes formatted string into StringBuffer (`sb`).
 // Only minimum of `formatted_size` and `sb available` chars are written into the buffer.
 template<
-    fixed_string FmtStr,
+    const_string FmtStr,
     string_buffer_of<typename std::decay_t<decltype(FmtStr)>::char_type> SB,
     typename... Args>
 constexpr auto format(SB& sb, const Args&... args) noexcept -> expected<Result, Error> {
@@ -1141,6 +1145,6 @@ constexpr auto format(SB& sb, const Args&... args) noexcept -> expected<Result, 
 }
 
 // Returns the length of the formatted string.
-template<fixed_string FmtStr, typename... Args>
+template<const_string FmtStr, typename... Args>
 constexpr auto formatted_size(const Args&... args) noexcept -> expected<usize, Error>;
 }  // namespace ktl::fmt

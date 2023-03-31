@@ -67,7 +67,7 @@ class basic_string_view {
         requires(std::same_as<std::iter_value_t<It>, CharT> && !std::convertible_to<End, size_type>)
     constexpr basic_string_view(It begin, End end) noexcept :
         m_data {std::to_address(begin)},
-        m_size {end - begin} {
+        m_size {static_cast<size_type>(end - begin)} {
         check_(
             (end - begin) >= 0,
             "std::string_view::string_view(iterator, sentinel) received invalid range");
@@ -234,7 +234,7 @@ class basic_string_view {
     }
 
     constexpr inline auto compare(const CharT* s) const noexcept -> int {
-        return compare(s);
+        return compare(basic_string_view {s});
     }
 
     constexpr inline auto compare(size_type pos1, size_type n1, const CharT* s) const noexcept
@@ -255,7 +255,7 @@ class basic_string_view {
         -> size_type {
         check_(s.size() == 0 || s.data() != nullptr, "string_view::find(): received nullptr");
 
-        if (size() < s.size()) {
+        if (pos > size() || size() < s.size()) {
             return npos;
         }
 

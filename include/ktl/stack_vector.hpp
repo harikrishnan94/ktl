@@ -109,7 +109,7 @@ class stack_vector:
     }
 
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr operator fixed_vector<value_type, size_type>() noexcept {
+    constexpr operator fixed_vector<value_type, size_type>() const noexcept {
         return fixed_vector {this->data(), this->capacity(), this->size()};
     }
 

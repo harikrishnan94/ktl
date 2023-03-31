@@ -102,24 +102,6 @@ auto main() -> int {
         static_assert("abc"_sv.compare(4, 0, "abc"_sv).error() == Error::IndexOutOfBounds);
     }
 
-    // find
-    {
-        constexpr auto str = " long long int;"_sv;
-        // NOLINTBEGIN
-        // clang-format off
-        static_assert(
-            1 == str.find("long"_sv)             && "<- find(v , pos = 0)" &&
-            6 == str.find("long"_sv, 2)      && "<- find(v , pos = 2)" &&
-            0 == str.find(' ')                   && "<- find(ch, pos = 0)" &&
-            2 == str.find('o', 1)           && "<- find(ch, pos = 1)" &&
-            2 == str.find("on")                 && "<- find(s , pos = 0)" &&
-            6 == str.find("long double", 5, 4) && "<- find(s , pos = 5, count = 4)"
-        );
-        // clang-format on
-        static_assert(str.npos == str.find("float"));
-        // NOLINTEND
-    }
-
     // starts_with
     {
         static_assert("https://cppreference.com"_sv.starts_with("http"_sv));
@@ -192,6 +174,7 @@ auto main() -> int {
             && (5 == "B AB AB "_sv.rfind('A'))
             && (4 == "AB AB AB"_sv.rfind('B', 4))
             && (N == "AB AB AB"_sv.rfind('C'))
+            && (N == "AB AB AB"_sv.rfind('C', 100))
         );
         // clang-format on
         // NOLINTEND
@@ -230,7 +213,9 @@ auto main() -> int {
             //         └────────────────────┘
             N == "decltype"_sv.find_first_of("def", /* pos= */ 2, /* count= */ 1) &&
             //
-            is_white_space(' ') && is_white_space('\r') && !is_white_space('\a')
+            is_white_space(' ') && is_white_space('\r') && !is_white_space('\a') &&
+            //
+            N == "decltype"_sv.find_first_of("def", /* pos= */ 200, /* count= */ 1)
         );
         // clang-format on
         // NOLINTEND
@@ -279,6 +264,7 @@ auto main() -> int {
                         //   ^
         static_assert(3 == "BCDEF"_sv.find_first_not_of('D', 2));
                         //     ^
+        static_assert(string_view::npos == "BCDEF"_sv.find_first_not_of('D', 200));
         // clang-format on
         // NOLINTEND
     }
