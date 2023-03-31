@@ -144,7 +144,7 @@ namespace detail {
     }
 
     template<
-        fixed_string RawFmtStr,
+        const_string RawFmtStr,
         usize I,
         format_string_t FmtStr,
         string_buffer_of<typename std::decay_t<decltype(RawFmtStr)>::char_type> SB,
@@ -173,7 +173,7 @@ namespace detail {
     }
 
     template<
-        fixed_string RawFmtStr,
+        const_string RawFmtStr,
         format_string_t FS,
         string_buffer_of<typename std::decay_t<decltype(RawFmtStr)>::char_type> SB,
         typename... Args>
@@ -240,7 +240,7 @@ namespace detail {
     };
 }  // namespace detail
 
-template<fixed_string FmtStr, typename... Args>
+template<const_string FmtStr, typename... Args>
 constexpr auto formatted_size(Args&&... args) noexcept -> expected<usize, Error> {
     return make_format_string<FmtStr>().size(std::forward<Args>(args)...);
 }
@@ -384,7 +384,7 @@ class FormatContext {
         using enum detail::type_t;
         if constexpr (FS.type.value() == string) {
             static_assert(std::same_as<Int, bool>);
-            std::basic_string_view str = val ? "true" : "false";
+            basic_string_view str = val ? "true" : "false";
             res.len.num = str.length();
             std::copy_n(str.begin(), res.len.num, res.buf.begin());
         } else if constexpr (FS.type.value() == escape || FS.type.value() == char_) {
@@ -632,6 +632,11 @@ class fixed_buffer {
         m_len {static_cast<usize>(end - begin)} {
         assert(end >= begin);
     }
+
+    template<auto Capacity>
+    constexpr explicit fixed_buffer(basic_stack_string<CharT, Capacity>& str) :
+        m_buf {str.data()},
+        m_len {static_cast<usize>(str.size())} {}
 
     constexpr auto reserve(usize len) noexcept -> buffer_view<char_type, iterator_type> {
         auto it = make_contiguous_iterator(m_buf + m_pos, m_buf, m_buf + m_len);

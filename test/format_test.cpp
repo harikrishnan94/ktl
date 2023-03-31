@@ -16,7 +16,7 @@ constexpr auto view(const std::array<CharT, N>& arr) -> etl::basic_string_view<C
     return len == etl::string_view::npos ? view : view.substr(0, len);
 }
 
-template<fixed_string RawFmtStr, typename... Args>
+template<const_string RawFmtStr, typename... Args>
 constexpr auto check(const char* exp, const Args&... args) -> unsigned {
     std::array<char, 1024> buf;  // NOLINT
     fixed_buffer fb {buf.begin(), buf.end()};
@@ -26,9 +26,9 @@ constexpr auto check(const char* exp, const Args&... args) -> unsigned {
     check_(*res, "must not complete");
 
     ktl::at(buf, res->formatted_len()) = '\0';
-    if (auto str = view(buf); str != exp) {
+    if (ktl::basic_string_view str = buf.data(); str != exp) {
         write("failure: `");
-        write(str);
+        write(str.data());
         write("` != `");
         write(exp);
         write("`\n");
@@ -40,14 +40,14 @@ constexpr auto check(const char* exp, const Args&... args) -> unsigned {
 
 auto main() -> int {
     // NOLINTBEGIN(*-magic-numbers)
-    static_assert(view("{{}}"_f.format<>()) == "{}");
-    static_assert(view("{{ {:} }}"_f.format<"1"_cs>()) == "{ 1 }");
-    static_assert(view("a{{ {:.<5s} }}"_f.format<"1"_cs>()) == "a{ 1.... }");
-    static_assert(view("a{{ {:*^5s} }}"_f.format<"1"_cs>()) == "a{ **1** }");
-    static_assert(view("{0:+#0{1}d}"_f.format<100, 10>()) == "+000000100");
+    static_assert("{{}}"_f.format<>() == "{}");
+    static_assert("{{ {:} }}"_f.format<"1"_cs>() == "{ 1 }");
+    static_assert("a{{ {:.<5s} }}"_f.format<"1"_cs>() == "a{ 1.... }");
+    static_assert("a{{ {:*^5s} }}"_f.format<"1"_cs>() == "a{ **1** }");
+    static_assert("{0:+#0{1}d}"_f.format<100, 10>() == "+000000100");
     static_assert(
-        view("{:*^{}} {:+#08X} test string `{:3s}`. {} {:d}"_f
-                 .format<"this"_cs, 10, 100, "str"_cs, false, true>())
+        "{:*^{}} {:+#08X} test string `{:3s}`. {} {:d}"_f
+            .format<"this"_cs, 10, 100, "str"_cs, false, true>()
         == "***this*** +0X00064 test string `str`. false 1");
 
     unsigned ret = 0;
