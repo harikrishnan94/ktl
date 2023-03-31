@@ -82,6 +82,8 @@ class vector_ops {
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
+    static constexpr bool is_vector = true;
+
     // Element access and size
     constexpr auto data() noexcept -> T* {
         return get_storage().begin;
@@ -476,4 +478,47 @@ class vector_ops {
         static_cast<VectorT*>(this)->set_len(new_len);
     }
 };
+
+template<typename V>
+concept comparable_vector =
+    requires(const V& v) {
+        typename V::value_type;
+        { std::begin(v) } -> std::contiguous_iterator;
+        { std::end(v) } -> std::contiguous_iterator;
+        { V::is_vector == true };
+        requires std::same_as<
+            std::iter_value_t<std::decay_t<decltype(std::begin(v))>>,
+            typename V::value_type>;
+        requires std::
+            same_as<std::iter_value_t<std::decay_t<decltype(std::end(v))>>, typename V::value_type>;
+    };
+
 }  // namespace ktl::detail
+
+namespace ktl {
+template<detail::comparable_vector Vec1, detail::comparable_vector Vec2>
+    requires std::equality_comparable_with<typename Vec1::value_type, typename Vec2::value_type>
+constexpr auto operator==(const Vec1& lhs, const Vec2& rhs) noexcept -> bool {
+    auto beg1 = std::begin(lhs);
+    auto beg2 = std::begin(rhs);
+    auto end1 = std::end(lhs);
+    auto end2 = std::end(rhs);
+    auto s1 = std::distance(beg1, end1);
+    auto s2 = std::distance(beg2, end2);
+
+    if (s1 != s2) {
+        return false;
+    }
+    return std::equal(beg1, end1, beg2);
+}
+
+template<detail::comparable_vector Vec1, detail::comparable_vector Vec2>
+    requires std::three_way_comparable_with<typename Vec1::value_type, typename Vec2::value_type>
+constexpr auto operator<=>(const Vec1& lhs, const Vec2& rhs) noexcept {
+    return std::lexicographical_compare_three_way(
+        std::begin(lhs),
+        std::end(lhs),
+        std::begin(rhs),
+        std::end(rhs));
+}
+}  // namespace ktl
