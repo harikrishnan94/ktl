@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 
@@ -178,11 +179,75 @@ class allocator_traits {
     }
 };
 
-template<typename C>
-concept clonable = (!std::copy_constructible<C> && requires(const C& o) {
-                                                       {
-                                                           o.clone()
-                                                           } -> std::same_as<expected<C, Error>>;
-                                                   });
+// ------------------ Uninitialized Memory algorithms --------------------
 
+template<std::forward_iterator ForwardIterator, std::integral Size, std::copyable T>
+constexpr auto uninitialized_fill_n(ForwardIterator first, Size n, const T& x) -> ForwardIterator {
+    if (std::is_constant_evaluated()) {
+        for (Size i = 0; i < n; i++, first++) {
+            std::construct_at(std::addressof(*first), x);
+        }
+        return first;
+    } else {  // NOLINT
+        return std::uninitialized_fill_n(first, n, x);
+    }
+}
+
+template<std::integral Size, std::forward_iterator ForwardIterator>
+constexpr auto uninitialized_copy_n(std::input_iterator auto first, Size n, ForwardIterator result)
+    -> ForwardIterator {
+    if (std::is_constant_evaluated()) {
+        for (Size i = 0; i < n; i++, result++, first++) {
+            std::construct_at(std::addressof(*result), *first);
+        }
+        return result;
+    } else {  // NOLINT
+        return std::uninitialized_copy_n(first, n, result);
+    }
+}
+
+template<std::integral Size, std::forward_iterator ForwardIterator>
+constexpr auto uninitialized_move_n(std::input_iterator auto first, Size n, ForwardIterator result)
+    -> ForwardIterator {
+    if (std::is_constant_evaluated()) {
+        for (Size i = 0; i < n; i++, result++, first++) {
+            std::construct_at(std::addressof(*result), std::move(*first));
+        }
+        return result;
+    } else {  // NOLINT
+        return std::uninitialized_move_n(first, n, result).second;
+    }
+}
+
+template<std::bidirectional_iterator BidirIt1, std::bidirectional_iterator BidirIt2>
+constexpr auto uninitialized_move_backward(BidirIt1 first, BidirIt1 last, BidirIt2 d_last)
+    -> BidirIt2 {
+    while (first != last) {
+        std::construct_at(std::addressof(*(--d_last)), std::move(*(--last)));
+    }
+    return d_last;
+}
+
+// ------------------ Container clone ----------------------
+
+namespace detail {
+    template<typename C>
+    concept has_clone_mem_fn = requires(const C& o) {
+                                   { o.clone() } -> std::same_as<expected<C, Error>>;
+                               };
+
+}
+
+template<typename C>
+concept clonable = detail::has_clone_mem_fn<C> || requires(const C& o) {
+                                                      {
+                                                          clone(o)
+                                                          } -> std::same_as<expected<C, Error>>;
+                                                  };
+
+template<typename C>
+    requires detail::has_clone_mem_fn<C>
+constexpr auto clone(const C& cont) noexcept -> expected<C, Error> {
+    return cont.clone();
+}
 }  // namespace ktl

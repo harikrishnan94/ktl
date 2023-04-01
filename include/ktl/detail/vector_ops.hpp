@@ -7,6 +7,7 @@
 #include <ktl/error.hpp>
 #include <ktl/expected.hpp>
 #include <ktl/int.hpp>
+#include <ktl/memory.hpp>
 
 #include "erase.hpp"
 
@@ -31,44 +32,6 @@ struct vector_storage {
     // Pointer to element (assuming it's valid) following the end of storage.
     T* end_cap;
 };
-
-template<typename ForwardIterator, typename Size, typename T>
-constexpr auto uninitialized_fill_n(ForwardIterator first, Size n, const T& x) -> ForwardIterator {
-    if (std::is_constant_evaluated()) {
-        for (Size i = 0; i < n; i++, first++) {
-            std::construct_at(std::addressof(*first), x);
-        }
-        return first;
-    } else {  // NOLINT
-        return std::uninitialized_fill_n(first, n, x);
-    }
-}
-
-template<typename InputIterator, typename Size, typename ForwardIterator>
-constexpr auto uninitialized_copy_n(InputIterator first, Size n, ForwardIterator result)
-    -> ForwardIterator {
-    if (std::is_constant_evaluated()) {
-        for (Size i = 0; i < n; i++, result++, first++) {
-            std::construct_at(std::addressof(*result), *first);
-        }
-        return result;
-    } else {  // NOLINT
-        return std::uninitialized_copy_n(first, n, result);
-    }
-}
-
-template<typename InputIterator, typename Size, typename ForwardIterator>
-constexpr auto uninitialized_move_n(InputIterator first, Size n, ForwardIterator result)
-    -> ForwardIterator {
-    if (std::is_constant_evaluated()) {
-        for (Size i = 0; i < n; i++, result++, first++) {
-            std::construct_at(std::addressof(*result), std::move(*first));
-        }
-        return result;
-    } else {  // NOLINT
-        return std::uninitialized_move_n(first, n, result).second;
-    }
-}
 
 template<typename VectorT, typename T, typename SizeT>
 concept vector_like = requires(VectorT vec, const VectorT cvec, SizeT req_len, SizeT new_len) {
@@ -289,8 +252,7 @@ class vector_ops {
             VectorT tmp;
 
             TryV(tmp.assign_iter(first, last));
-            [[maybe_unused]] auto res = assign(tmp.begin(), tmp.end());
-            assert(res);
+            check_(assign(tmp.begin(), tmp.end()), "");
         }
 
         return {};
@@ -429,7 +391,7 @@ class vector_ops {
         }
         // NOTE: Cannot use `pos` here as it might have been invalidated by previous call to
         // grow.
-        std::move_backward(beg + pos_i, end, end + count);
+        uninitialized_move_backward(beg + pos_i, end, end + count);
         set_len(size + count);
         return begin() + pos_i;
     }

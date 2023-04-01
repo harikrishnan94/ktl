@@ -2,8 +2,6 @@
 
 #include <bit>
 
-#include <ktl/memory.hpp>
-
 #include "detail/vector_ops.hpp"
 
 namespace ktl {
@@ -36,7 +34,6 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     constexpr vector() = default;
 
     constexpr explicit vector(const Allocator& a) : m_alloc {a} {}
-    constexpr explicit vector(Allocator&& a) : m_alloc {std::move(a)} {}
 
     constexpr ~vector() {
         this->clear();
@@ -70,10 +67,11 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
                 static_assert(
                     std::is_move_constructible_v<value_type>
                     && std::is_move_assignable_v<value_type>);
-                [[maybe_unused]] auto res = this->assign(
-                    std::make_move_iterator(o.begin()),
-                    std::make_move_iterator(o.end()));
-                check_(res, "move assignment must not fail");
+                check_(
+                    this->assign(
+                        std::make_move_iterator(o.begin()),
+                        std::make_move_iterator(o.end())),
+                    "move assignment must not fail");
             }
         }
 
@@ -101,27 +99,31 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
 
                 vector tmp {m_alloc};
 
-                {
-                    [[maybe_unused]] auto res = tmp.assign(
+                check_(
+                    tmp.assign(
                         std::make_move_iterator(o.begin()),
-                        std::make_move_iterator(o.end()));
-                    check_(res, "move assignment must not fail");
-                }
-                {
-                    [[maybe_unused]] auto res = o.assign(
+                        std::make_move_iterator(o.end())),
+                    "move assignment must not fail");
+                check_(
+                    o.assign(
                         std::make_move_iterator(this->begin()),
-                        std::make_move_iterator(this->end()));
-                    check_(res, "move assignment must not fail");
-                }
+                        std::make_move_iterator(this->end())),
+                    "move assignment must not fail");
 
                 *this = std::move(tmp);
             }
         }
     }
 
+    constexpr auto get_allocator() const noexcept -> Allocator {
+        return m_alloc;
+    }
+
     // Explicit Copy Construction
-    constexpr auto clone() noexcept -> expected<vector, Error> {
-        vector copy(alloc_traits::select_on_container_copy_construction(m_alloc));
+    constexpr auto clone() const noexcept -> expected<vector, Error>
+        requires(std::copyable<T>)
+    {
+        vector copy {alloc_traits::select_on_container_copy_construction(m_alloc)};
 
         TryV(copy.assign(this->begin(), this->end()));
 
@@ -146,14 +148,13 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     constexpr auto shrink_to_fit() noexcept -> expected<void, Error> {
         Try(new_data, alloc_traits::allocate(m_alloc, m_len));
 
-        std::move(m_data, m_data + m_len, new_data);
+        uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+        alloc_traits::deallocate(m_alloc, m_data, m_capacity);
         m_data = new_data;
         m_capacity = m_len;
-    }
 
-    template<typename Alloc, typename U, typename... OU>
-    friend constexpr auto make_vector(const Alloc& a, U&& first_val, OU&&... other_vals) noexcept
-        -> expected<vector<std::common_type_t<U, OU...>, Alloc>, Error>;
+        return {};
+    }
 
   private:
     // Allow access to internal members. Classic CRTP.
@@ -173,7 +174,8 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
         if (req_cap > m_capacity) [[unlikely]] {
             Try(new_data, alloc_traits::allocate(m_alloc, req_cap));
 
-            std::move(m_data, m_data + m_len, static_cast<value_type*>(new_data));
+            uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+            alloc_traits::deallocate(m_alloc, m_data, m_capacity);
             m_data = new_data;
             m_capacity = req_cap;
         }
@@ -185,6 +187,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
             Try(new_data, alloc_traits::allocate(m_alloc, req_len));
 
             std::destroy_n(m_data, m_len);
+            alloc_traits::deallocate(m_alloc, m_data, m_capacity);
             m_data = new_data;
             m_len = 0;
             m_capacity = req_len;
@@ -204,30 +207,6 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     [[no_unique_address]] Allocator m_alloc = {};
 };
 
-template<typename Alloc, typename T, typename... OT>
-constexpr auto make_vector(const Alloc& a, T&& first_val, OT&&... other_vals) noexcept
-    -> expected<vector<std::common_type_t<T, OT...>, Alloc>, Error> {
-    using vec_t = vector<std::common_type_t<T, OT...>, Alloc>;
-
-    vec_t vec {a};
-    typename vec_t::size_type len = sizeof...(OT) + 1;
-    typename vec_t::size_type i = 1;
-
-    vec.reserve(len);
-    vec.set_len(len);
-
-    vec[0] = std::forward<T>(first_val);
-    ((vec[i++] = std::forward<OT>(other_vals)), ...);
-
-    return vec;
-}
-
-template<typename Alloc, typename T, typename... OT>
-constexpr auto make_vector(T&& first_val, OT&&... other_vals) noexcept
-    -> expected<vector<std::common_type_t<T, OT...>, Alloc>, Error> {
-    return make_vector({}, std::forward<T>(first_val), std::forward<OT>(other_vals)...);
-}
-
 template<std::copy_constructible T, typename Alloc>
 constexpr auto make_vector(usize count, const T& val, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<T, Alloc>, Error> {
@@ -235,7 +214,7 @@ constexpr auto make_vector(usize count, const T& val, const Alloc& a = Alloc {})
 
     vec_t vec {a};
 
-    vec.assign(count, val);
+    TryV(vec.assign(count, val));
 
     return vec;
 }
@@ -245,48 +224,17 @@ template<typename T, typename Alloc>
     && std::is_default_constructible_v<T>
 constexpr auto make_vector(usize count, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<T, Alloc>, Error> {
-    using vec_t = vector<T, Alloc>;
-
-    vec_t vec {a};
-
-    vec.assign(count, T {});
-
-    return vec;
+    return make_vector<T, Alloc>(count, {}, a);
 }
 
 template<std::copy_constructible T, typename Alloc>
-constexpr auto copy_vector(const vector<T, Alloc>& o, const Alloc& a = Alloc {}) noexcept
+constexpr auto make_vector(std::initializer_list<T> ilist, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<T, Alloc>, Error> {
     using vec_t = vector<T, Alloc>;
 
     vec_t vec {a};
 
-    vec.assign(a.begin(), a.end());
-
-    return vec;
-}
-
-template<std::copy_constructible T, typename Alloc>
-constexpr auto move_vector(vector<T, Alloc>&& o, const Alloc& a = Alloc {}) noexcept
-    -> expected<vector<T, Alloc>, Error> {
-    using vec_t = vector<T, Alloc>;
-
-    vec_t vec {a};
-
-    vec.resize_uninitialized(o.size());
-    std::move(o.begin(), o.end(), vec.data());
-
-    return vec;
-}
-
-template<std::copy_constructible T, typename Alloc>
-constexpr auto move_vector(std::initializer_list<T> ilist, const Alloc& a = Alloc {}) noexcept
-    -> expected<vector<T, Alloc>, Error> {
-    using vec_t = vector<T, Alloc>;
-
-    vec_t vec {a};
-
-    vec.assign(ilist);
+    TryV(vec.assign(ilist));
 
     return vec;
 }

@@ -29,8 +29,7 @@ namespace detail {
         constexpr auto str() const noexcept -> basic_static_string<CharT, Capacity, TraitsT> {
             basic_static_string<CharT, Capacity, TraitsT> str;
 
-            [[maybe_unused]] auto res = str.assign(m_substr.begin(), m_substr.end());
-            assert(res);
+            check_(str.assign(m_substr.begin(), m_substr.end()), "");
 
             return str;
         }
@@ -175,7 +174,7 @@ constexpr auto make_static_string(const CharT (&chars)[N]) noexcept
     using str_t = basic_static_string<CharT, N>;
     str_t str;
 
-    str.assign(chars, N - 1);
+    check_(str.assign(chars, N - 1), "");
     return str;
 }
 
@@ -187,7 +186,7 @@ constexpr auto make_static_string(const CharT (&chars)[N]) noexcept
     using str_t = basic_static_string<CharT, VCapacity>;
     str_t str;
 
-    str.assign(chars, N - 1);
+    check_(str.assign(chars, N - 1), "");
 
     return str;
 }

@@ -1,3 +1,4 @@
+#include <ktl/access.hpp>
 #include <ktl/fixed_vector.hpp>
 #include <ktl/memory.hpp>
 #include <ktl/span.hpp>
@@ -10,8 +11,9 @@ using namespace ktl;
 
 struct int_t {
     int_t() = default;
-    explicit int_t(int v) : v(v) {}
+    constexpr explicit int_t(int v) : v(v) {}
 
+    auto operator==(const int_t&) const -> bool = default;
     auto operator<=>(const int_t&) const = default;
 
     int v = 0;
@@ -171,7 +173,7 @@ static void svector_assign_test() {
     {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
-            vec.assign({3, 2});
+            check_(vec.assign({3, 2}), "");
 
             return vec;
         }();
@@ -183,7 +185,7 @@ static void svector_assign_test() {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
             const auto ovec = make_static_vector(3, 2);
-            vec.assign(ovec.begin(), ovec.end());
+            check_(vec.assign(ovec.begin(), ovec.end()), "");
 
             return vec;
         }();
@@ -194,7 +196,7 @@ static void svector_assign_test() {
     {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
-            vec.assign(2, 1);
+            check_(vec.assign(2, 1), "");
 
             return vec;
         }();
@@ -269,7 +271,7 @@ static void svector_insert_test() {
             auto vec = make_static_vector<6>(1, 2, 8);
             const auto ovec = make_static_vector(3, 2);
 
-            vec.insert(std::next(vec.begin()), ovec.begin(), ovec.end());
+            check_(vec.insert(std::next(vec.begin()), ovec.begin(), ovec.end()), "");
             return vec;
         }();
 
@@ -433,10 +435,10 @@ static void fvector_test() {
         check_(vec[0] == 1, "");
         check_(vec[1] == 2, "");
 
-        vec.insert(vec.begin(), {0});
+        check_(vec.insert(vec.begin(), {0}), "");
         check_(vec[0] == 0, "");
 
-        vec.assign({1, 2, 3});
+        check_(vec.assign({1, 2, 3}), "");
         check_(vec[0] == 1, "");
         check_(vec[1] == 2, "");
         check_(vec[2] == 3, "");
@@ -447,7 +449,9 @@ static void fvector_test() {
 
         {
             const std::array arr = {1};
-            vec.clear_and_assign(InputIterator {arr.begin()}, InputIterator {arr.end()});
+            check_(
+                vec.clear_and_assign(InputIterator {arr.begin()}, InputIterator {arr.end()}),
+                "");
             check_(vec[0] == 1, "");
         }
 
@@ -480,12 +484,12 @@ static void fvector_test() {
             fixed_vector vec1 {arr1, 2};
             fixed_vector vec2 {arr2, 3};
 
-            vec1.deep_swap(vec2);
+            check_(vec1.deep_swap(vec2), "");
 
             check_(vec1[0] == 3 && vec1[1] == 4 && vec1[2] == 0, "deep_swap failure");
             check_(vec2[0] == 1 && vec2[1] == 2, "deep_swap failure");
 
-            vec1.deep_swap(vec2);
+            check_(vec1.deep_swap(vec2), "");
             check_(vec1[0] == 1 && vec1[1] == 2, "deep_swap failure");
             check_(vec2[0] == 3 && vec2[1] == 4 && vec2[2] == 0, "deep_swap failure");
         }
@@ -513,17 +517,34 @@ void svector_operators_test() {
     }();
 }
 
-constexpr auto Capacity = 64;
 template<typename T>
-alignas(T) static std::array<char, Capacity * sizeof(T)> arr;
+struct ConstAllocator {
+  public:
+    using value_type = T;
 
-static usize allocated = 0;
+    constexpr auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
+        if (std::is_constant_evaluated()) {
+            return std::allocator<T> {}.allocate(n);
+        }
+        check_(false, "must be used only in constexpr expressions");
+    }
 
-template<typename T>
-static constexpr auto allocate(usize n) -> expected<not_null<T*>, Error> {
-    if (std::is_constant_evaluated()) {
-        return std::allocator<T> {}.allocate(n);
-    } else {
+    constexpr void deallocate(T* ptr, usize n) noexcept {
+        if (std::is_constant_evaluated()) {
+            std::allocator<T> {}.deallocate(ptr, n);
+        } else {
+            check_(false, "must be used only in constexpr expressions");
+        }
+    }
+};
+
+template<typename T, auto Capacity = 64>
+class BumpAllocator {
+  public:
+    using value_type = T;
+    using is_noop_dealloc = std::true_type;
+
+    auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
         if (allocated == Capacity) {
             Throw(Error::BufferFull);
         }
@@ -531,44 +552,125 @@ static constexpr auto allocate(usize n) -> expected<not_null<T*>, Error> {
         auto idx = allocated;
         allocated += n;
 
-        return std::bit_cast<T*>(&arr<T>[idx]);
-    }
-}
-
-template<typename T>
-static constexpr void free(T* ptr, usize n) {
-    if (std::is_constant_evaluated()) {
-        std::allocator<T> {}.deallocate(ptr, n);
-    }
-}
-
-template<typename T, auto Capacity = 64>
-class StackAllocator {
-  public:
-    using value_type = T;
-
-    constexpr auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
-        return ::allocate<T>(n);
+        return std::bit_cast<T*>(&at(arr, idx));
     }
 
-    constexpr void deallocate(T* ptr, usize n) noexcept {
-        ::free<T>(ptr, n);
-    }
+  private:
+    alignas(T) static inline std::array<char, Capacity * sizeof(T)> arr = {};
+    static inline usize allocated = 0;
 };
 
 template<typename T>
-using vec_t = vector<T, StackAllocator<T>>;
+using vec_t = vector<T, BumpAllocator<T>>;
 
 void vector_test() {
-    static constinit auto _ = [] {
-        vec_t<int> v;
+    static constinit auto sanity = [] {
+        auto v1 = *make_vector<int, ConstAllocator<int>>({1, 1, 1});
+        auto v2 = *make_vector<int, ConstAllocator<int>>(3, 1);
+        auto v3 = clone(v1);
 
-        check_(v.push_back(1), "push_back must succeed");
+        check_(v3, "clone must succeed");
+        check_(v1 == v2 && v2 == v3, "vectors must match");
+        check_(v3->assign(v2.begin(), v2.end()), "assign must succeed");
+        check_(v1 == v3, "vectors must match");
 
-        auto v1 = v.clone();
-        check_(*v1 == v, "clones must compare equal");
-        return v.empty();
+        check_(v1.insert(v1.begin(), {1, 2, 3}), "");
+        check_(
+            v1[0] == 1 && v1[1] == 2 && v1[2] == 3 && v1[3] == 1 && v1[4] == 1 && v1[5] == 1,
+            "values must match after insert");
+
+        check_(erase(v1, 1) == 4, "");
+        check_(v1[0] == 2 && v1[1] == 3, "values must match after insert");
+
+        check_(v1.capacity() == 6, "");
+        check_(v1.shrink_to_fit(), "");
+        check_(v1[0] == 2 && v1[1] == 3, "values must match after insert");
+        check_(v1.capacity() == v1.size(), "");
+
+        v1.swap(v2);
+        check_(v1 == v3, "vectors must match");
+        check_(v2 != v3, "vectors must not match");
+
+        return v1.empty();
     }();
+
+    static constinit auto non_trivial = [] {
+        vector<int_t, ConstAllocator<int_t>> v1;
+
+        check_(v1.assign({int_t {}, int_t {1}, int_t {2}}), "");
+
+        auto v2 = v1.clone();
+
+        check_(v1 == v2, "");
+        check_(v1[2] == int_t {2}, "");
+
+        return v1.empty();
+    }();
+
+    // Move/Copy count
+    {
+        static int cons_count = 0;
+        static int copy_cons_count = 0;
+        static int move_cons_count = 0;
+        static int copy_assign_count = 0;
+        static int move_assign_count = 0;
+        static int destroy_count = 0;
+        struct move_test {
+            move_test() {
+                ++cons_count;
+            }
+
+            ~move_test() {
+                ++destroy_count;
+            }
+
+            move_test(const move_test& /*unused*/) {
+                ++copy_cons_count;
+            }
+            move_test(move_test&& /*unused*/) noexcept {
+                ++move_cons_count;
+            }
+
+            auto operator=(const move_test& o) -> move_test& {
+                if (this != &o) {
+                    ++copy_assign_count;
+                }
+                return *this;
+            }
+            auto operator=(move_test&& /*unused*/) noexcept -> move_test& {
+                ++move_assign_count;
+                return *this;
+            }
+        };
+
+        vector<move_test, BumpAllocator<move_test>> vec;
+
+        check_(vec.empty(), "vector must be empty");
+        check_(vec.push_back({}), "push_back must succeed");
+        check_(vec.push_back({}), "push_back must succeed");
+
+        check_(cons_count == 2, "construction count mismatch");
+        check_(copy_cons_count == 0, "copy count failure");
+        check_(move_cons_count == 3, "move count failure");
+
+        auto vec1 = vec.clone();
+
+        check_(cons_count == 2, "construction count mismatch");
+        check_(copy_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 3, "move count failure");
+
+        auto vec2 = std::move(vec);
+
+        check_(cons_count == 2, "construction count mismatch");
+        check_(copy_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 3, "move count failure");
+
+        vec = std::move(vec2);
+
+        check_(cons_count == 2, "construction count mismatch");
+        check_(copy_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 3, "move count failure");
+    }
 }
 
 auto main() -> int {

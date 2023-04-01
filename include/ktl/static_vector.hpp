@@ -51,7 +51,7 @@ class static_vector:
     constexpr static_vector(const static_vector& o) noexcept
         requires(!std::is_trivially_copy_constructible_v<T>)
         : m_len {o.m_len} {
-        detail::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
     constexpr static_vector(static_vector&&) noexcept
@@ -98,10 +98,10 @@ class static_vector:
 
         if (len > o_len) {
             std::swap_ranges(begin, begin + o_len, o_begin);
-            detail::uninitialized_move_n(begin + o_len, len - o_len, o_begin);
+            uninitialized_move_n(begin + o_len, len - o_len, o_begin);
         } else {
             std::swap_ranges(begin, begin + len, o_begin);
-            detail::uninitialized_move_n(o_begin + len, o_len - len, begin);
+            uninitialized_move_n(o_begin + len, o_len - len, begin);
         }
 
         using std::swap;
@@ -209,13 +209,6 @@ constexpr auto make_static_vector(T&& first_val, OT&&... other_vals) noexcept
     std::construct_at(data, std::forward<T>(first_val));
     (std::construct_at(++data, std::forward<OT>(other_vals)), ...);
     vec.set_len(sizeof...(OT) + 1);
-
-    if (std::is_constant_evaluated()) {
-        data = vec.get_storage().begin;
-        for (auto i = vec.size(); i < vec.capacity(); i++) {
-            std::construct_at(data + i, ValueT {});
-        }
-    }
 
     return vec;
 }

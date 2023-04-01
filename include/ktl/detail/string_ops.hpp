@@ -317,8 +317,7 @@ class string_ops {
             StringT tmp;
 
             TryV(tmp.assign_iter(first, last));
-            [[maybe_unused]] auto res = assign(tmp.begin(), tmp.end());
-            assert(res);
+            check_(assign(tmp.begin(), tmp.end()), "");
         }
 
         return non_null_ptr {static_cast<StringT&>(*this)};
@@ -562,7 +561,7 @@ class string_ops {
             Throw(std::make_pair(last2, std::move(res).error()));
         }
 
-        assign(tmp.begin(), tmp.end());
+        check_(assign(tmp.begin(), tmp.end()), "");
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
