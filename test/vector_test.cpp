@@ -1,6 +1,8 @@
 #include <ktl/fixed_vector.hpp>
+#include <ktl/memory.hpp>
 #include <ktl/span.hpp>
 #include <ktl/static_vector.hpp>
+#include <ktl/vector.hpp>
 
 #include "input_iterator.hpp"
 
@@ -19,6 +21,7 @@ static void svector_insert_test();
 static void svector_assign_test();
 static void svector_erase_test();
 static void svector_operators_test();
+static void vector_test();
 
 static void svector_test() {
     static_assert(sizeof(static_vector<u8, 3>) == sizeof(u8) * 4);
@@ -147,11 +150,13 @@ static void svector_test() {
 
     // Resize
     static constinit auto resize = [] {
-        auto vec = make_static_vector(1, 2, 3);
+        auto vec = make_static_vector<4>(1, 2, 3);
         check_(vec.resize(1), "resize must succeed");
         check_(vec.resize(2, 2), "resize must succeed");
         check_(vec[1] == 2, "must contain `filled_value` after resize");
-        check_(!vec.resize(4), "resize over capacity must fail");
+        check_(vec.resize(4, 4), "");
+        check_(vec[3] == 4, "must contain `filled_value` after resize");
+        check_(!vec.resize(5), "resize over capacity must fail");
 
         return vec.empty();
     }();
@@ -204,13 +209,14 @@ static void svector_assign_test() {
             InputIterator begin {ovec.begin()};
             InputIterator end {ovec.end()};
 
-            vec.assign(begin, end);
+            auto res = vec.assign(begin, end);
+            check_(res, "");
 
             return vec;
         }();
 
-        static_assert(vec.size() == 2, "count must match after assign");
-        static_assert(vec[0] == 3 && vec[1] == 2, "values must match after assign");
+        check_(vec.size() == 2, "count must match after assign");
+        check_(vec[0] == 3 && vec[1] == 2, "values must match after assign");
     }
 
     // Tests for post conditions of a failed assign operation
@@ -507,8 +513,67 @@ void svector_operators_test() {
     }();
 }
 
+constexpr auto Capacity = 64;
+template<typename T>
+alignas(T) static std::array<char, Capacity * sizeof(T)> arr;
+
+static usize allocated = 0;
+
+template<typename T>
+static constexpr auto allocate(usize n) -> expected<not_null<T*>, Error> {
+    if (std::is_constant_evaluated()) {
+        return std::allocator<T> {}.allocate(n);
+    } else {
+        if (allocated == Capacity) {
+            Throw(Error::BufferFull);
+        }
+
+        auto idx = allocated;
+        allocated += n;
+
+        return std::bit_cast<T*>(&arr<T>[idx]);
+    }
+}
+
+template<typename T>
+static constexpr void free(T* ptr, usize n) {
+    if (std::is_constant_evaluated()) {
+        std::allocator<T> {}.deallocate(ptr, n);
+    }
+}
+
+template<typename T, auto Capacity = 64>
+class StackAllocator {
+  public:
+    using value_type = T;
+
+    constexpr auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
+        return ::allocate<T>(n);
+    }
+
+    constexpr void deallocate(T* ptr, usize n) noexcept {
+        ::free<T>(ptr, n);
+    }
+};
+
+template<typename T>
+using vec_t = vector<T, StackAllocator<T>>;
+
+void vector_test() {
+    static constinit auto _ = [] {
+        vec_t<int> v;
+
+        check_(v.push_back(1), "push_back must succeed");
+
+        auto v1 = v.clone();
+        check_(*v1 == v, "clones must compare equal");
+        return v.empty();
+    }();
+}
+
 auto main() -> int {
     svector_test();
     fvector_test();
+    vector_test();
     return 0;
 }

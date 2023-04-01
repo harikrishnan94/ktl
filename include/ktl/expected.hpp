@@ -203,7 +203,7 @@ namespace detail {
             m_unexpect(il, std::forward<Args>(args)...),
             m_has_val(false) {}
 
-        ~expected_storage_base() noexcept {
+        constexpr ~expected_storage_base() noexcept {
             if (m_has_val) {
                 m_val.~T();
             } else {
@@ -262,7 +262,7 @@ namespace detail {
             m_unexpect(il, std::forward<Args>(args)...),
             m_has_val(false) {}
 
-        ~expected_storage_base() noexcept = default;
+        constexpr ~expected_storage_base() noexcept = default;
         union {
             T m_val;
             unexpected<E> m_unexpect;
@@ -314,7 +314,7 @@ namespace detail {
             m_unexpect(il, std::forward<Args>(args)...),
             m_has_val(false) {}
 
-        ~expected_storage_base() noexcept {
+        constexpr ~expected_storage_base() noexcept {
             if (!m_has_val) {
                 m_unexpect.~unexpected<E>();
             }
@@ -371,7 +371,7 @@ namespace detail {
             m_unexpect(il, std::forward<Args>(args)...),
             m_has_val(false) {}
 
-        ~expected_storage_base() noexcept {
+        constexpr ~expected_storage_base() noexcept {
             if (m_has_val) {
                 m_val.~T();
             }
@@ -412,7 +412,7 @@ namespace detail {
             m_unexpect(il, std::forward<Args>(args)...),
             m_has_val(false) {}
 
-        ~expected_storage_base() noexcept = default;
+        constexpr ~expected_storage_base() noexcept = default;
         struct dummy {};
         union {
             unexpected<E> m_unexpect;
@@ -448,7 +448,7 @@ namespace detail {
             m_unexpect(il, std::forward<Args>(args)...),
             m_has_val(false) {}
 
-        ~expected_storage_base() noexcept {
+        constexpr ~expected_storage_base() noexcept {
             if (!m_has_val) {
                 m_unexpect.~unexpected<E>();
             }
@@ -468,25 +468,25 @@ namespace detail {
         using expected_storage_base<T, E>::expected_storage_base;
 
         template<typename... Args>
-        void construct(Args&&... args) noexcept {
+        constexpr void construct(Args&&... args) noexcept {
             new (std::addressof(this->m_val)) T(std::forward<Args>(args)...);
             this->m_has_val = true;
         }
 
         template<typename Rhs>
-        void construct_with(Rhs&& rhs) noexcept {
+        constexpr void construct_with(Rhs&& rhs) noexcept {
             new (std::addressof(this->m_val)) T(std::forward<Rhs>(rhs).get());
             this->m_has_val = true;
         }
 
         template<typename... Args>
-        void construct_error(Args&&... args) noexcept {
+        constexpr void construct_error(Args&&... args) noexcept {
             new (std::addressof(this->m_unexpect)) unexpected<E>(std::forward<Args>(args)...);
             this->m_has_val = false;
         }
 
         // If exceptions are disabled then we can just copy-construct
-        void assign(const expected_operations_base& rhs) noexcept {
+        constexpr void assign(const expected_operations_base& rhs) noexcept {
             if (!this->m_has_val && rhs.m_has_val) {
                 geterr().~unexpected<E>();
                 construct(rhs.get());
@@ -495,7 +495,7 @@ namespace detail {
             }
         }
 
-        void assign(expected_operations_base&& rhs) noexcept {
+        constexpr void assign(expected_operations_base&& rhs) noexcept {
             if (!this->m_has_val && rhs.m_has_val) {
                 geterr().~unexpected<E>();
                 construct(std::move(rhs).get());
@@ -506,7 +506,7 @@ namespace detail {
 
         // The common part of move/copy assigning
         template<typename Rhs>
-        void assign_common(Rhs&& rhs) noexcept {
+        constexpr void assign_common(Rhs&& rhs) noexcept {
             if (this->m_has_val) {
                 if (rhs.m_has_val) {
                     get() = std::forward<Rhs>(rhs).get();
@@ -521,7 +521,7 @@ namespace detail {
             }
         }
 
-        [[nodiscard]] bool has_value() const noexcept {
+        [[nodiscard]] constexpr bool has_value() const noexcept {
             return this->m_has_val;
         }
 
@@ -565,25 +565,25 @@ namespace detail {
         using expected_storage_base<void, E>::expected_storage_base;
 
         template<typename... Args>
-        void construct() noexcept {
+        constexpr void construct() noexcept {
             this->m_has_val = true;
         }
 
         // This function doesn't use its argument, but needs it so that code in
         // levels above this can work independently of whether T is void
         template<typename Rhs>
-        void construct_with(Rhs&&) noexcept {
+        constexpr void construct_with(Rhs&&) noexcept {
             this->m_has_val = true;
         }
 
         template<typename... Args>
-        void construct_error(Args&&... args) noexcept {
+        constexpr void construct_error(Args&&... args) noexcept {
             new (std::addressof(this->m_unexpect)) unexpected<E>(std::forward<Args>(args)...);
             this->m_has_val = false;
         }
 
         template<typename Rhs>
-        void assign(Rhs&& rhs) noexcept {
+        constexpr void assign(Rhs&& rhs) noexcept {
             if (!this->m_has_val) {
                 if (rhs.m_has_val) {
                     geterr().~unexpected<E>();
@@ -598,7 +598,7 @@ namespace detail {
             }
         }
 
-        [[nodiscard]] bool has_value() const noexcept {
+        [[nodiscard]] constexpr bool has_value() const noexcept {
             return this->m_has_val;
         }
 
@@ -637,7 +637,7 @@ namespace detail {
         using expected_operations_base<T, E>::expected_operations_base;
 
         expected_copy_base() noexcept = default;
-        expected_copy_base(const expected_copy_base& rhs) noexcept :
+        constexpr expected_copy_base(const expected_copy_base& rhs) noexcept :
             expected_operations_base<T, E>(no_init) {
             if (rhs.has_value()) {
                 this->construct_with(rhs);
@@ -672,7 +672,8 @@ namespace detail {
         expected_move_base() noexcept = default;
         expected_move_base(const expected_move_base& rhs) noexcept = default;
 
-        expected_move_base(expected_move_base&& rhs) noexcept : expected_copy_base<T, E>(no_init) {
+        constexpr expected_move_base(expected_move_base&& rhs) noexcept :
+            expected_copy_base<T, E>(no_init) {
             if (rhs.has_value()) {
                 this->construct_with(std::move(rhs));
             } else {
@@ -707,7 +708,8 @@ namespace detail {
         expected_copy_assign_base(const expected_copy_assign_base& rhs) noexcept = default;
 
         expected_copy_assign_base(expected_copy_assign_base&& rhs) noexcept = default;
-        expected_copy_assign_base& operator=(const expected_copy_assign_base& rhs) noexcept {
+        constexpr expected_copy_assign_base&
+        operator=(const expected_copy_assign_base& rhs) noexcept {
             this->assign(rhs);
             return *this;
         }
@@ -745,7 +747,7 @@ namespace detail {
 
         expected_move_assign_base& operator=(const expected_move_assign_base& rhs) = default;
 
-        expected_move_assign_base& operator=(expected_move_assign_base&& rhs) noexcept {
+        constexpr expected_move_assign_base& operator=(expected_move_assign_base&& rhs) noexcept {
             this->assign(std::move(rhs));
             return *this;
         }
