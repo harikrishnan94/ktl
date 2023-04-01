@@ -934,6 +934,28 @@ class string_ops {
   protected:
     static constexpr CharT NUL = {};
 
+    // --------------------- Substr ---------------------
+
+    constexpr auto substr_destructive(SizeT pos, SizeT count) noexcept
+        -> expected<non_null_ptr, Error> {
+        auto [beg, end, _] = get_storage();
+        auto size = end - beg - 1;
+
+        if (pos > size) [[unlikely]] {
+            Throw(Error::IndexOutOfBounds);
+        }
+
+        count = std::min<SizeT>(count, size - pos);
+
+        if (pos > 0) {
+            end = std::move(beg + pos, beg + pos + count, beg);
+        }
+        beg[count] = NUL;
+        set_len(count + 1);
+
+        return non_null_ptr {static_cast<StringT&>(*this)};
+    }
+
     template<std::input_iterator InputIter>
     constexpr auto assign_iter(InputIter first, InputIter last)
         -> expected<non_null_ptr, std::pair<InputIter, Error>> {

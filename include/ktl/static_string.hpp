@@ -106,24 +106,11 @@ class basic_static_string:
         return ss;
     }
 
+    // --------------------- Substr ---------------------
+
     constexpr auto substr(size_type pos = 0, size_type count = base::npos) && noexcept
         -> expected<typename base::non_null_ptr, Error> {
-        auto [beg, end, _] = get_storage();
-        auto size = end - beg - 1;
-
-        if (pos > size) [[unlikely]] {
-            Throw(Error::IndexOutOfBounds);
-        }
-
-        count = std::min<size_type>(count, size - pos);
-
-        if (pos > 0) {
-            end = std::move(beg + pos, beg + pos + count, beg);
-        }
-        beg[count] = base::NUL;
-        m_len = count + 1;
-
-        return typename base::non_null_ptr {*this};
+        return base::substr_destructive(pos, count);
     }
 
   private:
