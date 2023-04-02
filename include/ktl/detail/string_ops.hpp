@@ -305,6 +305,24 @@ class string_ops {
         return assign_range(first, std::distance(first, last));
     }
 
+    template<std::input_iterator InputIter>
+        requires(!std::random_access_iterator<InputIter>)
+        && std::convertible_to<std::iter_value_t<InputIter>, CharT>
+        && std::is_default_constructible_v<StringT>
+    constexpr auto assign(InputIter first, InputIter last) noexcept
+        -> expected<non_null_ptr, std::pair<InputIter, Error>> {
+        if (this->empty()) {
+            TryV(this->assign_iter(first, last));
+        } else {
+            StringT tmp;
+
+            TryV(tmp.assign_iter(first, last));
+            check_(assign(tmp.begin(), tmp.end()), "");
+        }
+
+        return non_null_ptr {static_cast<StringT&>(*this)};
+    }
+
     constexpr auto assign(std::initializer_list<CharT> ilist) noexcept
         -> expected<non_null_ptr, Error> {
         return assign_range(ilist.begin(), ilist.size());
@@ -467,6 +485,28 @@ class string_ops {
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
+    template<std::input_iterator InputIter>
+        requires(!std::random_access_iterator<InputIter>)
+        && std::convertible_to<std::iter_value_t<InputIter>, CharT>
+        && std::is_default_constructible_v<StringT>
+    constexpr auto insert(const_iterator pos, InputIter first, InputIter last)
+        -> expected<non_null_ptr, std::pair<InputIter, Error>> {
+        if (pos == end()) {
+            return insert_at_end(first, last);
+        }
+
+        StringT tmp;
+        auto tmp_res = tmp.assign(first, last);
+        auto res = insert(pos, tmp.begin(), tmp.end());
+
+        // All rows inseted into `tmp` vector? If so, return the `res`.
+        if (tmp_res || !res) {
+            Throw(std::make_pair(last, std::move(res).error()));
+        }
+        // If, all rows were not inserted into the `tmp` vector, error must be returned.
+        return tmp_res;
+    }
+
     constexpr auto insert(const_iterator pos, std::initializer_list<CharT> ilist)
         -> expected<non_null_ptr, Error> {
         Try(it, make_space_at(pos, ilist.size()));
@@ -500,6 +540,30 @@ class string_ops {
     replace(const_iterator first, const_iterator last, RandAccIt first2, RandAccIt last2) noexcept
         -> expected<non_null_ptr, Error> {
         return replace_impl(first, last, first2, std::distance(first2, last2));
+    }
+
+    template<std::input_iterator InputIt>
+        requires(!std::random_access_iterator<InputIt>)
+        && std::convertible_to<std::iter_value_t<InputIt>, CharT>
+        && std::is_default_constructible_v<StringT>
+    constexpr auto replace(
+                    const_iterator first,
+                    const_iterator last,
+                    InputIt first2,
+                    InputIt last2) noexcept -> expected<non_null_ptr, std::pair<InputIt, Error>> {
+        StringT tmp;
+
+        if (auto res = tmp.append(this->cbegin(), first); !res) {
+            Throw(std::make_pair(first2, std::move(res).error()));
+        }
+        TryV(tmp.append(first2, last2));
+        if (auto res = tmp.append(last, this->cend()); !res) {
+            Throw(std::make_pair(last2, std::move(res).error()));
+        }
+
+        check_(assign(tmp.begin(), tmp.end()), "");
+
+        return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
     constexpr auto replace(SizeT pos, SizeT count, const CharT* cstr, SizeT count2) noexcept
@@ -868,6 +932,28 @@ class string_ops {
 
   protected:
     static constexpr CharT NUL = {};
+
+    // --------------------- Substr ---------------------
+
+    constexpr auto substr_destructive(SizeT pos, SizeT count) noexcept
+        -> expected<non_null_ptr, Error> {
+        auto [beg, end, _] = get_storage();
+        auto size = end - beg - 1;
+
+        if (pos > size) [[unlikely]] {
+            Throw(Error::IndexOutOfBounds);
+        }
+
+        count = std::min<SizeT>(count, size - pos);
+
+        if (pos > 0) {
+            end = std::move(beg + pos, beg + pos + count, beg);
+        }
+        beg[count] = NUL;
+        set_len(count + 1);
+
+        return non_null_ptr {static_cast<StringT&>(*this)};
+    }
 
     template<std::input_iterator InputIter>
     constexpr auto assign_iter(InputIter first, InputIter last)

@@ -29,8 +29,7 @@ namespace detail {
         constexpr auto str() const noexcept -> basic_static_string<CharT, Capacity, TraitsT> {
             basic_static_string<CharT, Capacity, TraitsT> str;
 
-            [[maybe_unused]] auto res = str.assign(m_substr.begin(), m_substr.end());
-            assert(res);
+            check_(str.assign(m_substr.begin(), m_substr.end()), "");
 
             return str;
         }
@@ -98,101 +97,6 @@ class basic_static_string:
         return fixed_string {this->data(), this->capacity(), this->size()};
     }
 
-    // --------------------- Assign ---------------------
-
-    using base::assign;
-
-    template<std::random_access_iterator RandAccIt>
-    constexpr auto assign(RandAccIt first, RandAccIt last) noexcept
-        -> expected<typename base::non_null_ptr, Error> {
-        return base::assign(first, last);
-    }
-
-    template<std::input_iterator InputIter>
-        requires std::convertible_to<std::iter_value_t<InputIter>, CharT>
-        && (!std::random_access_iterator<InputIter>)
-    constexpr auto assign(InputIter first, InputIter last) noexcept
-        -> expected<typename base::non_null_ptr, std::pair<InputIter, Error>> {
-        if (this->empty()) {
-            TryV(this->assign_iter(first, last));
-        } else {
-            basic_static_string tmp;
-
-            TryV(tmp.assign_iter(first, last));
-            *this = tmp;
-        }
-
-        return typename base::non_null_ptr {*this};
-    }
-
-    // --------------------- Insert ---------------------
-
-    using base::insert;
-
-    template<std::random_access_iterator RandAccIt>
-        requires std::convertible_to<std::iter_value_t<RandAccIt>, CharT>
-    constexpr auto insert(typename base::const_iterator pos, RandAccIt first, RandAccIt last)
-        -> expected<typename base::non_null_ptr, Error> {
-        return base::insert(pos, first, last);
-    }
-
-    template<std::input_iterator InputIter>
-        requires std::convertible_to<std::iter_value_t<InputIter>, CharT>
-    constexpr auto insert(typename base::const_iterator pos, InputIter first, InputIter last)
-        -> expected<typename base::non_null_ptr, std::pair<InputIter, Error>> {
-        if (pos == base::end()) {
-            return base::insert_at_end(first, last);
-        }
-
-        basic_static_string tmp;
-        auto tmp_res = tmp.assign(first, last);
-        auto res = base::insert(pos, tmp.begin(), tmp.end());
-
-        // All rows inseted into `tmp` vector? If so, return the `res`.
-        if (tmp_res || !res) {
-            Throw(std::make_pair(last, std::move(res).error()));
-        }
-        // If, all rows were not inserted into the `tmp` vector, error must be returned.
-        return tmp_res;
-    }
-
-    // --------------------- Replace ---------------------
-
-    using base::replace;
-
-    template<std::random_access_iterator RandAccIt>
-        requires std::convertible_to<std::iter_value_t<RandAccIt>, CharT>
-    constexpr auto replace(
-        typename base::const_iterator first,
-        typename base::const_iterator last,
-        RandAccIt first2,
-        RandAccIt last2) noexcept -> expected<typename base::non_null_ptr, Error> {
-        return base::replace(first, last, first2, last2);
-    }
-
-    template<std::input_iterator InputIt>
-        requires std::convertible_to<std::iter_value_t<InputIt>, CharT>
-    constexpr auto replace(
-        typename base::const_iterator first,
-        typename base::const_iterator last,
-        InputIt first2,
-        InputIt last2) noexcept
-        -> expected<typename base::non_null_ptr, std::pair<InputIt, Error>> {
-        basic_static_string tmp;
-
-        if (auto res = tmp.append(this->cbegin(), first); !res) {
-            Throw(std::make_pair(first2, std::move(res).error()));
-        }
-        TryV(tmp.append(first2, last2));
-        if (auto res = tmp.append(last, this->cend()); !res) {
-            Throw(std::make_pair(last2, std::move(res).error()));
-        }
-
-        *this = tmp;
-
-        return typename base::non_null_ptr {*this};
-    }
-
     // --------------------- Substr ---------------------
 
     constexpr auto substr(size_type pos = 0, size_type count = base::npos) const& noexcept
@@ -201,24 +105,11 @@ class basic_static_string:
         return ss;
     }
 
+    // --------------------- Substr ---------------------
+
     constexpr auto substr(size_type pos = 0, size_type count = base::npos) && noexcept
         -> expected<typename base::non_null_ptr, Error> {
-        auto [beg, end, _] = get_storage();
-        auto size = end - beg - 1;
-
-        if (pos > size) [[unlikely]] {
-            Throw(Error::IndexOutOfBounds);
-        }
-
-        count = std::min<size_type>(count, size - pos);
-
-        if (pos > 0) {
-            end = std::move(beg + pos, beg + pos + count, beg);
-        }
-        beg[count] = base::NUL;
-        m_len = count + 1;
-
-        return typename base::non_null_ptr {*this};
+        return base::substr_destructive(pos, count);
     }
 
   private:
@@ -283,7 +174,7 @@ constexpr auto make_static_string(const CharT (&chars)[N]) noexcept
     using str_t = basic_static_string<CharT, N>;
     str_t str;
 
-    str.assign(chars, N - 1);
+    check_(str.assign(chars, N - 1), "");
     return str;
 }
 
@@ -295,7 +186,7 @@ constexpr auto make_static_string(const CharT (&chars)[N]) noexcept
     using str_t = basic_static_string<CharT, VCapacity>;
     str_t str;
 
-    str.assign(chars, N - 1);
+    check_(str.assign(chars, N - 1), "");
 
     return str;
 }

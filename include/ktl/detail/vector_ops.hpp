@@ -7,6 +7,7 @@
 #include <ktl/error.hpp>
 #include <ktl/expected.hpp>
 #include <ktl/int.hpp>
+#include <ktl/memory.hpp>
 
 #include "erase.hpp"
 
@@ -31,35 +32,6 @@ struct vector_storage {
     // Pointer to element (assuming it's valid) following the end of storage.
     T* end_cap;
 };
-
-template<typename ForwardIterator, typename Size, typename T>
-constexpr auto uninitialized_fill_n(ForwardIterator first, Size n, const T& x) -> ForwardIterator {
-    if constexpr (std::is_trivial_v<T>) {
-        return std::fill_n(first, n, x);
-    } else {
-        return std::uninitialized_fill_n(first, n, x);
-    }
-}
-
-template<typename InputIterator, typename Size, typename ForwardIterator>
-constexpr auto uninitialized_copy_n(InputIterator first, Size n, ForwardIterator result)
-    -> ForwardIterator {
-    if constexpr (std::is_trivial_v<std::iter_value_t<ForwardIterator>>) {
-        return std::copy_n(first, n, result);
-    } else {
-        return std::uninitialized_copy_n(first, n, result);
-    }
-}
-
-template<typename InputIterator, typename Size, typename ForwardIterator>
-constexpr auto uninitialized_move_n(InputIterator first, Size n, ForwardIterator result)
-    -> ForwardIterator {
-    if constexpr (std::is_trivial_v<std::iter_value_t<ForwardIterator>>) {
-        return std::copy_n(first, n, result);
-    } else {
-        return std::uninitialized_move_n(first, n, result).second;
-    }
-}
 
 template<typename VectorT, typename T, typename SizeT>
 concept vector_like = requires(VectorT vec, const VectorT cvec, SizeT req_len, SizeT new_len) {
@@ -247,6 +219,11 @@ class vector_ops {
         return resize_with(new_len, [&] { return T {}; });
     }
 
+    [[nodiscard("must check if resize succeeded")]] constexpr auto
+    resize_uninitialized(SizeT new_len) noexcept -> expected<void, Error> {
+        return resize_impl(new_len);
+    }
+
     constexpr auto assign(SizeT count, const T& value) noexcept -> expected<void, Error> {
         return assign_fill(count, value);
     }
@@ -261,6 +238,24 @@ class vector_ops {
         requires std::convertible_to<std::iter_value_t<RandAccIt>, T>
     constexpr auto assign(RandAccIt first, RandAccIt last) noexcept -> expected<void, Error> {
         return assign_range(first, std::distance(first, last));
+    }
+
+    template<std::input_iterator InputIter>
+        requires(!std::random_access_iterator<InputIter>)
+        && std::convertible_to<std::iter_value_t<InputIter>, T>
+        && std::is_default_constructible_v<VectorT>
+    constexpr auto assign(InputIter first, InputIter last) noexcept
+        -> expected<void, std::pair<InputIter, Error>> {
+        if (this->empty()) {
+            TryV(this->assign_iter(first, last));
+        } else {
+            VectorT tmp;
+
+            TryV(tmp.assign_iter(first, last));
+            check_(assign(tmp.begin(), tmp.end()), "");
+        }
+
+        return {};
     }
 
     constexpr auto assign(std::initializer_list<T> ilist) -> expected<void, Error> {
@@ -295,6 +290,28 @@ class vector_ops {
         Try(it, make_space_at(pos, count));
         uninitialized_copy_n(first, count, it);
         return it;
+    }
+
+    template<std::input_iterator InputIt>
+        requires(!std::random_access_iterator<InputIt>)
+        && std::convertible_to<std::iter_value_t<InputIt>, T>
+        && std::is_default_constructible_v<VectorT>
+    constexpr auto insert(const_iterator pos, InputIt first, InputIt last)
+        -> expected<iterator, Error> {
+        if (pos == end()) {
+            return insert_at_end(first, last);
+        }
+
+        VectorT tmp;
+        auto tmp_res = tmp.assign(first, last);
+        auto res = insert(pos, tmp.begin(), tmp.end());
+
+        // All rows inseted into `tmp` vector? If so, return the `res`.
+        if (tmp_res || !res) {
+            return res;
+        }
+        // If, all rows were not inserted into the `tmp` vector, error must be returned.
+        Throw(std::move(tmp_res).error().second);
     }
 
     constexpr auto insert(const_iterator pos, std::initializer_list<T> ilist) noexcept
@@ -336,12 +353,10 @@ class vector_ops {
   protected:
     template<std::input_iterator InputIt>
     constexpr auto insert_at_end(InputIt first, InputIt last) -> expected<iterator, Error> {
-        SizeT num_inserted = 0;
-        while (first != last) {
+        // TODO: Optimize by doing bulk insert
+        for (; first != last; first++) {
             TryV(emplace_back(std::move(*first)));
-            num_inserted++;
         }
-        set_len(size() + num_inserted);
         return end();
     }
 
@@ -374,7 +389,7 @@ class vector_ops {
         }
         // NOTE: Cannot use `pos` here as it might have been invalidated by previous call to
         // grow.
-        std::move_backward(beg + pos_i, end, end + count);
+        uninitialized_move_backward(beg + pos_i, end, end + count);
         set_len(size + count);
         return begin() + pos_i;
     }
@@ -425,6 +440,21 @@ class vector_ops {
     template<typename FillValueGetter>
     constexpr auto resize_with(SizeT new_len, FillValueGetter&& get_fill_value) noexcept
         -> expected<void, Error> {
+        auto [begin, end, _end_cap] = get_storage();
+        auto old_len = end - begin;
+
+        TryV(resize_impl(new_len));
+
+        if (new_len > old_len) {
+            auto&& new_value = std::invoke(std::forward<FillValueGetter>(get_fill_value));
+            begin = get_storage().begin;
+            uninitialized_fill_n(begin + old_len, new_len - old_len, new_value);
+        }
+
+        return {};
+    }
+
+    constexpr auto resize_impl(SizeT new_len) noexcept -> expected<void, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
         auto capacity = end_cap - begin;
@@ -435,11 +465,8 @@ class vector_ops {
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
         }
 
-        if (new_len > len) {
-            auto&& new_value = std::invoke(std::forward<FillValueGetter>(get_fill_value));
-            uninitialized_fill_n(end, new_len - len, new_value);
-        } else {
-            if constexpr (!std::is_trivially_destructible_v<T>) {
+        if constexpr (!std::is_trivially_destructible_v<T>) {
+            if (new_len < len) {
                 std::destroy(begin + new_len, end);
             }
         }

@@ -51,7 +51,7 @@ class static_vector:
     constexpr static_vector(const static_vector& o) noexcept
         requires(!std::is_trivially_copy_constructible_v<T>)
         : m_len {o.m_len} {
-        detail::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
     constexpr static_vector(static_vector&&) noexcept
@@ -98,10 +98,10 @@ class static_vector:
 
         if (len > o_len) {
             std::swap_ranges(begin, begin + o_len, o_begin);
-            detail::uninitialized_move_n(begin + o_len, len - o_len, o_begin);
+            uninitialized_move_n(begin + o_len, len - o_len, o_begin);
         } else {
             std::swap_ranges(begin, begin + len, o_begin);
-            detail::uninitialized_move_n(o_begin + len, o_len - len, begin);
+            uninitialized_move_n(o_begin + len, o_len - len, begin);
         }
 
         using std::swap;
@@ -120,59 +120,6 @@ class static_vector:
     template<auto VCapacity, typename U, typename... OT>
     friend constexpr auto make_static_vector(U&& first_val, OT&&... other_vals) noexcept
         -> static_vector<std::common_type_t<U, OT...>, VCapacity>;
-
-    using base::assign;
-
-    template<std::random_access_iterator RandAccIt>
-        requires std::convertible_to<std::iter_value_t<RandAccIt>, T>
-    constexpr auto assign(RandAccIt first, RandAccIt last) noexcept -> expected<void, Error> {
-        return base::assign(first, last);
-    }
-
-    template<std::input_iterator InputIter>
-        requires std::convertible_to<std::iter_value_t<InputIter>, T>
-    constexpr auto assign(InputIter first, InputIter last) noexcept
-        -> expected<void, std::pair<InputIter, Error>> {
-        if (this->empty()) {
-            TryV(this->assign_iter(first, last));
-        } else {
-            static_vector tmp;
-
-            TryV(tmp.assign_iter(first, last));
-            *this = std::move(tmp);
-        }
-
-        return {};
-    }
-
-    using base::insert;
-
-    template<std::random_access_iterator RandAccIt>
-        requires std::convertible_to<std::iter_value_t<RandAccIt>, T>
-    constexpr auto insert(typename base::const_iterator pos, RandAccIt first, RandAccIt last)
-        -> expected<typename base::iterator, Error> {
-        return base::insert(pos, first, last);
-    }
-
-    template<std::input_iterator InputIt>
-        requires std::convertible_to<std::iter_value_t<InputIt>, T>
-    constexpr auto insert(typename base::const_iterator pos, InputIt first, InputIt last)
-        -> expected<typename base::iterator, Error> {
-        if (pos == base::end()) {
-            return base::insert_at_end(first, last);
-        }
-
-        static_vector tmp;
-        auto tmp_res = tmp.assign(first, last);
-        auto res = base::insert(pos, tmp.begin(), tmp.end());
-
-        // All rows inseted into `tmp` vector? If so, return the `res`.
-        if (tmp_res || !res) {
-            return res;
-        }
-        // If, all rows were not inserted into the `tmp` vector, error must be returned.
-        Throw(std::move(tmp_res).error().second);
-    }
 
   private:
     static constexpr auto is_trivial = std::is_trivial_v<T>;
@@ -262,13 +209,6 @@ constexpr auto make_static_vector(T&& first_val, OT&&... other_vals) noexcept
     std::construct_at(data, std::forward<T>(first_val));
     (std::construct_at(++data, std::forward<OT>(other_vals)), ...);
     vec.set_len(sizeof...(OT) + 1);
-
-    if (std::is_constant_evaluated()) {
-        data = vec.get_storage().begin;
-        for (auto i = vec.size(); i < vec.capacity(); i++) {
-            std::construct_at(data + i, ValueT {});
-        }
-    }
 
     return vec;
 }

@@ -72,10 +72,10 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
 
         if (m_len > o.m_len) {
             std::swap_ranges(m_data, m_data + o.m_len, o.m_data);
-            detail::uninitialized_move_n(m_data + o.m_len, m_len - o.m_len, o.m_data + o.m_len);
+            uninitialized_move_n(m_data + o.m_len, m_len - o.m_len, o.m_data + o.m_len);
         } else {
             std::swap_ranges(m_data, m_data + m_len, o.m_data);
-            detail::uninitialized_move_n(o.m_data + m_len, o.m_len - m_len, m_data + m_len);
+            uninitialized_move_n(o.m_data + m_len, o.m_len - m_len, m_data + m_len);
         }
 
         using std::swap;

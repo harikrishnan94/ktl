@@ -310,38 +310,40 @@ void sstring_insert_test() {
         constexpr auto FinalString = "Exemplar is an:== example string."_sv;
         auto s = make_static_string<FinalString.size() + 1>("xmplr");
 
-        s.insert(0, 1, 'E');
+        check_(s.insert(0, 1, 'E'), "");
         check_("Exmplr" == s, "");
 
-        s.insert(2, "e");
+        check_(s.insert(2, "e"), "");
         check_("Exemplr" == s, "");
 
-        s.insert(6, make_static_string("a"));
+        check_(s.insert(6, make_static_string("a")), "");
         check_("Exemplar" == s, "");
 
-        s.insert(8, make_static_string(" is an example string."), 0, 14);
+        check_(s.insert(8, make_static_string(" is an example string."), 0, 14), "");
         check_("Exemplar is an example" == s, "");
 
-        s.insert(s.cbegin() + basic_string_view {s}.find_first_of('n') + 1, ':');
+        check_(s.insert(s.cbegin() + basic_string_view {s}.find_first_of('n') + 1, ':'), "");
         check_("Exemplar is an: example" == s, "");
 
-        s.insert(s.cbegin() + basic_string_view {s}.find_first_of(':') + 1, 2, '=');
+        check_(s.insert(s.cbegin() + basic_string_view {s}.find_first_of(':') + 1, 2, '='), "");
         check_("Exemplar is an:== example" == s, "");
 
         {
             const auto seq = " string"_sv;
-            s.insert(
-                s.begin() + basic_string_view {s}.find_last_of('e') + 1,
-                std::begin(seq),
-                std::end(seq));
+            check_(
+                s.insert(
+                    s.begin() + basic_string_view {s}.find_last_of('e') + 1,
+                    std::begin(seq),
+                    std::end(seq)),
+                "");
             check_("Exemplar is an:== example string" == s, "");
         }
 
-        s.insert(s.cbegin() + basic_string_view {s}.find_first_of('g') + 1, {'.'});
+        check_(s.insert(s.cbegin() + basic_string_view {s}.find_first_of('g') + 1, {'.'}), "");
         check_(FinalString == s, "");
 
         s.clear();
-        s.insert(0, FinalString, 0);
+        check_(s.insert(0, FinalString, 0), "");
         check_(FinalString == s, "");
 
         return s.empty();
@@ -353,7 +355,7 @@ void sstring_insert_test() {
         check_(s.insert(0, 2, '2'), "");
         check_(s == "221", "");
 
-        s.assign("1");
+        check_(s.assign("1"), "");
         check_(s.insert(1, 2, '2'), "");
         check_(s == "122", "");
 
@@ -369,7 +371,7 @@ void sstring_insert_test() {
         check_(s.insert(0, "22", 2), "");
         check_(s == "221", "");
 
-        s.assign("1");
+        check_(s.assign("1"), "");
         check_(s.insert(1, "22", 1), "");
         check_(s == "12", "");
 

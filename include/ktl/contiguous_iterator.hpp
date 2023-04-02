@@ -111,10 +111,12 @@ namespace detail {
 
         // Comparison operator
         constexpr auto operator<=>(const checked_iterator& rhs) const {
+            check_(storage.start == rhs.storage.start, "iterators must belong to same container");
             return storage.current <=> rhs.storage.current;
         }
 
         constexpr auto operator==(const checked_iterator& rhs) const -> bool {
+            check_(storage.start == rhs.storage.start, "iterators must belong to same container");
             return storage.current == rhs.storage.current;
         }
 
@@ -137,6 +139,7 @@ namespace detail {
 
         // Index and difference operators
         constexpr auto operator-(const checked_iterator& rhs) const -> difference_type {
+            check_(storage.start == rhs.storage.start, "iterators must belong to same container");
             return storage.current - rhs.storage.current;
         }
 

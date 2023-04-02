@@ -54,21 +54,21 @@ auto main() -> int {
         constexpr string_view source {"ABCDEF"};
         constexpr auto dest1 = [&] {
             std::array<char, 8> dest {};
-            source.copy(dest.data(), 4);
+            check_(source.copy(dest.data(), 4), "");
             return dest;
         }();
         static_assert(string_view {dest1.data()} == "ABCD");
 
         constexpr auto dest2 = [&] {
             std::array<char, 8> dest {};
-            source.copy(dest.data(), 4, 1);
+            check_(source.copy(dest.data(), 4, 1), "");
             return dest;
         }();
         static_assert(string_view {dest2.data()} == "BCDE");
 
         constexpr auto dest3 = [&] {
             std::array<char, 8> dest {};
-            source.copy(dest.data(), 42, 2);
+            check_(source.copy(dest.data(), 42, 2), "");
             return dest;
         }();
         static_assert(string_view {dest3.data()} == "CDEF");
