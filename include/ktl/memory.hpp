@@ -17,7 +17,7 @@ class not_null {
 
     // NOLINTNEXTLINE(*-explicit-conversions)
     constexpr not_null(Ptr p) : m_ptr(p) {
-        check_(p != nullptr, "nullptr is not expected");
+        check_(m_ptr != nullptr, "nullptr is not expected");
     }
 
     // NOLINTNEXTLINE(*-explicit-conversions)
