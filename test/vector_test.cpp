@@ -211,8 +211,7 @@ static void svector_assign_test() {
             InputIterator begin {ovec.begin()};
             InputIterator end {ovec.end()};
 
-            auto res = vec.assign(begin, end);
-            check_(res, "");
+            check_(vec.assign(begin, end), "");
 
             return vec;
         }();
@@ -229,8 +228,9 @@ static void svector_assign_test() {
             InputIterator begin {ovec.begin()};
             InputIterator end {ovec.end()};
 
-            auto res = vec.assign(begin, end);
-            check_(res.error().second == Error::BufferFull, "large assign must fail");
+            check_(
+                vec.assign(begin, end).error().second == Error::BufferFull,
+                "large assign must fail");
 
             return vec;
         }();
@@ -241,8 +241,7 @@ static void svector_assign_test() {
     {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
-            auto res = vec.assign(4, 1);
-            check_(res.error() == Error::BufferFull, "large assign must fail");
+            check_(vec.assign(4, 1).error() == Error::BufferFull, "large assign must fail");
 
             return vec;
         }();
@@ -253,8 +252,7 @@ static void svector_assign_test() {
     {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
-            auto res = vec.assign({1, 2, 3, 4});
-            check_(res.error() == Error::BufferFull, "large assign must fail");
+            check_(vec.assign({1, 2, 3, 4}).error() == Error::BufferFull, "large assign must fail");
 
             return vec;
         }();
@@ -325,9 +323,8 @@ static void svector_insert_test() {
     // Non-Trivial type
     {
         auto vec = make_static_vector<5>(int_t {1}, int_t {2}, int_t {3});
-        auto res = vec.insert(vec.begin(), {int_t {4}, int_t {5}});
 
-        check_(res, "insert must succeed");
+        check_(vec.insert(vec.begin(), {int_t {4}, int_t {5}}), "insert must succeed");
         check_(
             vec[0] == int_t {4} && vec[1] == int_t {5} && vec[2] == int_t {1} && vec[3] == int_t {2}
                 && vec[4] == int_t {3},
@@ -338,8 +335,7 @@ static void svector_insert_test() {
     {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
-            auto res = vec.insert(vec.begin(), {3, 2});
-            check_(!res, "insert must fail");
+            check_(!vec.insert(vec.begin(), {3, 2}), "insert must fail");
             return vec;
         }();
 
@@ -349,8 +345,7 @@ static void svector_insert_test() {
     {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
-            auto res = vec.insert(vec.end(), 4);
-            check_(!res, "insert must not succeed");
+            check_(!vec.insert(vec.end(), 4), "insert must not succeed");
             return vec;
         }();
 
@@ -470,9 +465,8 @@ static void fvector_test() {
             fixed_vector vec1 {arr1, 2};
             fixed_vector vec2 {arr2, 3};
 
-            auto res = vec1.deep_swap(vec2);
             check_(
-                res.error() == Error::BufferFull,
+                vec1.deep_swap(vec2).error() == Error::BufferFull,
                 "deep_copy must fail when capacity doesn't match");
 
             check_(vec2[0] == 3 && vec2[1] == 4 && vec2[2] == 0, "deep_swap failure");
