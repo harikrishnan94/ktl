@@ -405,11 +405,18 @@ class string_ops {
 
     // --------------------- Insert ---------------------
 
-    constexpr auto insert(SizeT index, SizeT count, CharT ch) noexcept
+    template<typename IndexT>
+        requires std::convertible_to<IndexT, SizeT>
+        || std::convertible_to<IndexT, const_iterator>
+    constexpr auto insert(IndexT index, SizeT count, CharT ch) noexcept
         -> expected<non_null_ptr, Error> {
-        Try(it, make_space_at(index, count));
-
-        std::fill_n(it, count, ch);
+        if constexpr (std::convertible_to<IndexT, SizeT>) {
+            Try(it, make_space_at(index, count));
+            std::fill_n(it, count, ch);
+        } else {
+            Try(it, make_space_at(index, count));
+            std::fill_n(it, count, ch);
+        }
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -440,14 +447,6 @@ class string_ops {
         Try(it, make_space_at(pos, 1));
 
         *it = ch;
-        return non_null_ptr {static_cast<StringT&>(*this)};
-    }
-
-    constexpr auto insert(const_iterator pos, SizeT count, CharT ch) noexcept
-        -> expected<non_null_ptr, Error> {
-        Try(it, make_space_at(pos, count));
-
-        std::fill_n(it, count, ch);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
