@@ -552,7 +552,7 @@ class BumpAllocator {
         auto idx = allocated;
         allocated += n;
 
-        return std::bit_cast<T*>(&at(arr, idx));
+        return std::bit_cast<T*>(&at(arr, idx * sizeof(T)));
     }
 
   private:
@@ -590,6 +590,11 @@ void vector_test() {
         v1.swap(v2);
         check_(v1 == v3, "vectors must match");
         check_(v2 != v3, "vectors must not match");
+
+        v1.clear();
+        check_(v1.shrink_to_fit(), "");
+        check_(v1.empty() && v1.capacity() == 0, "");
+        check_(v1.resize(10, 0), "");
 
         return v1.empty();
     }();
@@ -651,7 +656,7 @@ void vector_test() {
 
         check_(cons_count == 2, "construction count mismatch");
         check_(copy_cons_count == 0, "copy count failure");
-        check_(move_cons_count == 3, "move count failure");
+        check_(move_cons_count == 3, "move count failure");  // One extra `move` due to resize.
 
         auto vec1 = vec.clone();
 
@@ -670,7 +675,46 @@ void vector_test() {
         check_(cons_count == 2, "construction count mismatch");
         check_(copy_cons_count == 2, "copy count failure");
         check_(move_cons_count == 3, "move count failure");
+
+        check_(vec.reserve(10), "");
+        check_(cons_count == 2, "construction count mismatch");
+        check_(copy_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 5, "move count failure");
+
+        (void)std::move(vec);
+        check_(cons_count == 2, "construction count mismatch");
+        check_(copy_cons_count == 2, "copy count failure");
+        check_(move_cons_count == 5, "move count failure");
+        check_(destroy_count == 2, "destroy count failure");
     }
+
+    // non_copyable type
+    static constinit auto non_copyable = [] {
+        struct non_copyable {
+            int v;
+
+            constexpr non_copyable(int v) : v {v} {}
+            non_copyable(non_copyable&&) = default;
+            auto operator=(non_copyable&&) -> non_copyable& = default;
+            non_copyable(const non_copyable&) = delete;
+            auto operator=(const non_copyable&) -> non_copyable& = delete;
+
+            constexpr auto operator==(const non_copyable& b) -> bool {
+                return v == b.v;
+            }
+        };
+
+        vector<non_copyable, ConstAllocator<non_copyable>> vec;
+
+        check_(vec.push_back({1}), "");
+        check_(vec.insert(vec.end(), non_copyable {2}), "");
+        check_(vec.insert(vec.begin(), non_copyable {3}), "");
+        check_(
+            vec[0] == non_copyable {3} && vec[1] == non_copyable {1} && vec[2] == non_copyable {2},
+            "");
+
+        return vec.empty();
+    }();
 }
 
 auto main() -> int {

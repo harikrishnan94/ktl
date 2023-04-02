@@ -146,12 +146,18 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     }
 
     constexpr auto shrink_to_fit() noexcept -> expected<void, Error> {
-        Try(new_data, alloc_traits::allocate(m_alloc, m_len));
+        if (m_len > 0) [[likely]] {
+            Try(new_data, alloc_traits::allocate(m_alloc, m_len));
 
-        uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
-        alloc_traits::deallocate(m_alloc, m_data, m_capacity);
-        m_data = new_data;
-        m_capacity = m_len;
+            uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+            alloc_traits::deallocate(m_alloc, m_data, m_capacity);
+            m_data = new_data;
+            m_capacity = m_len;
+        } else {
+            alloc_traits::deallocate(m_alloc, m_data, m_capacity);
+            m_data = nullptr;
+            m_capacity = 0;
+        }
 
         return {};
     }

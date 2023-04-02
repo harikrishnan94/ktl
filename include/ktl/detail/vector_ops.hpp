@@ -442,14 +442,15 @@ class vector_ops {
     template<typename FillValueGetter>
     constexpr auto resize_with(SizeT new_len, FillValueGetter&& get_fill_value) noexcept
         -> expected<void, Error> {
-        auto [old_begin, old_end, _end_cap] = get_storage();
-        auto old_len = old_end - old_begin;
+        auto [begin, end, _end_cap] = get_storage();
+        auto old_len = end - begin;
 
         TryV(resize_impl(new_len));
 
         if (new_len > old_len) {
             auto&& new_value = std::invoke(std::forward<FillValueGetter>(get_fill_value));
-            uninitialized_fill_n(old_end, new_len - old_len, new_value);
+            begin = get_storage().begin;
+            uninitialized_fill_n(begin + old_len, new_len - old_len, new_value);
         }
 
         return {};
