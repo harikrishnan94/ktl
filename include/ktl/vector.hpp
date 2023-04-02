@@ -1,7 +1,5 @@
 #pragma once
 
-#include <bit>
-
 #include "detail/vector_ops.hpp"
 
 namespace ktl {
