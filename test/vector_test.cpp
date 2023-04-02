@@ -563,6 +563,8 @@ void vector_test() {
         auto v2 = *make_vector<int, ConstAllocator<int>>(3, 1);
         auto v3 = clone(v1);
 
+        static_assert(sizeof(v1) == 24);  // Empty allocator must not consume space.
+
         check_(v3, "clone must succeed");
         check_(v1 == v2 && v2 == v3, "vectors must match");
         check_(v3->assign(v2.begin(), v2.end()), "assign must succeed");
