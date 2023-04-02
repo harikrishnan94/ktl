@@ -596,6 +596,10 @@ void vector_test() {
         check_(v1.empty() && v1.capacity() == 0, "");
         check_(v1.resize(10, 0), "");
 
+        v2.clear();
+        check_(v2.insert(v2.begin(), InputIterator {v1.begin()}, InputIterator {v1.end()}), "");
+        check_(v1 == v2, "");
+
         return v1.empty();
     }();
 

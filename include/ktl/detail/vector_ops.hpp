@@ -353,12 +353,10 @@ class vector_ops {
   protected:
     template<std::input_iterator InputIt>
     constexpr auto insert_at_end(InputIt first, InputIt last) -> expected<iterator, Error> {
-        SizeT num_inserted = 0;
-        while (first != last) {
+        // TODO: Optimize by doing bulk insert
+        for (; first != last; first++) {
             TryV(emplace_back(std::move(*first)));
-            num_inserted++;
         }
-        set_len(size() + num_inserted);
         return end();
     }
 
