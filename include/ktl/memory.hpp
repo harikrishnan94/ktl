@@ -236,18 +236,40 @@ namespace detail {
                                    { o.clone() } -> std::same_as<expected<C, Error>>;
                                };
 
-}
+    template<typename C>
+    concept is_clone_implementable =
+        requires(const C& c) {
+            { allocator_like<typename C::allocator_type> };
+            { c.get_allocator_for_clone() } -> std::same_as<typename C::allocator_type>;
+            { C {c.get_allocator_for_clone()} };
+            { std::cbegin(c) } -> std::same_as<typename C::const_iterator>;
+            { std::cend(c) } -> std::same_as<typename C::const_iterator>;
+            {
+                detail::is_expected<
+                    decltype(std::declval<C>().assign(std::cbegin(c), std::cend(c)))>::value
+            };
+        };
+}  // namespace detail
 
 template<typename C>
 concept clonable = detail::has_clone_mem_fn<C> || requires(const C& o) {
                                                       {
                                                           clone(o)
                                                           } -> std::same_as<expected<C, Error>>;
-                                                  };
+                                                  } || detail::is_clone_implementable<C>;
 
 template<typename C>
     requires detail::has_clone_mem_fn<C>
+    || detail::is_clone_implementable<C>
 constexpr auto clone(const C& cont) noexcept -> expected<C, Error> {
-    return cont.clone();
+    if constexpr (detail::has_clone_mem_fn<C>) {
+        return cont.clone();
+    } else {
+        C copy {cont.get_allocator_for_clone()};
+
+        TryV(copy.assign(std::cbegin(cont), std::cend(cont)));
+
+        return copy;
+    }
 }
 }  // namespace ktl

@@ -7,6 +7,7 @@
 #include <ktl/error.hpp>
 #include <ktl/expected.hpp>
 #include <ktl/int.hpp>
+#include <ktl/memory.hpp>
 #include <ktl/string_view.hpp>
 
 #include "erase.hpp"
@@ -235,8 +236,8 @@ class string_ops {
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
         }
-        end[-1] = c;
-        *end = NUL;
+        std::construct_at(end - 1, c);
+        std::construct_at(end, NUL);
         set_len(len + 1);
         return {};
     }
@@ -247,13 +248,13 @@ class string_ops {
 
         check_(len != 1, "cannot pop_back empty string");  // Contains trailing NUL char
 
-        end[-2] = NUL;
+        std::construct_at(end - 2, NUL);
         set_len(len - 1);
     }
 
     constexpr void clear() noexcept {
         auto [begin, _end, _end_cap] = get_storage();
-        *begin = NUL;  // Empty NUL terminated string
+        std::construct_at(begin, NUL);  // Empty NUL terminate,string
         set_len(1);
     }
 
@@ -412,10 +413,10 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         if constexpr (std::convertible_to<IndexT, SizeT>) {
             Try(it, make_space_at(index, count));
-            std::fill_n(it, count, ch);
+            uninitialized_fill_n(it, count, ch);
         } else {
             Try(it, make_space_at(index, count));
-            std::fill_n(it, count, ch);
+            uninitialized_fill_n(it, count, ch);
         }
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -424,7 +425,7 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         Try(it, make_space_at(index, count));
 
-        std::copy_n(s, count, it);
+        uninitialized_copy_n(s, count, it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -446,7 +447,7 @@ class string_ops {
     constexpr auto insert(const_iterator pos, CharT ch) noexcept -> expected<non_null_ptr, Error> {
         Try(it, make_space_at(pos, 1));
 
-        *it = ch;
+        std::construct_at(&*it, ch);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -458,7 +459,7 @@ class string_ops {
         auto str = as_view(t);
         Try(it, make_space_at(index, str.size()));
 
-        std::copy(str.begin(), str.end(), it);
+        uninitialized_copy_n(str.begin(), str.size(), it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -478,9 +479,10 @@ class string_ops {
         requires std::convertible_to<std::iter_value_t<RandAccIt>, CharT>
     constexpr auto insert(const_iterator pos, RandAccIt first, RandAccIt last)
         -> expected<non_null_ptr, Error> {
-        Try(it, make_space_at(pos, std::distance(first, last)));
+        auto n = std::distance(first, last);
+        Try(it, make_space_at(pos, n));
 
-        std::copy(first, last, it);
+        uninitialized_copy_n(first, n, it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -510,7 +512,7 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         Try(it, make_space_at(pos, ilist.size()));
 
-        std::copy(ilist.begin(), ilist.end(), it);
+        uninitialized_copy_n(ilist.begin(), ilist.size(), it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -662,7 +664,7 @@ class string_ops {
         }
 
         count = std::min<SizeT>(count, size - pos);
-        auto dest_last = std::copy_n(beg + pos, count, dest);
+        auto dest_last = uninitialized_copy_n(beg + pos, count, dest);
 
         return std::distance(dest, dest_last);
     }
@@ -948,7 +950,7 @@ class string_ops {
         if (pos > 0) {
             end = std::move(beg + pos, beg + pos + count, beg);
         }
-        beg[count] = NUL;
+        std::construct_at(beg + count, NUL);
         set_len(count + 1);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
@@ -996,7 +998,7 @@ class string_ops {
             pos + std::min<usize>(count, str_len),
             static_cast<isize>(count) - static_cast<isize>(str_len)));
 
-        std::copy_n(str.begin(), str_len, begin() + pos);
+        uninitialized_copy_n(str.begin(), str_len, begin() + pos);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1018,7 +1020,7 @@ class string_ops {
 
         check_(pos + count <= size(), "replace range must be valid");
         TryV(shift_chars_at(pos + std::min(count, str_len), count - str_len));
-        std::copy_n(first2, str_len, begin() + pos);
+        uninitialized_copy_n(first2, str_len, begin() + pos);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1031,7 +1033,7 @@ class string_ops {
 
         check_(pos + count <= size(), "replace range must be valid");
         TryV(shift_chars_at(pos + std::min(count, times), count - times));
-        std::fill_n(begin() + pos, times, ch);
+        uninitialized_fill_n(begin() + pos, times, ch);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1042,7 +1044,7 @@ class string_ops {
         TryV(shift_chars_at(
             pos + std::min<isize>(count, times),
             static_cast<isize>(count) - static_cast<isize>(times)));
-        std::fill_n(begin() + pos, times, ch);
+        uninitialized_fill_n(begin() + pos, times, ch);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1072,7 +1074,7 @@ class string_ops {
         }
         assert(capacity >= size + count);
 
-        std::move_backward(beg + pos, end, end + count);
+        uninitialized_move_backward(beg + pos, end, end + count);
         set_len(size + count);
 
         return begin() + pos;
@@ -1098,15 +1100,9 @@ class string_ops {
         }
         assert(capacity > count);
 
-        std::copy_n(first, count, begin);
-        begin[count] = NUL;
+        uninitialized_copy_n(first, count, begin);
+        std::construct_at(begin + count, NUL);
         set_len(count + 1);
-
-        if (std::is_constant_evaluated()) {
-            for (auto i = count + 1; i < capacity; i++) {
-                begin[i] = NUL;
-            }
-        }
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1130,15 +1126,9 @@ class string_ops {
         }
         assert(capacity > count);
 
-        std::fill_n(begin, count, ch);
-        begin[count] = NUL;
+        uninitialized_fill_n(begin, count, ch);
+        std::construct_at(begin + count, NUL);
         set_len(count + 1);
-
-        if (std::is_constant_evaluated()) {
-            for (auto i = count + 1; i < capacity; i++) {
-                begin[i] = NUL;
-            }
-        }
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1169,8 +1159,8 @@ class string_ops {
             capacity = end_cap - begin;
         }
 
-        auto new_end = std::copy_n(first, count, begin + old_len);
-        *new_end = NUL;
+        auto new_end = uninitialized_copy_n(first, count, begin + old_len);
+        std::construct_at(new_end, NUL);
         set_len(old_len + count + 1);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
@@ -1195,8 +1185,8 @@ class string_ops {
         }
         assert(capacity >= count + old_len + 1);
 
-        auto new_end = std::fill_n(begin + old_len, count, ch);
-        *new_end = NUL;
+        auto new_end = uninitialized_fill_n(begin + old_len, count, ch);
+        std::construct_at(new_end, NUL);
         set_len(old_len + count + 1);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
@@ -1217,11 +1207,14 @@ class string_ops {
 
         if constexpr (Initialize) {
             if (count > len - 1) {
-                std::fill_n(end - 1, count - (len - 1), ch);  // 'end[-1]' contains NUL char
+                uninitialized_fill_n(
+                    end - 1,
+                    count - (len - 1),
+                    ch);  // 'end[-1]' contains NUL char
             }
         }
 
-        begin[count] = NUL;
+        std::construct_at(begin + count, NUL);
         set_len(new_len);
         return {};
     }

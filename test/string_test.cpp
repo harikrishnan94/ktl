@@ -1,7 +1,9 @@
 #include <ktl/fixed_string.hpp>
 #include <ktl/static_string.hpp>
+#include <ktl/string.hpp>
 #include <ktl/string_view.hpp>
 
+#include "allocator.hpp"
 #include "input_iterator.hpp"
 
 using namespace ktl;
@@ -784,7 +786,90 @@ void fstring_test() {
     }();
 }
 
+template<allocator_for<char> Allocator>
+constexpr void sanity_test() {
+    auto str = *make_string<Allocator>("a");
+
+    auto find_and_replace =
+        [](auto& str, const char* pattern, const char* replacement) -> expected<usize, Error> {
+        usize count = 0;
+        usize pos = 0;
+        while (true) {
+            auto ind = str.find(pattern, pos);
+            if (ind == str.npos) {
+                break;
+            }
+            TryV(str.replace(ind, std::char_traits<char>::length(pattern), replacement));
+            pos = ind + std::char_traits<char>::length(replacement);
+            count++;
+        }
+        return count;
+    };
+    auto find_and_remove = [](auto& str, const char* pattern) -> usize {
+        usize count = 0;
+        usize pos = 0;
+        while (true) {
+            pos = str.find(pattern, pos);
+            if (pos == str.npos) {
+                break;
+            }
+            str.erase(pos, std::char_traits<char>::length(pattern));
+            count++;
+        }
+        return count;
+    };
+
+    check_(str == "a", "");
+    check_(str.insert(0, "bb"), "");
+    check_(str == "bba", "");
+    check_(str.insert(str.length(), "cc"), "");
+    check_(str == "bbacc", "");
+    check_(str += " operation", "");
+    check_(str == "bbacc operation", "");
+    auto s = clone(str);
+    check_(s, "");
+    check_(str.insert(0, *s), "");
+    check_(str.insert(str.size(), *s), "");
+
+    check_(find_and_replace(str, "bbacc", "Hello,") == 3, "");
+    check_(find_and_replace(str, "operation", "World! ") == 3, "");
+    check_(str == "Hello, World! Hello, World! Hello, World! ", "");
+    check_(find_and_replace(str, "operation", "World!") == 0, "");
+    check_(find_and_replace(str, "!", "!") == 3, "");
+    check_(str == "Hello, World! Hello, World! Hello, World! ", "");
+
+    check_(find_and_remove(str, "Hello") == 3, "");
+    check_(str == ", World! , World! , World! ", "");
+    check_(find_and_remove(str, "World") == 3, "");
+    check_(str == ", ! , ! , ! ", "");
+    erase(str, ',');
+    erase(str, ' ');
+    erase(str, '!');
+    check_(str.empty(), "");
+
+    check_(str.shrink_to_fit(), "");
+    if (std::is_constant_evaluated()) {
+        check_(str.capacity() == 1, "");
+    } else {
+        check_(str.capacity() == (sizeof(str) - 1), "");
+    }
+
+    check_(str += "Hello World", "");
+    check_(str == "Hello World", "");
+}
+
+void string_test() {
+    static constinit auto const_test = [] {
+        sanity_test<ConstAllocator<char>>();
+        return true;
+    }();
+
+    // Short string test
+    sanity_test<BumpAllocator<char>>();
+}
+
 auto main() -> int {
+    string_test();
     sstring_test();
     fstring_test();
     return 0;

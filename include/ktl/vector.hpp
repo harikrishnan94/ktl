@@ -52,15 +52,11 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
         using std::swap;
 
         if constexpr (alloc_traits::propagate_on_container_move_assignment::value) {
-            swap(m_data, o.m_data);
-            swap(m_capacity, o.m_capacity);
-            swap(m_len, o.m_len);
+            swap_storage(o);
             swap(m_alloc, o.m_alloc);
         } else {
             if (alloc_traits::equals(m_alloc, o.m_alloc)) {
-                swap(m_data, o.m_data);
-                swap(m_capacity, o.m_capacity);
-                swap(m_len, o.m_len);
+                swap_storage(o);
             } else {
                 static_assert(
                     std::is_move_constructible_v<value_type>
@@ -81,15 +77,11 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
         using std::swap;
 
         if constexpr (alloc_traits::propagate_on_container_swap::value) {
-            swap(m_data, o.m_data);
-            swap(m_capacity, o.m_capacity);
-            swap(m_len, o.m_len);
+            swap_storage(o);
             swap(m_alloc, o.m_alloc);
         } else {
             if (alloc_traits::equals(m_alloc, o.m_alloc)) {
-                swap(m_data, o.m_data);
-                swap(m_capacity, o.m_capacity);
-                swap(m_len, o.m_len);
+                swap_storage(o);
             } else {
                 static_assert(
                     std::is_move_constructible_v<value_type>
@@ -108,7 +100,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
                         std::make_move_iterator(this->end())),
                     "move assignment must not fail");
 
-                *this = std::move(tmp);
+                swap_storage(tmp);
             }
         }
     }
@@ -116,16 +108,8 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     constexpr auto get_allocator() const noexcept -> Allocator {
         return m_alloc;
     }
-
-    // Explicit Copy Construction
-    constexpr auto clone() const noexcept -> expected<vector, Error>
-        requires(std::copyable<T>)
-    {
-        vector copy {alloc_traits::select_on_container_copy_construction(m_alloc)};
-
-        TryV(copy.assign(this->begin(), this->end()));
-
-        return copy;
+    constexpr auto get_allocator_for_clone() const noexcept -> Allocator {
+        return alloc_traits::select_on_container_copy_construction(m_alloc);
     }
 
     // NOLINTNEXTLINE(*-explicit-conversions)
@@ -144,17 +128,19 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     }
 
     constexpr auto shrink_to_fit() noexcept -> expected<void, Error> {
-        if (m_len > 0) [[likely]] {
-            Try(new_data, alloc_traits::allocate(m_alloc, m_len));
+        if (m_len != m_capacity) {
+            if (m_len > 0) [[likely]] {
+                Try(new_data, alloc_traits::allocate(m_alloc, m_len));
 
-            uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
-            alloc_traits::deallocate(m_alloc, m_data, m_capacity);
-            m_data = new_data;
-            m_capacity = m_len;
-        } else {
-            alloc_traits::deallocate(m_alloc, m_data, m_capacity);
-            m_data = nullptr;
-            m_capacity = 0;
+                uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+                alloc_traits::deallocate(m_alloc, m_data, m_capacity);
+                m_data = new_data;
+                m_capacity = m_len;
+            } else {
+                alloc_traits::deallocate(m_alloc, m_data, m_capacity);
+                m_data = nullptr;
+                m_capacity = 0;
+            }
         }
 
         return {};
@@ -163,6 +149,13 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
   private:
     // Allow access to internal members. Classic CRTP.
     friend class detail::vector_ops<T, size_type, vector<T, Allocator>>;
+
+    constexpr auto swap_storage(vector& o) noexcept {
+        using std::swap;
+        swap(m_data, o.m_data);
+        swap(m_capacity, o.m_capacity);
+        swap(m_len, o.m_len);
+    }
 
     [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
@@ -211,7 +204,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     [[no_unique_address]] Allocator m_alloc = {};
 };
 
-template<std::copy_constructible T, typename Alloc>
+template<std::copy_constructible T, allocator_for<T> Alloc>
 constexpr auto make_vector(usize count, const T& val, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<T, Alloc>, Error> {
     using vec_t = vector<T, Alloc>;
@@ -223,7 +216,7 @@ constexpr auto make_vector(usize count, const T& val, const Alloc& a = Alloc {})
     return vec;
 }
 
-template<typename T, typename Alloc>
+template<typename T, allocator_for<T> Alloc>
     requires std::copy_constructible<T>
     && std::is_default_constructible_v<T>
 constexpr auto make_vector(usize count, const Alloc& a = Alloc {}) noexcept
@@ -231,7 +224,7 @@ constexpr auto make_vector(usize count, const Alloc& a = Alloc {}) noexcept
     return make_vector<T, Alloc>(count, {}, a);
 }
 
-template<std::copy_constructible T, typename Alloc>
+template<std::copy_constructible T, allocator_for<T> Alloc>
 constexpr auto make_vector(std::initializer_list<T> ilist, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<T, Alloc>, Error> {
     using vec_t = vector<T, Alloc>;
@@ -239,6 +232,18 @@ constexpr auto make_vector(std::initializer_list<T> ilist, const Alloc& a = Allo
     vec_t vec {a};
 
     TryV(vec.assign(ilist));
+
+    return vec;
+}
+
+template<std::input_iterator InputIt, allocator_for<std::iter_value_t<InputIt>> Alloc>
+constexpr auto make_vector(InputIt first, InputIt last, const Alloc& a = Alloc {}) noexcept
+    -> expected<vector<std::iter_value_t<InputIt>, Alloc>, Error> {
+    using vec_t = vector<std::iter_value_t<InputIt>, Alloc>;
+
+    vec_t vec {a};
+
+    TryV(vec.assign(first, last));
 
     return vec;
 }
