@@ -26,18 +26,17 @@ struct ConstAllocator {
     }
 };
 
-template<typename T, auto Capacity = 64>
+template<typename T, auto Capacity = 256>
 class BumpAllocator {
   public:
     using value_type = T;
     using is_noop_dealloc = std::true_type;
 
     auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
-        if (allocated == Capacity) {
+        auto idx = allocated;
+        if (allocated + n > Capacity) {
             Throw(Error::BufferFull);
         }
-
-        auto idx = allocated;
         allocated += n;
 
         return std::bit_cast<T*>(&at(arr, idx * sizeof(T)));

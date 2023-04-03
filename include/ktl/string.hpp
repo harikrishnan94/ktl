@@ -1,8 +1,7 @@
 #pragma once
 
-#include <bit>
-
 #include <ktl/access.hpp>
+#include <ktl/bitops.hpp>
 
 #include "detail/string_ops.hpp"
 
@@ -198,7 +197,10 @@ class basic_string:
             lstr.cap = capacity;
 
             if (!std::is_constant_evaluated()) {
-                sstr.len = LongStrIndicator;
+                if constexpr (std::endian::native == std::endian::big) {
+                    lstr.cap <<= LongStrTagBits;
+                }
+                lstr.cap = SetMaskedBits(lstr.cap, LongStrTagMask, LongStrTagMask);
             }
         }
 
@@ -252,9 +254,9 @@ class basic_string:
                     return self.lstr.cap;
                 } else {  // NOLINT
                     if constexpr (std::endian::native == std::endian::little) {
-                        return self.lstr.cap & ~static_cast<size_type>(LongStrIndicator);
+                        return self.lstr.cap & ~LongStrTagMask;
                     } else {  // NOLINT
-                        return self.lstr.cap >> std::numeric_limits<u8>::digits;
+                        return self.lstr.cap >> LongStrTagBits;
                     }
                 }
             }();
@@ -269,11 +271,16 @@ class basic_string:
             if (std::is_constant_evaluated()) {
                 return false;
             } else {  // NOLINT
-                return sstr.len != LongStrIndicator;
+                return sstr.len != LongStrTag;
             }
         }
 
-        static constexpr u8 LongStrIndicator = std::numeric_limits<u8>::max();
+        static constexpr size_type LongStrTag = std::numeric_limits<u8>::max();
+        static constexpr size_type LongStrTagBits = std::numeric_limits<u8>::digits;
+        static constexpr size_type LongStrTagMask = std::endian::native == std::endian::little
+            ? static_cast<size_type>(std::numeric_limits<u8>::max())
+                << (std::numeric_limits<size_type>::digits - LongStrTagBits)
+            : LongStrTagBits;
 
         union {
             long_string lstr;
