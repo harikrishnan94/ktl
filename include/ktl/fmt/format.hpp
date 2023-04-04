@@ -638,6 +638,17 @@ class fixed_buffer {
         m_buf {str.data()},
         m_len {static_cast<usize>(str.size())} {}
 
+    template<auto Capacity>
+    constexpr explicit fixed_buffer(std::array<CharT, Capacity>& str) :
+        m_buf {str.data()},
+        m_len {static_cast<usize>(Capacity)} {}
+
+    template<auto Capacity>
+    // NOLINTNEXTLINE(*-avoid-c-arrays)
+    constexpr explicit fixed_buffer(CharT (*str)[Capacity]) :
+        m_buf {str},
+        m_len {static_cast<usize>(Capacity)} {}
+
     constexpr auto reserve(usize len) noexcept -> buffer_view<char_type, iterator_type> {
         auto it = make_contiguous_iterator(m_buf + m_pos, m_buf, m_buf + m_len);
         if (m_pos + len <= m_len) [[likely]] {
