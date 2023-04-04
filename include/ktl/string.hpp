@@ -366,7 +366,7 @@ constexpr auto make_string(const CharT* s, const Allocator& alloc = Allocator {}
     -> expected<basic_string<CharT, std::char_traits<CharT>, Allocator>, Error> {
     basic_string<CharT, std::char_traits<CharT>, Allocator> str {alloc};
 
-    check_(str.assign(s), "");
+    TryV(str.assign(s));
     return str;
 }
 
@@ -376,7 +376,7 @@ make_string(const CharT* s, SizeT len, const Allocator& alloc = Allocator {}) no
     -> expected<basic_string<CharT, std::char_traits<CharT>, Allocator>, Error> {
     basic_string<CharT, std::char_traits<CharT>, Allocator> str {alloc};
 
-    check_(str.assign(s, len), "");
+    TryV(str.assign(s, len));
     return str;
 }
 
@@ -386,7 +386,7 @@ make_string(basic_string_view<CharT> s, const Allocator& alloc = Allocator {}) n
     -> expected<basic_string<CharT, std::char_traits<CharT>, Allocator>, Error> {
     basic_string<CharT, std::char_traits<CharT>, Allocator> str {alloc};
 
-    check_(str.assign(s), "");
+    TryV(str.assign(s));
     return str;
 }
 
@@ -395,7 +395,7 @@ constexpr auto make_string(SizeT count, CharT ch, const Allocator& alloc = Alloc
     -> expected<basic_string<CharT, std::char_traits<CharT>, Allocator>, Error> {
     basic_string<CharT, std::char_traits<CharT>, Allocator> str {alloc};
 
-    check_(str.assign(count, ch), "");
+    TryV(str.assign(count, ch));
     return str;
 }
 
@@ -418,7 +418,7 @@ make_string(std::initializer_list<CharT> ilist, const Allocator& alloc = Allocat
     -> expected<basic_string<CharT, std::char_traits<CharT>, Allocator>, Error> {
     basic_string<CharT, std::char_traits<CharT>, Allocator> str {alloc};
 
-    check_(str.assign(ilist), "");
+    TryV(str.assign(ilist));
     return str;
 }
 }  // namespace ktl
