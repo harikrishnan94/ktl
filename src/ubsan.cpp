@@ -116,41 +116,34 @@ void handle_error(const char* msg, uintptr_t caller, not_null<const SourceLocati
 
 // NOLINTEND
 
-extern "C" __attribute__((visibility("default"))) void
-__ubsan_handle_type_mismatch(const ktl ::ubsan ::SourceLocation* sloc) {
-    auto caller =
-        std ::bit_cast<uintptr_t>(__builtin_extract_return_addr(__builtin_return_address(0)));
-    if (!ktl ::ubsan ::is_aready_reported(caller))
-        return;
-    ktl ::ubsan ::handle_error<false>("type-mismatch", caller, sloc);
-}
-extern "C" __attribute__((visibility("default"))) void
-__ubsan_handle_type_mismatch_abort(const ktl ::ubsan ::SourceLocation* sloc) {
-    auto caller =
-        std ::bit_cast<uintptr_t>(__builtin_extract_return_addr(__builtin_return_address(0)));
-    ktl ::ubsan ::handle_error<true>("type-mismatch", caller, sloc);
-}
-HANDLER(type_mismatch_v1, "type-mismatch")
-HANDLER(alignment_assumption, "alignment-assumption")
-HANDLER(add_overflow, "add-overflow")
-HANDLER(sub_overflow, "sub-overflow")
-HANDLER(mul_overflow, "mul-overflow")
-HANDLER(negate_overflow, "negate-overflow")
-HANDLER(divrem_overflow, "divrem-overflow")
-HANDLER(shift_out_of_bounds, "shift-out-of-bounds")
-HANDLER(out_of_bounds, "out-of-bounds")
 HANDLER_RECOVER(builtin_unreachable, "builtin-unreachable")
 HANDLER_RECOVER(missing_return, "missing-return")
-HANDLER(vla_bound_not_positive, "vla-bound-not-positive")
-HANDLER(float_cast_overflow, "float-cast-overflow")
-HANDLER(load_invalid_value, "load-invalid-value")
+HANDLER(add_overflow, "add_overflow");
+HANDLER(alignment_assumption, "alignment_assumption");
+HANDLER(cfi_bad_type, "cfi_bad_type");
+HANDLER(cfi_check_fail, "cfi_check_fail");
+HANDLER(divrem_overflow, "divrem_overflow");
+HANDLER(dynamic_type_cache_miss, "dynamic_type_cache_miss");
+HANDLER(float_cast_overflow, "float_cast_overflow");
+HANDLER(function_type_mismatch_v1, "function_type_mismatch_v1");
+HANDLER(function_type_mismatch, "function-type-mismatch")
+HANDLER(get_current_report_data, "get_current_report_data");
+HANDLER(implicit_conversion, "implicit-conversion")
 HANDLER(invalid_builtin, "invalid-builtin")
 HANDLER(invalid_objc_cast, "invalid-objc-cast")
-HANDLER(function_type_mismatch, "function-type-mismatch")
-HANDLER(implicit_conversion, "implicit-conversion")
-HANDLER(nonnull_arg, "nonnull-arg")
+HANDLER(load_invalid_value, "load-invalid-value")
+HANDLER(mul_overflow, "mul-overflow")
+HANDLER(negate_overflow, "negate_overflow");
+HANDLER(nonnull_arg, "nonnull_arg");
+HANDLER(nonnull_return_v1, "nonnull_return_v1");
 HANDLER(nonnull_return, "nonnull-return")
-HANDLER(nullability_arg, "nullability-arg")
+HANDLER(nullability_arg, "nullability_arg");
+HANDLER(nullability_return_v1, "nullability_return_v1");
 HANDLER(nullability_return, "nullability-return")
+HANDLER(out_of_bounds, "out-of-bounds")
 HANDLER(pointer_overflow, "pointer-overflow")
-HANDLER(cfi_check_fail, "cfi-check-fail")
+HANDLER(shift_out_of_bounds, "shift_out_of_bounds");
+HANDLER(sub_overflow, "sub_overflow");
+HANDLER(type_mismatch_v1, "type_mismatch_v1");
+HANDLER(type_mismatch, "type-mismatch")
+HANDLER(vla_bound_not_positive, "vla-bound-not-positive")
