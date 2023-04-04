@@ -7,6 +7,7 @@
 #include <ktl/assert.hpp>
 #include <ktl/fmt/format.hpp>
 #include <ktl/int.hpp>
+#include <ktl/sanitizer.hpp>
 
 using namespace ktl;
 
@@ -138,4 +139,16 @@ void Abort(
     write(line);
     exit(-1);
 }
+
+namespace san {
+    void ubsan_message(string_view msg) {
+        write(msg);
+    }
+
+    [[noreturn]] void abort_with_message(string_view msg) {
+        write(msg);
+        exit(-1);
+    }
+}  // namespace san
+
 }  // namespace ktl

@@ -16,7 +16,7 @@ class not_null {
     not_null(std::nullptr_t) = delete;
 
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr not_null(Ptr p) : m_ptr(p) {
+    [[gnu::nonnull(2)]] constexpr not_null(Ptr p) : m_ptr(p) {
         check_(m_ptr != nullptr, "nullptr is not expected");
     }
 
@@ -37,17 +37,16 @@ class not_null {
 };
 
 template<typename A>
-concept allocator_like = std::copy_constructible<A>
-    && requires(A a, A b, usize n) {
-           requires(!std::is_void_v<typename A::value_type>);
-           { a.allocate(n) } -> std::same_as<expected<not_null<typename A::value_type*>, Error>>;
+concept allocator_like = std::copy_constructible<A> && requires(A a, A b, usize n) {
+    requires(!std::is_void_v<typename A::value_type>);
+    { a.allocate(n) } -> std::same_as<expected<not_null<typename A::value_type*>, Error>>;
 
-           requires requires { A::is_noop_dealloc::value == true; }
-               || requires { a.deallocate(std::declval<not_null<typename A::value_type*>>(), n); };
+    requires requires { A::is_noop_dealloc::value == true; }
+        || requires { a.deallocate(std::declval<not_null<typename A::value_type*>>(), n); };
 
-           requires requires { A::is_always_equal::value == true; }
-               || requires { std::is_empty_v<A>; } || requires { a == b; };
-       };
+    requires requires { A::is_always_equal::value == true; } || requires { std::is_empty_v<A>; }
+        || requires { a == b; };
+};
 
 template<typename A, typename T>
 concept allocator_for = allocator_like<A> && std::same_as<typename A::value_type, T>;
@@ -65,27 +64,22 @@ class allocator_traits {
     using size_type = std::make_unsigned_t<difference_type>;
 
     using is_always_equal = std::bool_constant<requires {
-                                                   Alloc::is_always_equal::value == true;
-                                               } || requires { std::is_empty_v<Alloc>; }>;
+        Alloc::is_always_equal::value == true;
+    } || requires { std::is_empty_v<Alloc>; }>;
 
     using is_noop_dealloc = std::bool_constant<requires { Alloc::is_noop_dealloc::value == true; }>;
 
-    using has_select_on_container_copy_construction =
-        std::bool_constant<requires(const Alloc& a) {
-                               {
-                                   a.select_on_container_copy_construction()
-                                   } -> std::convertible_to<Alloc>;
-                           }>;
+    using has_select_on_container_copy_construction = std::bool_constant<requires(const Alloc& a) {
+        { a.select_on_container_copy_construction() } -> std::convertible_to<Alloc>;
+    }>;
 
-    using propagate_on_container_copy_assignment =
-        std::bool_constant<requires {
-                               Alloc::propagate_on_container_copy_assignment::value == true;
-                           }>;
+    using propagate_on_container_copy_assignment = std::bool_constant<requires {
+        Alloc::propagate_on_container_copy_assignment::value == true;
+    }>;
 
-    using propagate_on_container_move_assignment =
-        std::bool_constant<requires {
-                               Alloc::propagate_on_container_move_assignment::value == true;
-                           }>;
+    using propagate_on_container_move_assignment = std::bool_constant<requires {
+        Alloc::propagate_on_container_move_assignment::value == true;
+    }>;
 
     using propagate_on_container_swap =
         std::bool_constant<requires { Alloc::propagate_on_container_swap::value == true; }>;
@@ -103,8 +97,8 @@ class allocator_traits {
 
   private:
     using has_max_size = std::bool_constant<requires(Alloc a) {
-                                                { a.max_size() } -> std::integral;
-                                            }>;
+        { a.max_size() } -> std::integral;
+    }>;
 
     template<typename Template>
     struct rebinder;
@@ -122,10 +116,9 @@ class allocator_traits {
     };
 
     template<typename OtherType>
-    static constexpr auto has_rebind =
-        requires {
-            requires allocator_for<typename Alloc::template rebind<OtherType>::other, OtherType>;
-        };
+    static constexpr auto has_rebind = requires {
+        requires allocator_for<typename Alloc::template rebind<OtherType>::other, OtherType>;
+    };
 
   public:
     template<typename U>
@@ -233,34 +226,30 @@ constexpr auto uninitialized_move_backward(BidirIt1 first, BidirIt1 last, BidirI
 namespace detail {
     template<typename C>
     concept has_clone_mem_fn = requires(const C& o) {
-                                   { o.clone() } -> std::same_as<expected<C, Error>>;
-                               };
+        { o.clone() } -> std::same_as<expected<C, Error>>;
+    };
 
     template<typename C>
-    concept is_clone_implementable =
-        requires(const C& c) {
-            { allocator_like<typename C::allocator_type> };
-            { c.get_allocator_for_clone() } -> std::same_as<typename C::allocator_type>;
-            { C {c.get_allocator_for_clone()} };
-            { std::cbegin(c) } -> std::same_as<typename C::const_iterator>;
-            { std::cend(c) } -> std::same_as<typename C::const_iterator>;
-            {
-                detail::is_expected<
-                    decltype(std::declval<C>().assign(std::cbegin(c), std::cend(c)))>::value
-            };
+    concept is_clone_implementable = requires(const C& c) {
+        { allocator_like<typename C::allocator_type> };
+        { c.get_allocator_for_clone() } -> std::same_as<typename C::allocator_type>;
+        { C {c.get_allocator_for_clone()} };
+        { std::cbegin(c) } -> std::same_as<typename C::const_iterator>;
+        { std::cend(c) } -> std::same_as<typename C::const_iterator>;
+        {
+            detail::is_expected<
+                decltype(std::declval<C>().assign(std::cbegin(c), std::cend(c)))>::value
         };
+    };
 }  // namespace detail
 
 template<typename C>
 concept clonable = detail::has_clone_mem_fn<C> || requires(const C& o) {
-                                                      {
-                                                          clone(o)
-                                                          } -> std::same_as<expected<C, Error>>;
-                                                  } || detail::is_clone_implementable<C>;
+    { clone(o) } -> std::same_as<expected<C, Error>>;
+} || detail::is_clone_implementable<C>;
 
 template<typename C>
-    requires detail::has_clone_mem_fn<C>
-    || detail::is_clone_implementable<C>
+    requires detail::has_clone_mem_fn<C> || detail::is_clone_implementable<C>
 constexpr auto clone(const C& cont) noexcept -> expected<C, Error> {
     if constexpr (detail::has_clone_mem_fn<C>) {
         return cont.clone();
