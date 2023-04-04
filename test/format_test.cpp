@@ -10,10 +10,10 @@ using namespace ktl::fmt;
 using namespace ktl::fmt::literals;
 
 template<typename CharT, ktl::usize N>
-constexpr auto view(const std::array<CharT, N>& arr) -> etl::basic_string_view<CharT> {
-    etl::basic_string_view view = {arr.begin(), arr.end()};
+constexpr auto view(const std::array<CharT, N>& arr) -> ktl::basic_string_view<CharT> {
+    ktl::basic_string_view view = {arr.begin(), arr.end()};
     auto len = view.find('\0');
-    return len == etl::string_view::npos ? view : view.substr(0, len);
+    return len == ktl::string_view::npos ? view : view.substr(0, len);
 }
 
 template<const_string RawFmtStr, typename... Args>
