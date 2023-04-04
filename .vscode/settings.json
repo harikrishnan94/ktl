@@ -1,6 +1,5 @@
 {
     "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
-    "clangd.path": "clangd-15",
     "[cpp]": {
         "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
     },
