@@ -4,9 +4,8 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include <etl/to_string.h>
-
 #include <ktl/assert.hpp>
+#include <ktl/fmt/format.hpp>
 #include <ktl/int.hpp>
 
 using namespace ktl;
@@ -88,7 +87,7 @@ auto write_stdout(const void* data, isize len) -> isize {
     return syscall<SYS_write>(STDOUT_FILENO, std::bit_cast<long>(data), len);
 }
 
-auto write(const etl::string_view& str) -> isize {
+auto write(const ktl::string_view& str) -> isize {
     return write_stdout(str.data(), static_cast<isize>(str.length()));
 }
 
@@ -96,8 +95,10 @@ static constexpr auto MAX_INT_DIGITS = 20;
 
 template<std::integral I>
 auto write(I n) -> isize {
-    etl::string<MAX_INT_DIGITS> str = {};
-    return write(etl::to_string(n, str));
+    std::array<char, MAX_INT_DIGITS> str {};
+    fmt::fixed_buffer fb {str.data(), str.data() + str.size()};
+    (void)fmt::format<"{}">(fb, n);
+    return write(str.data());
 }
 
 auto write(char n) -> isize {

@@ -17,7 +17,9 @@
         #define KTL_CHECKS_ENABLED false
     #endif
 
-    #define __ASSERT_FUNCTION __PRETTY_FUNCTION__
+    #ifndef __ASSERT_FUNCTION
+        #define __ASSERT_FUNCTION __PRETTY_FUNCTION__
+    #endif
 #endif
 
 namespace ktl {
