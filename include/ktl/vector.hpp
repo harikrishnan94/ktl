@@ -7,8 +7,9 @@ template<typename T, std::integral Size>
     requires(!std::is_const_v<T>)
 class fixed_vector;
 
-template<typename T, allocator_for<T> Allocator>
-class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
+template<typename T, allocator_for<T> Allocator, typename GP = default_growth_policy>
+    requires growth_policy<GP> || growth_policy_for<GP, Allocator>
+class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
   public:
     using value_type = T;
     using size_type = usize;
@@ -20,7 +21,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     using allocator_type = Allocator;
 
   private:
-    using base = detail::vector_ops<T, size_type, vector<T, Allocator>>;
+    using base = detail::vector_ops<T, size_type, vector<T, Allocator, GP>>;
     using alloc_traits = allocator_traits<Allocator>;
 
   public:
@@ -148,7 +149,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::vector_ops<T, size_type, vector<T, Allocator>>;
+    friend class detail::vector_ops<T, size_type, vector<T, Allocator, GP>>;
 
     constexpr auto swap_storage(vector& o) noexcept {
         using std::swap;
@@ -167,27 +168,28 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
     }
 
     constexpr auto grow(usize req_cap) noexcept -> expected<void, Error> {
+        return grow_impl(req_cap, [](auto* new_data, auto* data, auto len) {
+            uninitialized_move_n(data, len, new_data);
+        });
+    }
+    constexpr auto grow_uninit(usize req_cap) noexcept -> expected<void, Error> {
+        return grow_impl(req_cap, [](auto, auto* data, auto& len) {
+            std::destroy_n(data, len);
+            len = 0;
+        });
+    }
+
+    template<typename Transfer>
+    constexpr auto grow_impl(usize req_cap, Transfer&& transfer) noexcept -> expected<void, Error> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
         if (req_cap > m_capacity) [[unlikely]] {
-            Try(new_data, alloc_traits::allocate(m_alloc, req_cap));
+            auto new_cap = ktl::grow<GP>(m_alloc, m_capacity, req_cap);
+            Try(new_data, alloc_traits::allocate(m_alloc, new_cap));
 
-            uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+            std::invoke(std::forward<Transfer>(transfer), static_cast<T*>(new_data), m_data, m_len);
             alloc_traits::deallocate(m_alloc, m_data, m_capacity);
             m_data = new_data;
-            m_capacity = req_cap;
-        }
-        return {};
-    }
-    constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
-        assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
-        if (req_len > m_capacity) [[unlikely]] {
-            Try(new_data, alloc_traits::allocate(m_alloc, req_len));
-
-            std::destroy_n(m_data, m_len);
-            alloc_traits::deallocate(m_alloc, m_data, m_capacity);
-            m_data = new_data;
-            m_len = 0;
-            m_capacity = req_len;
+            m_capacity = new_cap;
         }
         return {};
     }
@@ -207,9 +209,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator>> {
 template<std::copy_constructible T, allocator_for<T> Alloc>
 constexpr auto make_vector(usize count, const T& val, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<T, Alloc>, Error> {
-    using vec_t = vector<T, Alloc>;
-
-    vec_t vec {a};
+    vector<T, Alloc> vec {a};
 
     TryV(vec.assign(count, val));
 
@@ -217,8 +217,7 @@ constexpr auto make_vector(usize count, const T& val, const Alloc& a = Alloc {})
 }
 
 template<typename T, allocator_for<T> Alloc>
-    requires std::copy_constructible<T>
-    && std::is_default_constructible_v<T>
+    requires std::copy_constructible<T> && std::is_default_constructible_v<T>
 constexpr auto make_vector(usize count, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<T, Alloc>, Error> {
     return make_vector<T, Alloc>(count, {}, a);
@@ -227,9 +226,7 @@ constexpr auto make_vector(usize count, const Alloc& a = Alloc {}) noexcept
 template<std::copy_constructible T, allocator_for<T> Alloc>
 constexpr auto make_vector(std::initializer_list<T> ilist, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<T, Alloc>, Error> {
-    using vec_t = vector<T, Alloc>;
-
-    vec_t vec {a};
+    vector<T, Alloc> vec {a};
 
     TryV(vec.assign(ilist));
 
@@ -239,9 +236,7 @@ constexpr auto make_vector(std::initializer_list<T> ilist, const Alloc& a = Allo
 template<std::input_iterator InputIt, allocator_for<std::iter_value_t<InputIt>> Alloc>
 constexpr auto make_vector(InputIt first, InputIt last, const Alloc& a = Alloc {}) noexcept
     -> expected<vector<std::iter_value_t<InputIt>, Alloc>, Error> {
-    using vec_t = vector<std::iter_value_t<InputIt>, Alloc>;
-
-    vec_t vec {a};
+    vector<std::iter_value_t<InputIt>, Alloc> vec {a};
 
     TryV(vec.assign(first, last));
 
