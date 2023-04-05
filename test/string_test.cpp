@@ -851,7 +851,7 @@ constexpr void sanity_test() {
     if (std::is_constant_evaluated()) {
         check_(str.capacity() == 1, "");
     } else {
-        check_(str.capacity() == (sizeof(str) - 1), "");
+        check_(str.capacity() == sizeof(str), "");
     }
 
     check_(str += "Hello World", "");
