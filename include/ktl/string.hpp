@@ -97,7 +97,7 @@ template<
 
     [[nodiscard]] constexpr auto max_size() const noexcept -> size_type {
         // Short String optimization takes away `1 byte` away from capacity to store tag.
-        return std::numeric_limits<size_type>::max() / std::numeric_limits<u8>::max() - 1;
+        return std::numeric_limits<size_type>::max() / std::numeric_limits<char>::max() - 1;
     }
 
     constexpr auto reserve(size_type new_cap) noexcept -> expected<void, Error> {
@@ -233,10 +233,14 @@ template<
 
         struct short_string {
             // NOLINTNEXTLINE(*-dynamic-static-initializers)
-            static constexpr auto Capacity = sizeof(long_string) / sizeof(CharT) - 1;
+            static constexpr auto Capacity =
+                sizeof(long_string) / sizeof(CharT) - (sizeof(CharT) > 1 ? 1 : 0);
 
-            alignas(long_string) std::array<char, Capacity> chars;
-            u8 len;  // Len == Cap. Including NUL char
+            alignas(long_string) std::array<char, sizeof(long_string) - 1> chars;
+            // Length of the string including NUL char.
+            // Incase strlen(chars) == Capacity - 1, `len` is repurposed to store NUL char.
+            // (i.e) `len` is considered an extension of `chars`.
+            char len;  // Len == Cap,
         };
 
         template<typename Self>
@@ -279,11 +283,10 @@ template<
             }
         }
 
-        static constexpr size_type LongStrTag = std::numeric_limits<u8>::max();
-        static constexpr size_type LongStrTagBits = std::numeric_limits<u8>::digits;
+        static constexpr size_type LongStrTag = std::numeric_limits<char>::max();
+        static constexpr size_type LongStrTagBits = std::numeric_limits<char>::digits;
         static constexpr size_type LongStrTagMask = std::endian::native == std::endian::little
-            ? static_cast<size_type>(std::numeric_limits<u8>::max())
-                << (std::numeric_limits<size_type>::digits - LongStrTagBits)
+            ? LongStrTag << (std::numeric_limits<size_type>::digits - LongStrTagBits)
             : LongStrTagBits;
 
         union {
