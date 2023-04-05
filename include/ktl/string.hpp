@@ -231,12 +231,12 @@ template<
             size_type cap;
         };
 
-        struct short_string {
+        struct alignas(long_string) short_string {
             // NOLINTNEXTLINE(*-dynamic-static-initializers)
             static constexpr auto Capacity =
                 sizeof(long_string) / sizeof(CharT) - (sizeof(CharT) > 1 ? 1 : 0);
 
-            alignas(long_string) std::array<char, sizeof(long_string) - 1> chars;
+            std::array<char, sizeof(long_string) - 1> chars;
             // Length of the string including NUL char.
             // Incase strlen(chars) == Capacity - 1, `len` is repurposed to store NUL char.
             // (i.e) `len` is considered an extension of `chars`.
