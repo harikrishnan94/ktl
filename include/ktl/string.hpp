@@ -10,10 +10,14 @@ template<typename CharT, std::integral Size, typename Traits>
     requires(!std::is_const_v<CharT>)
 class fixed_string;
 
-template<typename CharT, typename Traits, allocator_for<CharT> Allocator>
-    requires std::is_trivial_v<CharT>
-class basic_string:
-    public detail::string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator>> {
+template<
+    typename CharT,
+    typename Traits,
+    allocator_for<CharT> Allocator,
+    typename GP = default_growth_policy>
+    requires std::is_trivial_v<CharT> && growth_policy<GP> || growth_policy_for<GP, Allocator>
+         class basic_string:
+    public detail::string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator, GP>> {
   public:
     using traits_type = Traits;
     using allocator_type = Allocator;
@@ -28,7 +32,7 @@ class basic_string:
   private:
     using alloc_traits = allocator_traits<Allocator>;
     using base =
-        detail::string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator>>;
+        detail::string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
 
   public:
     // ------------------------ Special member functions --------------------------
@@ -157,7 +161,7 @@ class basic_string:
   private:
     // Allow access to internal members. Classic CRTP.
     friend class detail::
-        string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator>>;
+        string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
 
     // NOLINTBEGIN(*-pro-type-union-access)
     class storage_t {
@@ -321,13 +325,15 @@ class basic_string:
                 return {};
             }
 
-            Try(new_chars, alloc_traits::allocate(m_alloc, req_cap));
+            auto new_cap = ktl::grow<GP>(m_alloc, capacity, req_cap);
+            Try(new_chars, alloc_traits::allocate(m_alloc, new_cap));
+
             std::invoke(std::forward<Initializer>(initializer), new_chars, chars, len);
 
             if (!is_short) {
                 alloc_traits::deallocate(m_alloc, chars, capacity);
             }
-            m_storage.set_long_str(new_chars, len, req_cap);
+            m_storage.set_long_str(new_chars, len, new_cap);
         }
         return {};
     }

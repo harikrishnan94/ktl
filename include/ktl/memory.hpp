@@ -261,4 +261,36 @@ constexpr auto clone(const C& cont) noexcept -> expected<C, Error> {
         return copy;
     }
 }
+
+// ------------------ Container Growth policy ----------------------
+template<typename GP>
+concept growth_policy = std::is_trivial_v<GP> && requires(GP p, usize old_cap, usize req_cap) {
+    { p.new_capacity(old_cap, req_cap) } -> std::same_as<usize>;
+};
+
+template<typename GP, typename Alloc>
+concept growth_policy_for = allocator_like<Alloc> && std::is_trivial_v<GP>
+    && requires(GP p, Alloc&& a, usize old_cap, usize req_cap) {
+           { p.new_capacity(std::forward<Alloc>(a), old_cap, req_cap) } -> std::same_as<usize>;
+       };
+
+template<typename GP, typename Alloc>
+    requires allocator_like<std::decay_t<Alloc>> && growth_policy<GP>
+    || growth_policy_for<GP, Alloc>
+         constexpr auto grow(Alloc&& a, usize old_cap, usize req_cap) noexcept -> usize {
+    GP gp;
+
+    if constexpr (growth_policy_for<GP, Alloc>) {
+        return gp.new_capacity(std::forward<Alloc>(a), old_cap, req_cap);
+    } else {
+        return gp.new_capacity(old_cap, req_cap);
+    }
+}
+
+struct default_growth_policy {
+    [[nodiscard]] static constexpr auto new_capacity(usize old_cap, usize req_cap) noexcept
+        -> usize {
+        return std::max(old_cap * 2, req_cap);
+    }
+};
 }  // namespace ktl

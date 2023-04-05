@@ -512,9 +512,6 @@ void svector_operators_test() {
     }();
 }
 
-template<typename T>
-using vec_t = vector<T, BumpAllocator<T>>;
-
 void vector_test() {
     static constinit auto sanity = [] {
         auto v1 = *make_vector<int, ConstAllocator<int>>({1, 1, 1});
