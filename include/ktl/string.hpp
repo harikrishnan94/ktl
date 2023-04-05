@@ -234,7 +234,7 @@ template<
         struct alignas(long_string) short_string {
             // NOLINTNEXTLINE(*-dynamic-static-initializers)
             static constexpr auto Capacity =
-                sizeof(long_string) / sizeof(CharT) - (sizeof(CharT) > 1 ? 1 : 0);
+                sizeof(long_string) / sizeof(CharT) - (sizeof(CharT) == sizeof(char) ? 0 : 1);
 
             std::array<char, sizeof(long_string) - 1> chars;
             // Length of the string including NUL char.
