@@ -44,7 +44,7 @@ extern "C" auto memcmp(const void* __restrict__ a_p, const void* __restrict__ b_
     const auto* b = static_cast<const std::byte*>(b_p);
 
     for (size_t i = 0; i < count; i++) {
-        if (*a == *b) {
+        if (a[i] == b[i]) {
             continue;
         }
 
