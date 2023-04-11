@@ -1,8 +1,7 @@
 #include <bit>
+#include <ktl/test/platform.h>
 
 #include <ktl/fmt/format.hpp>
-
-#include "platform.h"
 
 using namespace ktl::fmt;
 using namespace ktl::fmt::literals;
