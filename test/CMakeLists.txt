@@ -1,5 +1,6 @@
 set(ENTRYPOINT start)
 add_library(platform OBJECT platform.cpp)
+add_library(ktl::test::platform ALIAS platform)
 target_compile_definitions(platform PRIVATE -DENTRYPOINT=${ENTRYPOINT})
 target_link_libraries(platform PUBLIC ktl)
 target_link_options(platform PUBLIC -e ${ENTRYPOINT})
@@ -7,15 +8,23 @@ target_link_options(platform PUBLIC -e ${ENTRYPOINT})
 include(CTest)
 
 function(define_test name)
-    add_executable(${name} ${name}.cpp)
+    cmake_parse_arguments(
+        PARSE_ARGV 1 define_test "" ""
+        "SOURCES")
+
+    add_executable(${name} ${define_test_SOURCES})
 
     # Tests - All tests must link against `platform`
-    target_link_libraries(${name} PRIVATE platform)
+    target_link_libraries(${name} PRIVATE ktl::test::platform)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
-define_test(format_test)
-define_test(string_view_test)
-define_test(vector_test)
-define_test(bitops_test)
-define_test(string_test)
+function(define_simple_test name)
+    define_test(${name} SOURCES ${name}.cpp)
+endfunction()
+
+define_simple_test(format_test)
+define_simple_test(string_view_test)
+define_simple_test(vector_test)
+define_simple_test(bitops_test)
+define_simple_test(string_test)
