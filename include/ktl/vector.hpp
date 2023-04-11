@@ -44,8 +44,8 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
 
     constexpr vector(vector&& o) noexcept :
         m_data {std::exchange(o.m_data, nullptr)},
-        m_capacity {std::exchange(o.m_capacity, 0)},
         m_len {std::exchange(o.m_len, 0)},
+        m_capacity {std::exchange(o.m_capacity, 0)},
         m_alloc {std::move(o.m_alloc)} {}
 
     // Based on Howard Hinnat's answer: https://stackoverflow.com/a/27472502

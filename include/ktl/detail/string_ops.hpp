@@ -36,16 +36,16 @@ struct string_storage {
 
 template<typename StringT, typename CharT, typename SizeT>
 concept string_like = requires(StringT str, const StringT cstr, SizeT req_len, SizeT new_len) {
-                          { str.get_storage() } -> std::same_as<string_storage<CharT>>;
-                          { cstr.get_storage() } -> std::same_as<string_storage<const CharT>>;
+    { str.get_storage() } -> std::same_as<string_storage<CharT>>;
+    { cstr.get_storage() } -> std::same_as<string_storage<const CharT>>;
 
-                          // Grow must ensure capacity for atleast 'req_len' (1st parameter)
-                          // elements.
-                          { str.grow(req_len) } -> std::same_as<expected<void, Error>>;
-                          { str.grow_uninit(req_len) } -> std::same_as<expected<void, Error>>;
+    // Grow must ensure capacity for atleast 'req_len' (1st parameter)
+    // elements.
+    { str.grow(req_len) } -> std::same_as<expected<void, Error>>;
+    { str.grow_uninit(req_len) } -> std::same_as<expected<void, Error>>;
 
-                          { str.set_len(new_len) };
-                      };
+    { str.set_len(new_len) };
+};
 
 template<typename CharT, typename Traits, typename SizeT, typename StringT>
     requires std::is_trivial_v<CharT>
@@ -219,8 +219,9 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto operator+=(const StringViewLike& t) noexcept -> expected<non_null_ptr, Error> {
         return append(t);
     }
@@ -330,15 +331,17 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto assign(const StringViewLike& t) noexcept -> expected<non_null_ptr, Error> {
         return assign_string_view(t);
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto assign(const StringViewLike& t, SizeT pos, SizeT count = npos) noexcept
         -> expected<non_null_ptr, Error> {
         Try(ss, as_view(t).substr(pos, count));
@@ -389,15 +392,17 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto append(const StringViewLike& t) noexcept -> expected<non_null_ptr, Error> {
         return append_string_view(t);
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto append(const StringViewLike& t, SizeT pos, SizeT count = npos) noexcept
         -> expected<non_null_ptr, Error> {
         Try(ss, as_view(t).substr(pos, count));
@@ -407,8 +412,7 @@ class string_ops {
     // --------------------- Insert ---------------------
 
     template<typename IndexT>
-        requires std::convertible_to<IndexT, SizeT>
-        || std::convertible_to<IndexT, const_iterator>
+        requires std::convertible_to<IndexT, SizeT> || std::convertible_to<IndexT, const_iterator>
     constexpr auto insert(IndexT index, SizeT count, CharT ch) noexcept
         -> expected<non_null_ptr, Error> {
         if constexpr (std::convertible_to<IndexT, SizeT>) {
@@ -452,8 +456,9 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto insert(SizeT index, const StringViewLike& t) noexcept
         -> expected<non_null_ptr, Error> {
         auto str = as_view(t);
@@ -464,13 +469,12 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
-    constexpr auto insert(
-        SizeT index,
-        const StringViewLike& t,
-        SizeT index_str,
-        SizeT count = npos) noexcept -> expected<non_null_ptr, Error> {
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+    constexpr auto
+    insert(SizeT index, const StringViewLike& t, SizeT index_str, SizeT count = npos) noexcept
+        -> expected<non_null_ptr, Error> {
         Try(str, as_view(t).substr(index_str, count));
         return insert(index, str);
     }
@@ -547,11 +551,9 @@ class string_ops {
         requires(!std::random_access_iterator<InputIt>)
         && std::convertible_to<std::iter_value_t<InputIt>, CharT>
         && std::is_default_constructible_v<StringT>
-    constexpr auto replace(
-                    const_iterator first,
-                    const_iterator last,
-                    InputIt first2,
-                    InputIt last2) noexcept -> expected<non_null_ptr, std::pair<InputIt, Error>> {
+    constexpr auto
+    replace(const_iterator first, const_iterator last, InputIt first2, InputIt last2) noexcept
+        -> expected<non_null_ptr, std::pair<InputIt, Error>> {
         StringT tmp;
 
         if (auto res = tmp.append(this->cbegin(), first); !res) {
@@ -606,26 +608,28 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto replace(SizeT pos, SizeT count, const StringViewLike& t) noexcept
         -> expected<non_null_ptr, Error> {
         return replace_impl(pos, count, as_view(t));
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
-    constexpr auto replace(
-        const_iterator first,
-        const_iterator last,
-        const StringViewLike& t) noexcept -> expected<non_null_ptr, Error> {
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+    constexpr auto
+    replace(const_iterator first, const_iterator last, const StringViewLike& t) noexcept
+        -> expected<non_null_ptr, Error> {
         return replace_impl(first, last, as_view(t));
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto replace(
         SizeT pos,
         SizeT count,
@@ -706,15 +710,17 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto compare(const StringViewLike& t) const noexcept -> expected<int, Error> {
         return as_view(*this).compare(t);
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto compare(SizeT pos1, SizeT count1, const StringViewLike& t) const noexcept
         -> expected<int, Error> {
         Try(ss1, as_view(*this).substr(pos1, count1));
@@ -722,14 +728,12 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
-    constexpr auto compare(
-        SizeT pos1,
-        SizeT count1,
-        const StringViewLike& t,
-        SizeT pos2,
-        SizeT count2 = npos) const noexcept -> expected<int, Error> {
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+    constexpr auto
+    compare(SizeT pos1, SizeT count1, const StringViewLike& t, SizeT pos2, SizeT count2 = npos)
+        const noexcept -> expected<int, Error> {
         Try(ss1, as_view(*this).substr(pos1, count1));
         Try(ss2, as_view(t).substr(pos2, count2));
         return ss1.compare(ss2);
@@ -796,8 +800,9 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto find(const StringViewLike& t, SizeT pos = 0) const noexcept -> SizeT {
         return as_view(*this).find(as_view(t), pos);
     }
@@ -821,8 +826,9 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto rfind(const StringViewLike& t, SizeT pos = npos) const noexcept -> SizeT {
         return as_view(*this).rfind(as_view(t), pos);
     }
@@ -846,8 +852,9 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto find_first_of(const StringViewLike& t, SizeT pos = 0) const noexcept -> SizeT {
         return as_view(*this).find_first_of(as_view(t), pos);
     }
@@ -872,8 +879,9 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto find_first_not_of(const StringViewLike& t, SizeT pos = 0) const noexcept
         -> SizeT {
         return as_view(*this).find_first_not_of(as_view(t), pos);
@@ -898,8 +906,9 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto find_last_of(const StringViewLike& t, SizeT pos = npos) const noexcept -> SizeT {
         return as_view(*this).find_last_of(as_view(t), pos);
     }
@@ -924,8 +933,9 @@ class string_ops {
     }
 
     template<typename StringViewLike>
-        requires(std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
-                 && !std::is_convertible_v<const StringViewLike&, const CharT*>)
+        requires(
+            std::is_convertible_v<const StringViewLike&, basic_string_view<CharT, Traits>>
+            && !std::is_convertible_v<const StringViewLike&, const CharT*>)
     constexpr auto find_last_not_of(const StringViewLike& t, SizeT pos = npos) const noexcept
         -> SizeT {
         return as_view(*this).find_last_not_of(as_view(t), pos);
@@ -939,13 +949,13 @@ class string_ops {
     constexpr auto substr_destructive(SizeT pos, SizeT count) noexcept
         -> expected<non_null_ptr, Error> {
         auto [beg, end, _] = get_storage();
-        auto size = end - beg - 1;
+        usize size = end - beg - 1;
 
         if (pos > size) [[unlikely]] {
             Throw(Error::IndexOutOfBounds);
         }
 
-        count = std::min<SizeT>(count, size - pos);
+        count = std::min<usize>(count, size - pos);
 
         if (pos > 0) {
             end = std::move(beg + pos, beg + pos + count, beg);
@@ -983,7 +993,6 @@ class string_ops {
 
         auto [beg, end, end_cap] = get_storage();
         auto size = end - beg;
-        auto capacity = end_cap - beg;
 
         std::move(beg + index + count, end, beg + index);
         set_len(size - count);
@@ -1063,8 +1072,8 @@ class string_ops {
         check_(pos <= size(), "insert position cannot exceed string length");
 
         auto [beg, end, end_cap] = get_storage();
-        auto size = end - beg;
-        auto capacity = end_cap - beg;
+        usize size = end - beg;
+        usize capacity = end_cap - beg;
 
         if (size + count > capacity) {
             TryV(grow(size + count));
@@ -1116,7 +1125,7 @@ class string_ops {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
 
-        if (count + 1 > capacity) {  // account for trailing NUL char
+        if (static_cast<usize>(count) + 1 > capacity) {  // account for trailing NUL char
             TryV(grow_uninit(count + 1));
             // String is cleared and contains enough space to construct count elements
 
@@ -1195,9 +1204,9 @@ class string_ops {
     template<bool Initialize>
     constexpr auto resize_impl(SizeT count, CharT ch) noexcept -> expected<void, Error> {
         auto [begin, end, end_cap] = get_storage();
-        auto len = end - begin;
-        auto capacity = end_cap - begin;
-        auto new_len = count + 1;
+        usize len = end - begin;
+        usize capacity = end_cap - begin;
+        usize new_len = count + 1;
 
         if (new_len > capacity) {
             TryV(grow(new_len));
@@ -1255,11 +1264,10 @@ class string_ops {
 };
 
 template<typename V>
-concept comparable_string =
-    requires(const V& v) {
-        requires V::is_string == true;
-        { static_cast<basic_string_view<typename V::value_type, typename V::traits_type>>(v) };
-    };
+concept comparable_string = requires(const V& v) {
+    requires V::is_string == true;
+    { static_cast<basic_string_view<typename V::value_type, typename V::traits_type>>(v) };
+};
 
 }  // namespace ktl::detail
 

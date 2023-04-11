@@ -54,7 +54,7 @@ static void svector_test() {
     }
 
     // Push back
-    static constinit auto push_back = [] {
+    [[maybe_unused]] static constinit auto push_back = [] {
         static_vector<int, 1> vec;
         check_(vec.push_back(1).has_value(), "push_back must succeed");
         check_(!vec.push_back(2).has_value(), "push_back must fail");
@@ -66,9 +66,9 @@ static void svector_test() {
         static int cons_count = 0;
         static int copy_cons_count = 0;
         static int move_cons_count = 0;
-        static int copy_assign_count = 0;
-        static int move_assign_count = 0;
-        static int destroy_count = 0;
+        [[maybe_unused]] static int copy_assign_count = 0;
+        [[maybe_unused]] static int move_assign_count = 0;
+        [[maybe_unused]] static int destroy_count = 0;
         struct move_test {
             move_test() {
                 ++cons_count;
@@ -134,7 +134,7 @@ static void svector_test() {
     }
 
     // Pop back
-    static constinit auto pop_back = [] {
+    [[maybe_unused]] static constinit auto pop_back = [] {
         auto vec = make_static_vector(1);
         vec.pop_back();
         check_(vec.empty(), "must be empty after pop_back");
@@ -143,7 +143,7 @@ static void svector_test() {
     }();
 
     // Clear
-    static constinit auto clear = [] {
+    [[maybe_unused]] static constinit auto clear = [] {
         auto vec = make_static_vector(1, 2, 3);
         vec.clear();
         check_(vec.empty(), "must be empty after clear");
@@ -152,7 +152,7 @@ static void svector_test() {
     }();
 
     // Resize
-    static constinit auto resize = [] {
+    [[maybe_unused]] static constinit auto resize = [] {
         auto vec = make_static_vector<4>(1, 2, 3);
         check_(vec.resize(1), "resize must succeed");
         check_(vec.resize(2, 2), "resize must succeed");
@@ -313,7 +313,7 @@ static void svector_insert_test() {
             "values must match after insert");
     }
     {
-        static constinit auto vec = [] {
+        [[maybe_unused]] static constinit auto vec = [] {
             auto vec = make_static_vector<4>(1, 2, 3);
             auto res = vec.insert(vec.end(), 4);
             check_(res, "insert must succeed");
@@ -414,7 +414,7 @@ void svector_erase_test() {
 static void fvector_test() {
     // sanity test
 
-    static constinit auto _ = [] {
+    [[maybe_unused]] static constinit auto _ = [] {
         {
             std::array<int, 4> storage {};
             fixed_vector vec = storage;
@@ -457,6 +457,9 @@ static void fvector_test() {
             fixed_vector vec = svec;
             span s1 = vec;
             span s2 = svec;
+
+            check_(!s1.empty(), "");
+            check_(!s2.empty(), "");
         }
 
         // Swap
@@ -493,7 +496,7 @@ static void fvector_test() {
 }
 
 void svector_operators_test() {
-    static constinit auto _ = [] {
+    [[maybe_unused]] static constinit auto _ = [] {
         auto v1 = make_static_vector(1, 2, 3);
         std::array a1 = {1, 2, 3};
         fixed_vector v2 {a1};
@@ -513,7 +516,7 @@ void svector_operators_test() {
 }
 
 void vector_test() {
-    static constinit auto sanity = [] {
+    [[maybe_unused]] static constinit auto sanity = [] {
         auto v1 = *make_vector<int, ConstAllocator<int>>({1, 1, 1});
         auto v2 = *make_vector<int, ConstAllocator<int>>(3, 1);
         auto v3 = clone(v1);
@@ -554,7 +557,7 @@ void vector_test() {
         return v1.empty();
     }();
 
-    static constinit auto non_trivial = [] {
+    [[maybe_unused]] static constinit auto non_trivial = [] {
         vector<int_t, ConstAllocator<int_t>> v1;
 
         check_(v1.assign({int_t {}, int_t {1}, int_t {2}}), "");
@@ -572,8 +575,8 @@ void vector_test() {
         static int cons_count = 0;
         static int copy_cons_count = 0;
         static int move_cons_count = 0;
-        static int copy_assign_count = 0;
-        static int move_assign_count = 0;
+        [[maybe_unused]] static int copy_assign_count = 0;
+        [[maybe_unused]] static int move_assign_count = 0;
         static int destroy_count = 0;
         struct move_test {
             move_test() {
@@ -644,7 +647,7 @@ void vector_test() {
     }
 
     // non_copyable type
-    static constinit auto non_copyable = [] {
+    [[maybe_unused]] static constinit auto non_copyable = [] {
         struct non_copyable {
             int v;
 
@@ -654,7 +657,7 @@ void vector_test() {
             non_copyable(const non_copyable&) = delete;
             auto operator=(const non_copyable&) -> non_copyable& = delete;
 
-            constexpr auto operator==(const non_copyable& b) -> bool {
+            constexpr auto operator==(const non_copyable& b) const -> bool {
                 return v == b.v;
             }
         };

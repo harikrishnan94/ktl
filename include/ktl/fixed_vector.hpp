@@ -13,10 +13,11 @@ class static_vector;
 
 template<typename T, std::integral Size>
     requires(!std::is_const_v<T>)
-class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
+class fixed_vector:
+    public detail::vector_ops<T, std::make_unsigned_t<Size>, fixed_vector<T, Size>> {
   public:
     using value_type = T;
-    using size_type = Size;
+    using size_type = std::make_unsigned_t<Size>;
     using difference_type = isize;
     using reference = T&;
     using const_reference = const T&;
@@ -49,7 +50,7 @@ class fixed_vector: public detail::vector_ops<T, Size, fixed_vector<T, Size>> {
         requires std::integral<std::decay_t<decltype(Capacity)>>
                      && (std::numeric_limits<size_type>::max() >= Capacity)
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr fixed_vector(std::array<T, Capacity>& arr, Size len = Capacity) noexcept :
+    constexpr fixed_vector(std::array<T, Capacity>& arr, size_type len = Capacity) noexcept :
         m_data {arr.data()},
         m_capacity {Capacity},
         m_len {static_cast<size_type>(len)} {}

@@ -54,7 +54,7 @@ static void sstring_test() {
     }
 
     // Push back
-    static constinit auto push_back = [] {
+    [[maybe_unused]] static constinit auto push_back = [] {
         static_string<2> str;
         check_(str.push_back('a').has_value(), "push_back must succeed");
         check_(!str.push_back('b').has_value(), "push_back must fail");
@@ -62,7 +62,7 @@ static void sstring_test() {
     }();
 
     // Pop back
-    static constinit auto pop_back = [] {
+    [[maybe_unused]] static constinit auto pop_back = [] {
         auto str = make_static_string("12");
         str.pop_back();
         check_(str.back() == '1', "pop_back must remove last char");
@@ -72,7 +72,7 @@ static void sstring_test() {
     }();
 
     // clear
-    static constinit auto clear = [] {
+    [[maybe_unused]] static constinit auto clear = [] {
         auto str = make_static_string("str");
         str.clear();
         check_(str.empty(), "must be empty after clear");
@@ -80,7 +80,7 @@ static void sstring_test() {
     }();
 
     // Resize
-    static constinit auto resize = [] {
+    [[maybe_unused]] static constinit auto resize = [] {
         auto str = make_static_string("hello");
         check_(str.resize(1), "resize must succeed");
         check_(str.resize(2, 'x'), "resize must succeed");
@@ -104,7 +104,7 @@ static void sstring_test() {
 }
 
 void sstring_assign_test() {
-    static constinit auto cstr = [] {
+    [[maybe_unused]] static constinit auto cstr = [] {
         static_string<4> str;
 
         check_(str.assign("123"), "assigning len elements must pass");
@@ -122,7 +122,7 @@ void sstring_assign_test() {
         return str.empty();
     }();
 
-    static constinit auto fill = [] {
+    [[maybe_unused]] static constinit auto fill = [] {
         static_string<4> str;
 
         check_(str.assign(2, 'x'), "assigning len elements must pass");
@@ -137,7 +137,7 @@ void sstring_assign_test() {
         return str.empty();
     }();
 
-    static constinit auto other_str = [] {
+    [[maybe_unused]] static constinit auto other_str = [] {
         static_string<4> str;
         auto str2 = make_static_string("hel");
 
@@ -149,7 +149,7 @@ void sstring_assign_test() {
         return str.empty();
     }();
 
-    static constinit auto other_substr = [] {
+    [[maybe_unused]] static constinit auto other_substr = [] {
         static_string<4> str;
         auto str2 = make_static_string("hel");
 
@@ -162,7 +162,7 @@ void sstring_assign_test() {
         return str.empty();
     }();
 
-    static constinit auto input_it = [] {
+    [[maybe_unused]] static constinit auto input_it = [] {
         static_string<4> str;
         auto str2 = make_static_string("hel");
 
@@ -183,7 +183,7 @@ void sstring_assign_test() {
         return str.empty();
     }();
 
-    static constinit auto ilist = [] {
+    [[maybe_unused]] static constinit auto ilist = [] {
         static_string<4> str;
 
         check_(str.assign({'h', 'e', 'l'}), "assigning valid ilist must pass");
@@ -192,7 +192,7 @@ void sstring_assign_test() {
         return str.empty();
     }();
 
-    static constinit auto view = [] {
+    [[maybe_unused]] static constinit auto view = [] {
         static_string<4> str;
 
         check_(str.assign("hel"_sv), "assigning valid string_view must pass");
@@ -204,7 +204,7 @@ void sstring_assign_test() {
         return str.empty();
     }();
 
-    static constinit auto str = [] {
+    [[maybe_unused]] static constinit auto str = [] {
         static_string<4> str;
         auto str2 = make_static_string("hel");
 
@@ -219,7 +219,7 @@ void sstring_assign_test() {
 }
 
 void sstring_append_test() {
-    static constinit auto cstr = [] {
+    [[maybe_unused]] static constinit auto cstr = [] {
         static_string<4> str;
 
         check_(str.append("123"), "appending len elements must pass");
@@ -232,7 +232,7 @@ void sstring_append_test() {
         return str.empty();
     }();
 
-    static constinit auto fill = [] {
+    [[maybe_unused]] static constinit auto fill = [] {
         static_string<4> str;
 
         check_(str.append(2, 'x'), "appending len elements must pass");
@@ -245,7 +245,7 @@ void sstring_append_test() {
         return str.empty();
     }();
 
-    static constinit auto other_str = [] {
+    [[maybe_unused]] static constinit auto other_str = [] {
         static_string<4> str;
         auto str2 = make_static_string("hel");
 
@@ -257,7 +257,7 @@ void sstring_append_test() {
         return str.empty();
     }();
 
-    static constinit auto other_substr = [] {
+    [[maybe_unused]] static constinit auto other_substr = [] {
         static_string<4> str;
         auto str2 = make_static_string("hel");
 
@@ -270,7 +270,7 @@ void sstring_append_test() {
         return str.empty();
     }();
 
-    static constinit auto input_it = [] {
+    [[maybe_unused]] static constinit auto input_it = [] {
         static_string<4> str;
         auto str2 = make_static_string("hel");
 
@@ -285,7 +285,7 @@ void sstring_append_test() {
         return str.empty();
     }();
 
-    static constinit auto ilist = [] {
+    [[maybe_unused]] static constinit auto ilist = [] {
         static_string<4> str;
 
         check_(str.append({'h', 'e', 'l'}), "appending valid ilist must pass");
@@ -294,7 +294,7 @@ void sstring_append_test() {
         return str.empty();
     }();
 
-    static constinit auto view = [] {
+    [[maybe_unused]] static constinit auto view = [] {
         static_string<4> str;
 
         check_(str.append("hel"_sv), "appending valid string_view must pass");
@@ -308,7 +308,7 @@ void sstring_append_test() {
 }
 
 void sstring_insert_test() {
-    static constinit auto sanity_test = [] {
+    [[maybe_unused]] static constinit auto sanity_test = [] {
         constexpr auto FinalString = "Exemplar is an:== example string."_sv;
         auto s = make_static_string<FinalString.size() + 1>("xmplr");
 
@@ -351,7 +351,7 @@ void sstring_insert_test() {
         return s.empty();
     }();
 
-    static constinit auto fill = [] {
+    [[maybe_unused]] static constinit auto fill = [] {
         auto s = make_static_string<4>("1");
 
         check_(s.insert(0, 2, '2'), "");
@@ -367,7 +367,7 @@ void sstring_insert_test() {
         return s.empty();
     }();
 
-    static constinit auto cstr = [] {
+    [[maybe_unused]] static constinit auto cstr = [] {
         auto s = make_static_string<4>("1");
 
         check_(s.insert(0, "22", 2), "");
@@ -383,7 +383,7 @@ void sstring_insert_test() {
         return s.empty();
     }();
 
-    static constinit auto input_it = [] {
+    [[maybe_unused]] static constinit auto input_it = [] {
         auto s = make_static_string<4>("1");
         auto sv = "22"_sv;
 
@@ -391,14 +391,14 @@ void sstring_insert_test() {
         return s.empty();
     }();
 
-    static constinit auto ilist = [] {
+    [[maybe_unused]] static constinit auto ilist = [] {
         auto s = make_static_string<4>("1");
 
         check_(s.insert(s.end(), {'2', '2'}), "");
         return s.empty();
     }();
 
-    static constinit auto sv = [] {
+    [[maybe_unused]] static constinit auto sv = [] {
         auto s = make_static_string<4>("1");
         auto sv = "22"_sv;
 
@@ -408,7 +408,7 @@ void sstring_insert_test() {
 }
 
 void sstring_replace_test() {
-    static constinit auto sanity = [] {
+    [[maybe_unused]] static constinit auto sanity = [] {
         auto replace_all = []<typename String>(String& inout, string_view what, string_view with) {
             usize count {};
             for (typename String::size_type pos {}; inout.npos
@@ -448,7 +448,7 @@ void sstring_replace_test() {
         return str2.size();
     }();
 
-    static constinit auto ind_sv = [] {
+    [[maybe_unused]] static constinit auto ind_sv = [] {
         auto str = make_static_string<15>("100, {}, 300");
 
         check_(str.replace(str.begin() + 5, str.begin() + 7, "200"_sv), "");
@@ -463,7 +463,7 @@ void sstring_replace_test() {
         return str.size();
     }();
 
-    static constinit auto fill = [] {
+    [[maybe_unused]] static constinit auto fill = [] {
         auto str = make_static_string<5>("1");
 
         check_(str.replace(0, 1, 2, '2'), "");
@@ -476,7 +476,7 @@ void sstring_replace_test() {
         return str.size();
     }();
 
-    static constinit auto ilist = [] {
+    [[maybe_unused]] static constinit auto ilist = [] {
         auto str = make_static_string<5>("1");
 
         check_(str.replace(str.begin(), str.end(), {'2', '2'}), "");
@@ -489,7 +489,7 @@ void sstring_replace_test() {
         return str.size();
     }();
 
-    static constinit auto ip_it = [] {
+    [[maybe_unused]] static constinit auto ip_it = [] {
         auto str = make_static_string<4>("MI");
         auto csk = "CSK"_sv;
 
@@ -508,7 +508,7 @@ void sstring_replace_test() {
         return str.size();
     }();
 
-    static constinit auto str = [] {
+    [[maybe_unused]] static constinit auto str = [] {
         auto str = make_static_string<4>("MI");
         auto csk = make_static_string("CSK");
 
@@ -521,7 +521,7 @@ void sstring_replace_test() {
         return str.size();
     }();
 
-    static constinit auto cstr = [] {
+    [[maybe_unused]] static constinit auto cstr = [] {
         auto str = make_static_string<4>("MI");
         const auto* csk = "CSK";
 
@@ -536,7 +536,7 @@ void sstring_replace_test() {
 }
 
 void sstring_erase_test() {
-    static constinit auto _ = [] {
+    [[maybe_unused]] static constinit auto _ = [] {
         auto str = make_static_string("11223");
 
         check_(erase(str, '3') == 1, "");
@@ -552,7 +552,7 @@ void sstring_erase_test() {
 }
 
 void sstring_substr_test() {
-    static constinit auto _ = [] {
+    [[maybe_unused]] static constinit auto _ = [] {
         auto str = make_static_string("12334");
         auto res = str.substr(0, 3);
 
@@ -570,7 +570,7 @@ void sstring_substr_test() {
 }
 
 void sstring_copy_test() {
-    static constinit auto _ = [] {
+    [[maybe_unused]] static constinit auto _ = [] {
         auto str = make_static_string("12334");
         std::array<char, 4> dest {};
 
@@ -582,7 +582,7 @@ void sstring_copy_test() {
 }
 
 void sstring_compare_test() {
-    static constinit auto _ = [] {
+    [[maybe_unused]] static constinit auto _ = [] {
         auto rajni = make_static_string("Rajni");
         auto kamal = make_static_string("Kamal");
 
@@ -742,7 +742,7 @@ void sstring_find_test() {
 }
 
 void sstring_operators_test() {
-    static constinit auto op_plus_eq = [] {
+    [[maybe_unused]] static constinit auto op_plus_eq = [] {
         auto str = make_static_string<10>("1222");
 
         check_(**(str += "44") == "122244", "");
@@ -751,7 +751,7 @@ void sstring_operators_test() {
         return str.size();
     }();
 
-    static constinit auto three_way = [] {
+    [[maybe_unused]] static constinit auto three_way = [] {
         auto rajni = make_static_string("Rajni");
         auto kamal = make_static_string("Kamal");
 
@@ -763,7 +763,7 @@ void sstring_operators_test() {
 }
 
 void fstring_test() {
-    static constinit auto _ = [] {
+    [[maybe_unused]] static constinit auto _ = [] {
         std::array<char, 4> arr {};
         fixed_string str {arr};
 
@@ -831,11 +831,11 @@ constexpr void sanity_test() {
     check_(str.insert(0, *s), "");
     check_(str.insert(str.size(), *s), "");
 
-    check_(find_and_replace(str, "bbacc", "Hello,") == 3, "");
-    check_(find_and_replace(str, "operation", "World! ") == 3, "");
+    check_(find_and_replace(str, "bbacc", "Hello,") == 3U, "");
+    check_(find_and_replace(str, "operation", "World! ") == 3U, "");
     check_(str == "Hello, World! Hello, World! Hello, World! ", "");
-    check_(find_and_replace(str, "operation", "World!") == 0, "");
-    check_(find_and_replace(str, "!", "!") == 3, "");
+    check_(find_and_replace(str, "operation", "World!") == 0U, "");
+    check_(find_and_replace(str, "!", "!") == 3U, "");
     check_(str == "Hello, World! Hello, World! Hello, World! ", "");
 
     check_(find_and_remove(str, "Hello") == 3, "");
@@ -859,7 +859,7 @@ constexpr void sanity_test() {
 }
 
 void string_test() {
-    static constinit auto const_test = [] {
+    [[maybe_unused]] static constinit auto const_test = [] {
         sanity_test<ConstAllocator<char>>();
         return true;
     }();

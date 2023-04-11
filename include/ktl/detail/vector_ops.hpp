@@ -35,16 +35,16 @@ struct vector_storage {
 
 template<typename VectorT, typename T, typename SizeT>
 concept vector_like = requires(VectorT vec, const VectorT cvec, SizeT req_len, SizeT new_len) {
-                          { vec.get_storage() } -> std::same_as<vector_storage<T>>;
-                          { cvec.get_storage() } -> std::same_as<vector_storage<const T>>;
+    { vec.get_storage() } -> std::same_as<vector_storage<T>>;
+    { cvec.get_storage() } -> std::same_as<vector_storage<const T>>;
 
-                          // Grow must ensure capacity for atleast 'req_len' (1st parameter)
-                          // elements.
-                          { vec.grow(req_len) } -> std::same_as<expected<void, Error>>;
-                          { vec.grow_uninit(req_len) } -> std::same_as<expected<void, Error>>;
+    // Grow must ensure capacity for atleast 'req_len' (1st parameter)
+    // elements.
+    { vec.grow(req_len) } -> std::same_as<expected<void, Error>>;
+    { vec.grow_uninit(req_len) } -> std::same_as<expected<void, Error>>;
 
-                          { vec.set_len(new_len) };
-                      };
+    { vec.set_len(new_len) };
+};
 
 template<typename T, typename SizeT, typename VectorT>
 class vector_ops {
@@ -378,8 +378,8 @@ class vector_ops {
         check_(pos >= begin() && pos <= end(), "iterator does not belong to the container");
 
         auto [beg, end, end_cap] = get_storage();
-        auto size = end - beg;
-        auto capacity = end_cap - beg;
+        usize size = end - beg;
+        usize capacity = end_cap - beg;
         auto pos_i = std::distance(cbegin(), pos);
 
         if (size + count > capacity) {
@@ -441,7 +441,7 @@ class vector_ops {
     constexpr auto resize_with(SizeT new_len, FillValueGetter&& get_fill_value) noexcept
         -> expected<void, Error> {
         auto [begin, end, _end_cap] = get_storage();
-        auto old_len = end - begin;
+        usize old_len = end - begin;
 
         TryV(resize_impl(new_len));
 
@@ -457,7 +457,7 @@ class vector_ops {
     constexpr auto resize_impl(SizeT new_len) noexcept -> expected<void, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
-        auto capacity = end_cap - begin;
+        usize capacity = end_cap - begin;
 
         if (new_len > capacity) {
             TryV(grow(new_len));
@@ -507,18 +507,16 @@ class vector_ops {
 };
 
 template<typename V>
-concept comparable_vector =
-    requires(const V& v) {
-        typename V::value_type;
-        { std::begin(v) } -> std::contiguous_iterator;
-        { std::end(v) } -> std::contiguous_iterator;
-        { V::is_vector == true };
-        requires std::same_as<
-            std::iter_value_t<std::decay_t<decltype(std::begin(v))>>,
-            typename V::value_type>;
-        requires std::
-            same_as<std::iter_value_t<std::decay_t<decltype(std::end(v))>>, typename V::value_type>;
-    };
+concept comparable_vector = requires(const V& v) {
+    typename V::value_type;
+    { std::begin(v) } -> std::contiguous_iterator;
+    { std::end(v) } -> std::contiguous_iterator;
+    { V::is_vector == true };
+    requires std::
+        same_as<std::iter_value_t<std::decay_t<decltype(std::begin(v))>>, typename V::value_type>;
+    requires std::
+        same_as<std::iter_value_t<std::decay_t<decltype(std::end(v))>>, typename V::value_type>;
+};
 
 }  // namespace ktl::detail
 
