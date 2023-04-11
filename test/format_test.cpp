@@ -7,7 +7,7 @@
 using namespace ktl::fmt;
 using namespace ktl::fmt::literals;
 
-template<const_string RawFmtStr, typename... Args>
+template<ktl::const_string RawFmtStr, typename... Args>
 constexpr auto check(const char* exp, const Args&... args) -> unsigned {
     std::array<char, 1024> buf;  // NOLINT
     fixed_buffer fb {buf.begin(), buf.end()};

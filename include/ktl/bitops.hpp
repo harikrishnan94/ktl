@@ -48,4 +48,9 @@ template<std::unsigned_integral I>
 constexpr auto HasAllInMask(I val, I mask) -> bool {
     return GetMaskedBits(val, mask) == mask;
 }
+
+template<std::unsigned_integral I>
+constexpr auto EqualsInMask(I lhs, I rhs, I mask) -> bool {
+    return (lhs & rhs & mask) == rhs;
+}
 }  // namespace ktl
