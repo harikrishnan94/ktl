@@ -13,6 +13,9 @@ if(CCACHE_PROGRAM)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
 endif()
 
+include(cmake/WarningFlags.cmake)
+add_warning_flags()
+
 add_subdirectory(src)
 
 option(KTL_ENABLE_TESTS "Enable KTL tests" OFF)

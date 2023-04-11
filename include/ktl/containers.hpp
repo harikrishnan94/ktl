@@ -17,24 +17,20 @@ namespace detail {
 
     template<typename C>
     concept sequence_container = requires(const C& cont) {
-                                     { cont.begin() } -> std::contiguous_iterator;
-                                     { cont.end() } -> std::contiguous_iterator;
-                                 };
+        { cont.begin() } -> std::contiguous_iterator;
+        { cont.end() } -> std::contiguous_iterator;
+    };
     template<typename C>
     concept random_access_container = has_subscript<C>::value && requires(const C& cont) {
-                                                                     {
-                                                                         cont.size()
-                                                                         } -> std::integral;
-                                                                 };
+        { cont.size() } -> std::integral;
+    };
 }  // namespace detail
 
 constexpr auto begin(detail::sequence_container auto&& container) noexcept {
-    using value_type = typename std::decay_t<decltype(container)>::value_type;
     return make_contiguous_iterator(container.begin(), container.begin(), container.end());
 }
 
 constexpr auto end(detail::sequence_container auto&& container) noexcept {
-    using value_type = typename std::decay_t<decltype(container)>::value_type;
     return make_contiguous_iterator(container.end(), container.begin(), container.end());
 }
 

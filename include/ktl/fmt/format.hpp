@@ -152,7 +152,6 @@ namespace detail {
     constexpr auto
     vformat_apply(FormatContext<SB>& ctx, const detail::FmtArgs<Args...>& args) noexcept
         -> ktl::expected<bool, Error> {
-        using char_type = typename SB::char_type;
         using fmt_base_t = formatter_base<RawFmtStr, FmtStr[I], Args...>;
 
         {
@@ -233,7 +232,7 @@ namespace detail {
             return {m_iter, len};
         }
 
-        constexpr void putback(usize len) noexcept {}
+        constexpr void putback(usize /* len */) noexcept {}
 
       private:
         counting_iterator<CharT> m_iter;
@@ -301,7 +300,7 @@ class FormatContext {
         const char_type* begin,
         const char_type* end) noexcept -> expected<bool, Error> {
         constexpr auto Escape = FS.type.value() == detail::type_t::escape;
-        auto len = end - begin;
+        u64 len = end - begin;
 
         if constexpr (FS.width) {
             if (len >= fmt_spec.width) {
@@ -329,7 +328,7 @@ class FormatContext {
 
     template<bool Escape>
     constexpr auto write(const char_type* begin, const char_type* end) noexcept -> bool {
-        auto req_len = end - begin;
+        usize req_len = end - begin;
         auto buf = m_sb->reserve(req_len);
 
         static_assert(!Escape, "C++23 escape sequence is not implemented");
@@ -357,7 +356,7 @@ class FormatContext {
         -> expected<bool, Error> {
         const auto& [buf, reslen] = res;
         auto [prefix_len, num_len] = reslen;
-        auto len = prefix_len + num_len;
+        u64 len = prefix_len + num_len;
 
         constexpr auto Escape = FS.type.value() == detail::type_t::escape;
 
@@ -417,7 +416,7 @@ class FormatContext {
         static_assert(FS.fill_and_align);
         constexpr auto Escape = FS.type.value() == detail::type_t::escape;
 
-        auto len = end - begin;
+        u64 len = end - begin;
 
         assert(fmt_spec.width > len);
 
@@ -453,7 +452,7 @@ class FormatContext {
         auto [prefix_len, num_len] = reslen;
         const auto* prefix = buf.data();
         const auto* num = prefix + prefix_len;
-        auto len = prefix_len + num_len;
+        u64 len = prefix_len + num_len;
 
         assert(fmt_spec.width > len);
 

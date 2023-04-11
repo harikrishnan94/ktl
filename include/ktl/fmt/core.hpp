@@ -176,24 +176,24 @@ namespace detail {
         optional<E> m_err = {};
     };
 
-    // NOLINTBEGIN(cppcoreguidelines-macro-usage)
+    // NOLINTBEGIN(cppcoreguidelines-macro-usage,*-macro-parentheses)
 
 #define TryEVT(e, tmp_name) \
-    auto && (tmp_name) = (e); \
+    auto&& tmp_name = (e); \
     if (!(tmp_name)) \
         return {detail::unexpected, (tmp_name).error()};
 
 #define TryEV(e) TryEVT(e, CONCAT(tmp__, __LINE__))
 
 #define TryET(varname, e, tmp_name) \
-    auto && (tmp_name) = (e); \
+    auto&& tmp_name = (e); \
     if (!(tmp_name)) \
         return {detail::unexpected, (tmp_name).error()}; \
-    auto && (varname) = *std::move((tmp_name))
+    auto&& varname = *std::move((tmp_name))
 
 #define TryE(varname, e) TryET(varname, e, CONCAT(tmp__, __LINE__))
 
-    // NOLINTEND(cppcoreguidelines-macro-usage)
+    // NOLINTEND(cppcoreguidelines-macro-usage,*-macro-parentheses)
 
     struct range_t {
         usize start;
@@ -893,7 +893,9 @@ namespace detail {
         if (auto new_fmt_str = detail::rewrite(fmt_str)) {
             return new_fmt_str.value();
         }
-        return {detail::unexpected, parse_error {.reason = "cannot rewrite format string"}};
+        return {
+            detail::unexpected,
+            parse_error {.reason = "cannot rewrite format string", .pos = 0, .is_eob = false}};
     }
 
 #undef TryE

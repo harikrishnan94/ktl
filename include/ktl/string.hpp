@@ -15,8 +15,8 @@ template<
     typename Traits,
     allocator_for<CharT> Allocator,
     typename GP = default_growth_policy>
-    requires std::is_trivial_v<CharT> && growth_policy<GP> || growth_policy_for<GP, Allocator>
-         class basic_string:
+    requires(std::is_trivial_v<CharT> && growth_policy<GP>) || growth_policy_for<GP, Allocator>
+class basic_string:
     public detail::string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator, GP>> {
   public:
     using traits_type = Traits;
@@ -110,7 +110,7 @@ template<
 
         if (len != capacity && !is_short) {
             if (storage_t::is_short(len)) {
-                auto lstr = std::move(m_storage).take();
+                (void)std::move(m_storage);
 
                 std::construct_at(&m_storage);
                 auto new_chars = std::get<pointer>(m_storage.extract());

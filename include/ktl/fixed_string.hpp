@@ -12,11 +12,12 @@ class basic_static_string;
 template<typename CharT, std::integral Size, typename Traits = std::char_traits<CharT>>
     requires(!std::is_const_v<CharT>)
 class fixed_string:
-    public detail::string_ops<CharT, Traits, Size, fixed_string<CharT, Size, Traits>> {
+    public detail::
+        string_ops<CharT, Traits, std::make_unsigned_t<Size>, fixed_string<CharT, Size, Traits>> {
   public:
     using traits_type = Traits;
     using value_type = CharT;
-    using size_type = Size;
+    using size_type = std::make_unsigned_t<Size>;
     using difference_type = isize;
     using reference = CharT&;
     using const_reference = const CharT&;
@@ -24,7 +25,8 @@ class fixed_string:
     using const_pointer = const CharT*;
 
   private:
-    using base = detail::string_ops<CharT, Traits, Size, fixed_string<CharT, Size, Traits>>;
+    using base =
+        detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, size_type, Traits>>;
 
   public:
     constexpr fixed_string() = default;
@@ -79,7 +81,7 @@ class fixed_string:
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::string_ops<CharT, Traits, Size, fixed_string<CharT, Size, Traits>>;
+    friend class detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, Size, Traits>>;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
         -> detail::string_storage<const CharT> {

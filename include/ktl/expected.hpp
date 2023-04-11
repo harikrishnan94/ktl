@@ -945,121 +945,121 @@ class [[nodiscard("check for errors.")]] expected:
     using unexpected_type = unexpected<E>;
 
     template<typename F>
-    constexpr auto and_then(F && f)& noexcept {
+    constexpr auto and_then(F&& f) & noexcept {
         return and_then_impl(*this, std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto and_then(F && f)&& noexcept {
+    constexpr auto and_then(F&& f) && noexcept {
         return and_then_impl(std::move(*this), std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto and_then(F && f) const& noexcept {
+    constexpr auto and_then(F&& f) const& noexcept {
         return and_then_impl(*this, std::forward<F>(f));
     }
 
     template<typename F>
-    constexpr auto and_then(F && f) const&& noexcept {
+    constexpr auto and_then(F&& f) const&& noexcept {
         return and_then_impl(std::move(*this), std::forward<F>(f));
     }
 
     template<typename F>
-    constexpr auto map(F && f)& noexcept {
+    constexpr auto map(F&& f) & noexcept {
         return expected_map_impl(*this, std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto map(F && f)&& noexcept {
+    constexpr auto map(F&& f) && noexcept {
         return expected_map_impl(std::move(*this), std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto map(F && f) const& noexcept {
+    constexpr auto map(F&& f) const& noexcept {
         return expected_map_impl(*this, std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto map(F && f) const&& noexcept {
-        return expected_map_impl(std::move(*this), std::forward<F>(f));
-    }
-
-    template<typename F>
-    constexpr auto transform(F && f)& noexcept {
-        return expected_map_impl(*this, std::forward<F>(f));
-    }
-    template<typename F>
-    constexpr auto transform(F && f)&& noexcept {
-        return expected_map_impl(std::move(*this), std::forward<F>(f));
-    }
-    template<typename F>
-    constexpr auto transform(F && f) const& noexcept {
-        return expected_map_impl(*this, std::forward<F>(f));
-    }
-    template<typename F>
-    constexpr auto transform(F && f) const&& noexcept {
+    constexpr auto map(F&& f) const&& noexcept {
         return expected_map_impl(std::move(*this), std::forward<F>(f));
     }
 
     template<typename F>
-    constexpr auto map_error(F && f)& noexcept {
+    constexpr auto transform(F&& f) & noexcept {
+        return expected_map_impl(*this, std::forward<F>(f));
+    }
+    template<typename F>
+    constexpr auto transform(F&& f) && noexcept {
+        return expected_map_impl(std::move(*this), std::forward<F>(f));
+    }
+    template<typename F>
+    constexpr auto transform(F&& f) const& noexcept {
+        return expected_map_impl(*this, std::forward<F>(f));
+    }
+    template<typename F>
+    constexpr auto transform(F&& f) const&& noexcept {
+        return expected_map_impl(std::move(*this), std::forward<F>(f));
+    }
+
+    template<typename F>
+    constexpr auto map_error(F&& f) & noexcept {
         return map_error_impl(*this, std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto map_error(F && f)&& noexcept {
+    constexpr auto map_error(F&& f) && noexcept {
         return map_error_impl(std::move(*this), std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto map_error(F && f) const& noexcept {
+    constexpr auto map_error(F&& f) const& noexcept {
         return map_error_impl(*this, std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto map_error(F && f) const&& noexcept {
+    constexpr auto map_error(F&& f) const&& noexcept {
         return map_error_impl(std::move(*this), std::forward<F>(f));
     }
 
     template<typename F>
-    constexpr auto transform_error(F && f)& noexcept {
+    constexpr auto transform_error(F&& f) & noexcept {
         return map_error_impl(*this, std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto transform_error(F && f)&& noexcept {
+    constexpr auto transform_error(F&& f) && noexcept {
         return map_error_impl(std::move(*this), std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto transform_error(F && f) const& noexcept {
+    constexpr auto transform_error(F&& f) const& noexcept {
         return map_error_impl(*this, std::forward<F>(f));
     }
     template<typename F>
-    constexpr auto transform_error(F && f) const&& noexcept {
+    constexpr auto transform_error(F&& f) const&& noexcept {
         return map_error_impl(std::move(*this), std::forward<F>(f));
     }
 
     template<typename F>
-    expected constexpr or_else(F && f)& noexcept {
+    expected constexpr or_else(F&& f) & noexcept {
         return or_else_impl(*this, std::forward<F>(f));
     }
 
     template<typename F>
-    expected constexpr or_else(F && f)&& noexcept {
+    expected constexpr or_else(F&& f) && noexcept {
         return or_else_impl(std::move(*this), std::forward<F>(f));
     }
 
     template<typename F>
-    expected constexpr or_else(F && f) const& noexcept {
+    expected constexpr or_else(F&& f) const& noexcept {
         return or_else_impl(*this, std::forward<F>(f));
     }
 
     template<typename F>
-    expected constexpr or_else(F && f) const&& noexcept {
+    expected constexpr or_else(F&& f) const&& noexcept {
         return or_else_impl(std::move(*this), std::forward<F>(f));
     }
 
     constexpr expected() noexcept = default;
     constexpr expected(const expected& rhs) noexcept = default;
-    constexpr expected(expected && rhs) noexcept = default;
+    constexpr expected(expected&& rhs) noexcept = default;
     expected& operator=(const expected& rhs) noexcept = default;
     expected& operator=(expected&& rhs) noexcept = default;
 
     template<
         typename... Args,
         std::enable_if_t<std::is_constructible<T, Args&&...>::value>* = nullptr>
-    constexpr expected(in_place_t, Args && ... args) noexcept :
+    constexpr expected(in_place_t, Args&&... args) noexcept :
         impl_base(in_place, std::forward<Args>(args)...),
         ctor_base(detail::default_constructor_tag {}) {}
 
@@ -1068,7 +1068,7 @@ class [[nodiscard("check for errors.")]] expected:
         typename... Args,
         std::enable_if_t<std::is_constructible<T, std::initializer_list<U>&, Args&&...>::value>* =
             nullptr>
-    constexpr expected(in_place_t, std::initializer_list<U> il, Args && ... args) noexcept :
+    constexpr expected(in_place_t, std::initializer_list<U> il, Args&&... args) noexcept :
         impl_base(in_place, il, std::forward<Args>(args)...),
         ctor_base(detail::default_constructor_tag {}) {}
 
@@ -1092,7 +1092,7 @@ class [[nodiscard("check for errors.")]] expected:
         typename G = E,
         std::enable_if_t<std::is_constructible<E, G&&>::value>* = nullptr,
         std::enable_if_t<!std::is_convertible<G&&, E>::value>* = nullptr>
-    explicit constexpr expected(unexpected<G> && e) noexcept :
+    explicit constexpr expected(unexpected<G>&& e) noexcept :
         impl_base(unexpect, std::move(e.value())),
         ctor_base(detail::default_constructor_tag {}) {}
 
@@ -1100,14 +1100,14 @@ class [[nodiscard("check for errors.")]] expected:
         typename G = E,
         std::enable_if_t<std::is_constructible<E, G&&>::value>* = nullptr,
         std::enable_if_t<std::is_convertible<G&&, E>::value>* = nullptr>
-    constexpr expected(unexpected<G> && e) noexcept :
+    constexpr expected(unexpected<G>&& e) noexcept :
         impl_base(unexpect, std::move(e.value())),
         ctor_base(detail::default_constructor_tag {}) {}
 
     template<
         typename... Args,
         std::enable_if_t<std::is_constructible<E, Args&&...>::value>* = nullptr>
-    constexpr explicit expected(unexpect_t, Args && ... args) noexcept :
+    constexpr explicit expected(unexpect_t, Args&&... args) noexcept :
         impl_base(unexpect, std::forward<Args>(args)...),
         ctor_base(detail::default_constructor_tag {}) {}
 
@@ -1116,10 +1116,7 @@ class [[nodiscard("check for errors.")]] expected:
         typename... Args,
         std::enable_if_t<std::is_constructible<E, std::initializer_list<U>&, Args&&...>::value>* =
             nullptr>
-    constexpr explicit expected(
-        unexpect_t,
-        std::initializer_list<U> il,
-        Args && ... args) noexcept :
+    constexpr explicit expected(unexpect_t, std::initializer_list<U> il, Args&&... args) noexcept :
         impl_base(unexpect, il, std::forward<Args>(args)...),
         ctor_base(detail::default_constructor_tag {}) {}
 
@@ -1142,8 +1139,8 @@ class [[nodiscard("check for errors.")]] expected:
     template<
         typename U,
         typename G,
-        std::enable_if_t<(
-            std::is_convertible<U const&, T>::value && std::is_convertible<G const&, E>::value)>* =
+        std::enable_if_t<
+            (std::is_convertible<U const&, T>::value && std::is_convertible<G const&, E>::value)>* =
             nullptr,
         detail::expected_enable_from_other<T, E, U, G, const U&, const G&>* = nullptr>
     constexpr expected(const expected<U, G>& rhs) noexcept :
@@ -1158,10 +1155,10 @@ class [[nodiscard("check for errors.")]] expected:
     template<
         typename U,
         typename G,
-        std::enable_if_t<!(
-            std::is_convertible<U&&, T>::value && std::is_convertible<G&&, E>::value)>* = nullptr,
+        std::enable_if_t<
+            !(std::is_convertible<U&&, T>::value && std::is_convertible<G&&, E>::value)>* = nullptr,
         detail::expected_enable_from_other<T, E, U, G, U&&, G&&>* = nullptr>
-    explicit constexpr expected(expected<U, G> && rhs) noexcept :
+    explicit constexpr expected(expected<U, G>&& rhs) noexcept :
         ctor_base(detail::default_constructor_tag {}) {
         if (rhs.has_value()) {
             this->construct(std::move(*rhs));
@@ -1173,10 +1170,10 @@ class [[nodiscard("check for errors.")]] expected:
     template<
         typename U,
         typename G,
-        std::enable_if_t<(
-            std::is_convertible<U&&, T>::value && std::is_convertible<G&&, E>::value)>* = nullptr,
+        std::enable_if_t<
+            (std::is_convertible<U&&, T>::value && std::is_convertible<G&&, E>::value)>* = nullptr,
         detail::expected_enable_from_other<T, E, U, G, U&&, G&&>* = nullptr>
-    constexpr expected(expected<U, G> && rhs) noexcept :
+    constexpr expected(expected<U, G>&& rhs) noexcept :
         ctor_base(detail::default_constructor_tag {}) {
         if (rhs.has_value()) {
             this->construct(std::move(*rhs));
@@ -1189,24 +1186,24 @@ class [[nodiscard("check for errors.")]] expected:
         typename U = T,
         std::enable_if_t<!std::is_convertible<U&&, T>::value>* = nullptr,
         detail::expected_enable_forward_value<T, E, U>* = nullptr>
-    explicit constexpr expected(U && v) noexcept : expected(in_place, std::forward<U>(v)) {}
+    explicit constexpr expected(U&& v) noexcept : expected(in_place, std::forward<U>(v)) {}
 
     template<
         typename U = T,
         std::enable_if_t<std::is_convertible<U&&, T>::value>* = nullptr,
         detail::expected_enable_forward_value<T, E, U>* = nullptr>
-    constexpr expected(U && v) noexcept : expected(in_place, std::forward<U>(v)) {}
+    constexpr expected(U&& v) noexcept : expected(in_place, std::forward<U>(v)) {}
 
     template<
         typename U = T,
         typename G = T,
         std::enable_if_t<std::is_nothrow_constructible<T, U&&>::value>* = nullptr,
         std::enable_if_t<!std::is_void<G>::value>* = nullptr,
-        std::enable_if_t<(
-            !std::is_same<expected<T, E>, std::decay_t<U>>::value
-            && !std::conjunction<std::is_scalar<T>, std::is_same<T, std::decay_t<U>>>::value
-            && std::is_constructible<T, U>::value && std::is_assignable<G&, U>::value
-            && std::is_nothrow_move_constructible<E>::value)>* = nullptr>
+        std::enable_if_t<
+            (!std::is_same<expected<T, E>, std::decay_t<U>>::value
+             && !std::conjunction<std::is_scalar<T>, std::is_same<T, std::decay_t<U>>>::value
+             && std::is_constructible<T, U>::value && std::is_assignable<G&, U>::value
+             && std::is_nothrow_move_constructible<E>::value)>* = nullptr>
     expected& operator=(U&& v) noexcept {
         if (has_value()) {
             val() = std::forward<U>(v);
@@ -1224,11 +1221,11 @@ class [[nodiscard("check for errors.")]] expected:
         typename G = T,
         std::enable_if_t<!std::is_nothrow_constructible<T, U&&>::value>* = nullptr,
         std::enable_if_t<!std::is_void<U>::value>* = nullptr,
-        std::enable_if_t<(
-            !std::is_same<expected<T, E>, std::decay_t<U>>::value
-            && !std::conjunction<std::is_scalar<T>, std::is_same<T, std::decay_t<U>>>::value
-            && std::is_constructible<T, U>::value && std::is_assignable<G&, U>::value
-            && std::is_nothrow_move_constructible<E>::value)>* = nullptr>
+        std::enable_if_t<
+            (!std::is_same<expected<T, E>, std::decay_t<U>>::value
+             && !std::conjunction<std::is_scalar<T>, std::is_same<T, std::decay_t<U>>>::value
+             && std::is_constructible<T, U>::value && std::is_assignable<G&, U>::value
+             && std::is_nothrow_move_constructible<E>::value)>* = nullptr>
     expected& operator=(U&& v) noexcept {
         if (has_value()) {
             val() = std::forward<U>(v);
@@ -1277,7 +1274,7 @@ class [[nodiscard("check for errors.")]] expected:
     template<
         typename... Args,
         std::enable_if_t<std::is_nothrow_constructible<T, Args&&...>::value>* = nullptr>
-    void emplace(Args && ... args) noexcept {
+    void emplace(Args&&... args) noexcept {
         if (has_value()) {
             val().~T();
         } else {
@@ -1290,7 +1287,7 @@ class [[nodiscard("check for errors.")]] expected:
     template<
         typename... Args,
         std::enable_if_t<!std::is_nothrow_constructible<T, Args&&...>::value>* = nullptr>
-    void emplace(Args && ... args) noexcept {
+    void emplace(Args&&... args) noexcept {
         if (has_value()) {
             val().~T();
             ::new (valptr()) T(std::forward<Args>(args)...);
@@ -1306,7 +1303,7 @@ class [[nodiscard("check for errors.")]] expected:
         std::enable_if_t<
             std::is_nothrow_constructible<T, std::initializer_list<U>&, Args&&...>::value>* =
             nullptr>
-    void emplace(std::initializer_list<U> il, Args && ... args) noexcept {
+    void emplace(std::initializer_list<U> il, Args&&... args) noexcept {
         if (has_value()) {
             T t(il, std::forward<Args>(args)...);
             val() = std::move(t);
@@ -1323,7 +1320,7 @@ class [[nodiscard("check for errors.")]] expected:
         std::enable_if_t<
             !std::is_nothrow_constructible<T, std::initializer_list<U>&, Args&&...>::value>* =
             nullptr>
-    void emplace(std::initializer_list<U> il, Args && ... args) noexcept {
+    void emplace(std::initializer_list<U> il, Args&&... args) noexcept {
         if (has_value()) {
             T t(il, std::forward<Args>(args)...);
             val() = std::move(t);
@@ -1345,18 +1342,18 @@ class [[nodiscard("check for errors.")]] expected:
         // swapping void is a no-op
     }
 
-    void swap_where_both_have_value(expected & rhs, t_is_not_void) noexcept {
+    void swap_where_both_have_value(expected& rhs, t_is_not_void) noexcept {
         using std::swap;
         swap(val(), rhs.val());
     }
 
-    void swap_where_only_one_has_value(expected & rhs, t_is_void) noexcept {
+    void swap_where_only_one_has_value(expected& rhs, t_is_void) noexcept {
         ::new (errptr()) unexpected_type(std::move(rhs.err()));
         rhs.err().~unexpected_type();
         std::swap(this->m_has_val, rhs.m_has_val);
     }
 
-    void swap_where_only_one_has_value(expected & rhs, t_is_not_void) noexcept {
+    void swap_where_only_one_has_value(expected& rhs, t_is_not_void) noexcept {
         swap_where_only_one_has_value_and_t_is_not_void(
             rhs,
             typename std::is_nothrow_move_constructible<T>::type {},
@@ -1364,7 +1361,7 @@ class [[nodiscard("check for errors.")]] expected:
     }
 
     void swap_where_only_one_has_value_and_t_is_not_void(
-        expected & rhs,
+        expected& rhs,
         t_is_nothrow_move_constructible,
         e_is_nothrow_move_constructible) noexcept {
         auto temp = std::move(val());
@@ -1376,7 +1373,7 @@ class [[nodiscard("check for errors.")]] expected:
     }
 
     void swap_where_only_one_has_value_and_t_is_not_void(
-        expected & rhs,
+        expected& rhs,
         t_is_nothrow_move_constructible,
         move_constructing_e_can_throw) noexcept {
         auto temp = std::move(val());
@@ -1389,7 +1386,7 @@ class [[nodiscard("check for errors.")]] expected:
     }
 
     void swap_where_only_one_has_value_and_t_is_not_void(
-        expected & rhs,
+        expected& rhs,
         move_constructing_t_can_throw,
         e_is_nothrow_move_constructible) noexcept {
         auto temp = std::move(rhs.err());
@@ -1407,7 +1404,7 @@ class [[nodiscard("check for errors.")]] expected:
         std::is_swappable<OT>::value && std::is_swappable<OE>::value
         && (std::is_nothrow_move_constructible<OT>::value
             || std::is_nothrow_move_constructible<OE>::value)>
-    swap(expected & rhs) noexcept {
+    swap(expected& rhs) noexcept {
         if (has_value() && rhs.has_value()) {
             swap_where_both_have_value(rhs, typename std::is_void<T>::type {});
         } else if (!has_value() && rhs.has_value()) {
@@ -1435,7 +1432,7 @@ class [[nodiscard("check for errors.")]] expected:
         return val();
     }
     template<typename U = T, std::enable_if_t<!std::is_void<U>::value>* = nullptr>
-    constexpr U& operator*()& noexcept {
+    constexpr U& operator*() & noexcept {
         check_(has_value(), "dereferencing unexpected");
         return val();
     }
@@ -1445,7 +1442,7 @@ class [[nodiscard("check for errors.")]] expected:
         return std::move(val());
     }
     template<typename U = T, std::enable_if_t<!std::is_void<U>::value>* = nullptr>
-    constexpr U&& operator*()&& noexcept {
+    constexpr U&& operator*() && noexcept {
         check_(has_value(), "dereferencing unexpected");
         return std::move(val());
     }
@@ -1464,7 +1461,7 @@ class [[nodiscard("check for errors.")]] expected:
         return val();
     }
     template<typename U = T, std::enable_if_t<!std::is_void<U>::value>* = nullptr>
-    constexpr U& value()& noexcept {
+    constexpr U& value() & noexcept {
         if (!has_value())
             detail::throw_exception(bad_expected_access<E>(err().value()));
         return val();
@@ -1476,7 +1473,7 @@ class [[nodiscard("check for errors.")]] expected:
         return std::move(val());
     }
     template<typename U = T, std::enable_if_t<!std::is_void<U>::value>* = nullptr>
-    constexpr U&& value()&& noexcept {
+    constexpr U&& value() && noexcept {
         if (!has_value())
             detail::throw_exception(bad_expected_access<E>(std::move(err()).value()));
         return std::move(val());
@@ -1486,7 +1483,7 @@ class [[nodiscard("check for errors.")]] expected:
         check_(!has_value(), "found `expected`, when `unexpected` is expected");
         return err().value();
     }
-    constexpr E& error()& noexcept {
+    constexpr E& error() & noexcept {
         check_(!has_value(), "found `expected`, when `unexpected` is expected");
         return err().value();
     }
@@ -1494,20 +1491,20 @@ class [[nodiscard("check for errors.")]] expected:
         check_(!has_value(), "found `expected`, when `unexpected` is expected");
         return std::move(err().value());
     }
-    constexpr E&& error()&& noexcept {
+    constexpr E&& error() && noexcept {
         check_(!has_value(), "found `expected`, when `unexpected` is expected");
         return std::move(err().value());
     }
 
     template<typename U>
-    constexpr T value_or(U && v) const& noexcept {
+    constexpr T value_or(U&& v) const& noexcept {
         static_assert(
             std::is_copy_constructible<T>::value && std::is_convertible<U&&, T>::value,
             "T must be copy-constructible and convertible to from U&&");
         return bool(*this) ? **this : static_cast<T>(std::forward<U>(v));
     }
     template<typename U>
-    constexpr T value_or(U && v)&& noexcept {
+    constexpr T value_or(U&& v) && noexcept {
         static_assert(
             std::is_move_constructible<T>::value && std::is_convertible<U&&, T>::value,
             "T must be move-constructible and convertible to from U&&");
@@ -1766,7 +1763,7 @@ void swap(expected<T, E>& lhs, expected<T, E>& rhs) noexcept {
     do { \
         TryAV2(CONCAT(tmp_, __LINE__), (expr)); \
     } while (false)
-#define Try(var, expr) TryA2((var), CONCAT(tmp_, __LINE__), (expr))
+#define Try(var, expr) TryA2(var, CONCAT(tmp_, __LINE__), (expr))
 
 #define TryA(lvalue, expr) \
     TryAV2(CONCAT(tmp_, __LINE__), (expr)); \
