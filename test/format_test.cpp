@@ -4,6 +4,7 @@
 
 #include "platform.h"
 
+using namespace ktl;
 using namespace ktl::fmt;
 using namespace ktl::fmt::literals;
 

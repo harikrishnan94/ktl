@@ -13,36 +13,9 @@
 #include <ktl/error.hpp>
 #include <ktl/expected.hpp>
 #include <ktl/static_string.hpp>
+#include <ktl/utility.hpp>
 
 namespace ktl::fmt {
-// NOLINTBEGIN(hicpp-avoid-c-arrays, hicpp-explicit-conversions,
-// misc-non-private-member-variables-in-classes)
-// Compile time string used to capture the `format string`
-template<typename CharT, usize N>
-struct const_string {
-    using char_type = CharT;
-
-    constexpr const_string(const CharT (&str)[N]) {
-        std::copy_n(str, N, value);
-    }
-
-    constexpr auto begin() const noexcept -> const char_type* {
-        return &value[0];
-    }
-
-    constexpr auto end() const noexcept -> const char_type* {
-        return begin() + N - 1;  // Ignore trailing `NUL` char
-    }
-
-    constexpr auto view() const noexcept -> basic_string_view<char_type> {
-        return {begin(), end()};
-    }
-
-    char_type value[N] = {};
-};
-// NOLINTEND(hicpp-avoid-c-arrays, hicpp-explicit-conversions,
-// misc-non-private-member-variables-in-classes)
-
 // Result type of `format` routine.
 class Result {
   public:
@@ -85,10 +58,10 @@ struct buffer_view {
 // must use this information to avoid gaps in the formatted string.
 template<typename SB>
 concept string_buffer = requires(SB a, usize len) {
-                            { !std::is_void_v<typename SB::char_type> };
-                            { a.reserve(len) };
-                            { a.putback(len) };
-                        };
+    { !std::is_void_v<typename SB::char_type> };
+    { a.reserve(len) };
+    { a.putback(len) };
+};
 template<typename SB, typename CharT>
 concept string_buffer_of = string_buffer<SB> && std::same_as<CharT, typename SB::char_type>;
 
