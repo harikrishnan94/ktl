@@ -92,15 +92,12 @@ namespace detail {
             static_assert(!FmtSpec.locale_specific, "locale support is not available");
         }
         if (!converted.type) {
-            if constexpr (string_type<ArgT, CharT> || std::same_as<ArgT, bool>) {
-                converted.type = type_t::string;
-            } else if constexpr (std::is_arithmetic_v<ArgT>) {
+            if constexpr (std::is_arithmetic_v<ArgT> && !std::is_same_v<ArgT, bool>) {
                 converted.type = type_t::decimal;
-            } else {
-                static_assert(
-                    std::is_pointer_v<ArgT> || std::same_as<ArgT, std::nullptr_t>,
-                    "must be a pointer type");
+            } else if (std::is_pointer_v<ArgT> || std::same_as<ArgT, std::nullptr_t>) {
                 converted.type = type_t::pointer;
+            } else {
+                converted.type = type_t::string;
             }
         }
         assert(converted.type && "must contain a type");
@@ -310,6 +307,17 @@ class FormatContext {
         } else {
             return write<Escape>(begin, end);
         }
+    }
+
+    template<const_string FmtStr, typename... Args>
+    constexpr auto Format(std::in_place_t /* inp */, const Args&... args) noexcept
+        -> expected<bool, Error> {
+        constexpr auto FormatStringRes = fmt::detail::parse<FmtStr>();
+        static_assert(FormatStringRes, "cannot parse format string");
+
+        constexpr auto FormatString = *FormatStringRes;
+
+        return vformat_apply<FmtStr, 0, FormatString>(*this, detail::FmtArgs {args...});
     }
 
   private:
@@ -714,6 +722,18 @@ struct formatter<CharT, std::nullptr_t> {
 };
 
 // String types (with `begin()` and `end()`)
+
+template<typename CharT, usize Len>
+struct formatter<CharT, CharT[Len]> {
+    template<typename FormatContext, typename FmtSpec>
+        requires std::same_as<CharT, typename FormatContext::char_type>
+    constexpr auto
+    format(FormatContext& ctx, const FmtSpec& fmt_spec, const CharT (&str)[Len]) noexcept
+        -> expected<bool, Error> {
+        return ctx.Format(fmt_spec, std::begin(str), std::begin(str) + Len - 1);
+    }
+};
+
 template<typename CharT, detail::string_type<CharT> Str>
 struct formatter<CharT, Str> {
     template<typename FormatContext, typename FmtSpec>
