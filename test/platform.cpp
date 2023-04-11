@@ -1,6 +1,5 @@
-#include "platform.h"
-
 #include <bit>
+#include <ktl/test/platform.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
