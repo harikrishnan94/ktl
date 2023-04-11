@@ -1,5 +1,6 @@
 add_library(ktl STATIC builtins.cpp ubsan.cpp)
-target_include_directories(ktl PUBLIC ${CMAKE_SOURCE_DIR}/include)
+add_library(ktl::ktl ALIAS ktl)
+target_include_directories(ktl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_compile_features(ktl PUBLIC cxx_std_20)
 target_compile_options(ktl PUBLIC -ffreestanding -mgeneral-regs-only -fPIC
     -fno-exceptions -fno-unwind-tables -fno-rtti
@@ -12,7 +13,7 @@ endif()
 
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     target_compile_definitions(ktl PUBLIC ARCH_IS_X86_64=1)
-elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
     target_compile_definitions(ktl PUBLIC ARCH_IS_AARCH64=1)
     target_compile_options(ktl PUBLIC -mno-outline-atomics)
 else()
