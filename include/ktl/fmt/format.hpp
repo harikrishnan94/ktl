@@ -183,7 +183,7 @@ namespace detail {
         return Result {ctx.FormattedLen(), is_complete};
     }
 
-    template<const_string FmtStr, typename... Args>
+    template<const_string FmtStr, format_string_t FS, typename... Args>
     constexpr auto
     vformat(str_type_t /*str_type*/, auto& str, const detail::FmtArgs<Args...>& args) noexcept
         -> ktl::expected<Result, Error> {
@@ -192,7 +192,7 @@ namespace detail {
 
         TryV(str.resize_uninitialized(end - 1));
         fixed_buffer fb {str.begin() + pos, str.begin() + end};
-        auto res = detail::vformat<FmtStr>(fb, args);
+        auto res = detail::vformat<FmtStr, FS>(fb, args);
 
         if (!res) {
             str.clear();

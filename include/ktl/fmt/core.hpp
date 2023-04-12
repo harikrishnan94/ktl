@@ -1021,9 +1021,21 @@ namespace detail {
     constexpr auto vformat(SB& sb, const detail::FmtArgs<Args...>& args) noexcept
         -> ktl::expected<Result, Error>;
 
-    template<const_string FmtStr, typename... Args>
+    template<const_string FmtStr, format_string_t FS, typename... Args>
     constexpr auto vformat(str_type_t, auto& str, const detail::FmtArgs<Args...>& args) noexcept
         -> ktl::expected<Result, Error>;
+
+    template<const_string FmtStr, typename... Args>
+    constexpr auto
+    vformat(str_type_t str_type, auto& str, const detail::FmtArgs<Args...>& args) noexcept
+        -> ktl::expected<Result, Error> {
+        constexpr auto FormatStringRes = parse<FmtStr>();
+        static_assert(FormatStringRes, "cannot parse format string");
+
+        constexpr auto FormatString = *FormatStringRes;
+
+        return vformat<FmtStr, FormatString, Args...>(str_type, str, args);
+    }
 
     template<
         const_string FmtStr,
