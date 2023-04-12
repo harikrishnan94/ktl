@@ -191,7 +191,7 @@ namespace detail {
         auto end = str.capacity() - 1;
 
         TryV(str.resize_uninitialized(end - 1));
-        fixed_buffer fb {str.begin() + pos, str.begin() + end};
+        fixed_buffer fb {str.data() + pos, str.data() + end};
         auto res = detail::vformat<FmtStr, FS>(fb, args);
 
         if (!res) {

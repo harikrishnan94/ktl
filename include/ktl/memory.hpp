@@ -275,9 +275,9 @@ concept growth_policy_for = allocator_like<Alloc> && std::is_trivial_v<GP>
        };
 
 template<typename GP, typename Alloc>
-    requires allocator_like<std::decay_t<Alloc>> && growth_policy<GP>
+    requires(allocator_like<std::decay_t<Alloc>> && growth_policy<GP>)
     || growth_policy_for<GP, Alloc>
-         constexpr auto grow(Alloc&& a, usize old_cap, usize req_cap) noexcept -> usize {
+constexpr auto grow(Alloc&& a, usize old_cap, usize req_cap) noexcept -> usize {
     GP gp;
 
     if constexpr (growth_policy_for<GP, Alloc>) {
@@ -293,4 +293,12 @@ struct default_growth_policy {
         return std::max(old_cap * 2, req_cap);
     }
 };
+
+#if __SANITIZE_ADDRESS__ == 1
+    #define ASAN_ENABLED 1
+#elif defined(__has_feature)
+    #if __has_feature(address_sanitizer)
+        #define ASAN_ENABLED 1
+    #endif
+#endif
 }  // namespace ktl

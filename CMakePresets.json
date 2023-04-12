@@ -33,11 +33,12 @@
         {
             "name": "san",
             "displayName": "Sanitizer",
-            "description": "Undefined behavior Sanitizer enabled",
+            "description": "Address and Undefined behavior Sanitizer enabled",
             "inherits": "debug",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_FLAGS": "-fsanitize=undefined"
+                "CMAKE_CXX_FLAGS": "-fsanitize=undefined -fsanitize=address",
+                "CMAKE_EXE_LINKER_FLAGS": "-lasan -lubsan -lstdc++"
             }
         },
         {

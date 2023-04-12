@@ -1,5 +1,12 @@
-add_library(ktl STATIC builtins.cpp ubsan.cpp)
+add_library(ktl STATIC builtins.cpp)
 add_library(ktl::ktl ALIAS ktl)
+
+option(KTL_ENABLE_UBSAN_MINIMAL "Enable UBSAN minimal runtime" OFF)
+
+if(KTL_ENABLE_UBSAN_MINIMAL)
+    target_sources(ktl ubsan.cpp)
+endif()
+
 target_include_directories(ktl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_compile_features(ktl PUBLIC cxx_std_20)
 target_compile_options(ktl PUBLIC -ffreestanding -mgeneral-regs-only -fPIC
