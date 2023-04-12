@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
     ktl
-    VERSION 0.0.2
+    VERSION 0.0.3
     HOMEPAGE_URL "https://github.com/harikrishnan94/ktl"
     DESCRIPTION "Minimal and Safe C++ standard library usable for Kernel and other bare metal developments"
     LANGUAGES CXX ASM)
