@@ -130,7 +130,7 @@ void Abort(
     unsigned int line,
     const char* function) noexcept {
     write(message);
-    write("] @ ");
+    write(" @ ");
     write(function);
     write(" @ ");
     write(file);

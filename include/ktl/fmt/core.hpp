@@ -24,16 +24,16 @@ class Result {
         m_is_complete(is_complete) {}
 
     // Returns whether format ran thru completetion, without any error.
-    [[nodiscard]] constexpr auto format_complete() const noexcept -> bool {
+    [[nodiscard]] constexpr auto complete() const noexcept -> bool {
         return m_is_complete;
     }
     // Returns `format_complete`.
     constexpr operator bool() const noexcept {  // NOLINT(hicpp-explicit-conversions)
-        return format_complete();
+        return complete();
     }
 
     // Length of the formatted string.
-    [[nodiscard]] constexpr auto formatted_len() const noexcept -> usize {
+    [[nodiscard]] constexpr auto len() const noexcept -> usize {
         return m_formatted_len;
     }
 
@@ -1086,7 +1086,7 @@ struct format_string_t {
         auto res = detail::vformat<RawFmtStr, underlying_value>(ab, detail::FmtArgs {Args...});
 
         assert(res && "cannot format string");
-        assert(res->formatted_len() == Len);
+        assert(res->len() == Len);
 
         return buf;
     }

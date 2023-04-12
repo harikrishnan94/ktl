@@ -2,21 +2,20 @@
 #include <ktl/test/platform.h>
 
 #include <ktl/fmt/format.hpp>
+#include <ktl/static_string.hpp>
 
 using namespace ktl::fmt;
 using namespace ktl::fmt::literals;
 
 template<ktl::const_string RawFmtStr, typename... Args>
 constexpr auto check(const char* exp, const Args&... args) -> unsigned {
-    std::array<char, 1024> buf;  // NOLINT
-    fixed_buffer fb {buf.begin(), buf.end()};
-    auto res = format<RawFmtStr>(fb, args...);
+    ktl::static_string<1024> str;  // NOLINT
+    auto res = format<RawFmtStr>(str, args...);
 
     check_(res, "must not be error");
     check_(*res, "must not complete");
 
-    ktl::at(buf, res->formatted_len()) = '\0';
-    if (ktl::basic_string_view str = buf.data(); str != exp) {
+    if (str != exp) {
         write("failure: `");
         write(str.data());
         write("` != `");
