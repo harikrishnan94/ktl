@@ -76,20 +76,19 @@ struct SourceLocation {
 
 template<bool IsFatal>
 void handle_error(const char* msg, uintptr_t caller, not_null<const SourceLocation*> sloc) {
-    static std::array<char, 1024> msgbuf;
+    static static_string<1024> msgbuf;
     static spin_mutex mtx = {};
 
     std::lock_guard lock {mtx};
-    fmt::fixed_buffer fb {msgbuf};
+    msgbuf.clear();
     if (auto res = fmt::format<"ubsan: {} by {:#x} @ {}:{}:{}\n">(
-            fb,
+            msgbuf,
             msg,
             caller,
             sloc->filename,
             sloc->line,
             sloc->column)) {
-        msgbuf.data()[res->formatted_len()] = '\0';
-        message<IsFatal>({msgbuf.data(), res->formatted_len()});
+        message<IsFatal>({msgbuf.data(), res->len()});
     } else {
         message<IsFatal>("ubsan: unknown error\n");
     }
