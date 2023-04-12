@@ -183,6 +183,26 @@ namespace detail {
         return Result {ctx.FormattedLen(), is_complete};
     }
 
+    template<const_string FmtStr, typename... Args>
+    constexpr auto
+    vformat(str_type_t /*str_type*/, auto& str, const detail::FmtArgs<Args...>& args) noexcept
+        -> ktl::expected<Result, Error> {
+        auto pos = str.size();
+        auto end = str.capacity() - 1;
+
+        TryV(str.resize_uninitialized(end - 1));
+        fixed_buffer fb {str.begin() + pos, str.begin() + end};
+        auto res = detail::vformat<FmtStr>(fb, args);
+
+        if (!res) {
+            str.clear();
+            Rethrow(res);
+        }
+
+        TryV(str.resize(pos + res->len()));
+        return *std::move(res);
+    }
+
     template<typename CharT>
     class counting_iterator {
       public:
@@ -765,40 +785,4 @@ struct formatter<CharT, CharT*> {
         return ctx.Format(fmt_spec, str, str + std::char_traits<CharT>::length(str));
     }
 };
-
-namespace detail {
-    template<const_string FmtStr, typename... Args>
-    constexpr auto format(auto& str, const Args&... args) noexcept -> ktl::expected<Result, Error> {
-        auto pos = str.size();
-        auto end = str.capacity() - 1;
-
-        TryV(str.resize_uninitialized(end - 1));
-        fixed_buffer fb {str.begin() + pos, str.begin() + end};
-        auto res = detail::vformat<FmtStr>(fb, detail::FmtArgs {args...});
-
-        if (!res) {
-            str.clear();
-            Rethrow(res);
-        }
-
-        TryV(str.resize(pos + res->len()));
-        return *std::move(res);
-    }
-}  // namespace detail
-
-// Helper functions for formatting into string types
-// XXX: Passed in string will be cleared.
-template<const_string FmtStr, std::integral Size, typename... Args>
-constexpr auto format(
-    fixed_string<typename std::decay_t<decltype(FmtStr)>::char_type, Size>& str,
-    const Args&... args) noexcept -> expected<Result, Error> {
-    return detail::format<FmtStr>(str, args...);
-}
-
-template<const_string FmtStr, auto Size, typename... Args>
-constexpr auto format(
-    basic_static_string<typename std::decay_t<decltype(FmtStr)>::char_type, Size>& str,
-    const Args&... args) noexcept -> expected<Result, Error> {
-    return detail::format<FmtStr>(str, args...);
-}
 }  // namespace ktl::fmt

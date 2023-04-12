@@ -1010,12 +1010,19 @@ namespace detail {
         }
     };
 
+    struct str_type_t {
+    } constexpr str_type;
+
     template<
         const_string RawFmtStr,
         format_string_t FS,
         string_buffer_of<typename std::decay_t<decltype(RawFmtStr)>::char_type> SB,
         typename... Args>
     constexpr auto vformat(SB& sb, const detail::FmtArgs<Args...>& args) noexcept
+        -> ktl::expected<Result, Error>;
+
+    template<const_string FmtStr, typename... Args>
+    constexpr auto vformat(str_type_t, auto& str, const detail::FmtArgs<Args...>& args) noexcept
         -> ktl::expected<Result, Error>;
 
     template<
@@ -1058,6 +1065,28 @@ struct format_string_t {
     template<string_buffer_of<char_type> SB, typename... Args>
     constexpr auto format(SB& sb, const Args&... args) const noexcept -> expected<Result, Error> {
         return detail::vformat<RawFmtStr, underlying_value>(sb, detail::FmtArgs {args...});
+    }
+
+    // Writes formatted chars into the provided fixed/static_string.
+    // Only the maximum of capacity - 1 chars are written into the buffer.
+    template<std::integral Size, typename... Args>
+    constexpr auto format(
+        fixed_string<char_type, Size, std::char_traits<char_type>>& str,
+        const Args&... args) const noexcept -> expected<Result, Error> {
+        return detail::vformat<RawFmtStr, underlying_value>(
+            detail::str_type,
+            str,
+            detail::FmtArgs {args...});
+    }
+
+    template<auto Size, typename... Args>
+    constexpr auto format(
+        basic_static_string<char_type, Size, std::char_traits<char_type>>& str,
+        const Args&... args) const noexcept -> expected<Result, Error> {
+        return detail::vformat<RawFmtStr, underlying_value>(
+            detail::str_type,
+            str,
+            detail::FmtArgs {args...});
     }
 
     // Returns the length of the formatted string.
@@ -1117,6 +1146,25 @@ template<
     typename... Args>
 constexpr auto format(SB& sb, const Args&... args) noexcept -> expected<Result, Error> {
     return detail::vformat<FmtStr>(sb, detail::FmtArgs {args...});
+}
+
+// Helper functions for formatting into string types
+// XXX: Passed in string will be cleared.
+template<const_string FmtStr, std::integral Size, typename... Args>
+constexpr auto format(
+    fixed_string<
+        typename std::decay_t<decltype(FmtStr)>::char_type,
+        Size,
+        std::char_traits<typename std::decay_t<decltype(FmtStr)>::char_type>>& str,
+    const Args&... args) noexcept -> expected<Result, Error> {
+    return detail::vformat<FmtStr>(detail::str_type, str, detail::FmtArgs {args...});
+}
+
+template<const_string FmtStr, auto Size, typename... Args>
+constexpr auto format(
+    basic_static_string<typename std::decay_t<decltype(FmtStr)>::char_type, Size>& str,
+    const Args&... args) noexcept -> expected<Result, Error> {
+    return detail::vformat<FmtStr>(detail::str_type, str, detail::FmtArgs {args...});
 }
 
 // Returns the length of the formatted string.
