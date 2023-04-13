@@ -31,12 +31,7 @@ static void svector_test() {
     static_assert(sizeof(static_vector<u16, 3>) == sizeof(u16) * 4);
     static_assert(sizeof(static_vector<u32, 3>) == sizeof(u32) * 4);
     static_assert(sizeof(static_vector<u64, 3>) == sizeof(u64) * 4);
-    static_assert(std::conjunction_v<
-                  std::is_trivially_destructible<static_vector<u64, 3>>,
-                  std::is_trivially_copy_constructible<static_vector<u64, 3>>,
-                  std::is_trivially_copy_assignable<static_vector<u64, 3>>,
-                  std::is_trivially_move_constructible<static_vector<u64, 3>>,
-                  std::is_trivially_move_assignable<static_vector<u64, 3>>>);
+    static_assert(std::is_trivially_destructible_v<static_vector<u64, 3>>);
     static_assert(make_static_vector<4>(1, 2, 3).size() == 3);
     static_assert(make_static_vector(1.0, 2, 3, .0f)[0] == 1.0);
 
@@ -417,12 +412,14 @@ static void fvector_test() {
     [[maybe_unused]] static constinit auto _ = [] {
         {
             std::array<int, 4> storage {};
-            fixed_vector vec = storage;
+            usize len = 0;
+            fixed_vector vec {storage.data(), len, storage.size()};
             check_(vec.max_size() == storage.size(), "max_size must equal to array's size");
         }
 
         std::array<int, 4> storage;  // NOLINT(*-member-init)
-        fixed_vector vec {storage, 0};
+        usize len = 0;
+        fixed_vector vec {storage, len};
 
         check_(vec.capacity() == storage.size(), "capacity must match array's size");
         check_(vec.push_back(1), "push_back failed");
@@ -445,16 +442,14 @@ static void fvector_test() {
 
         {
             const std::array arr = {1};
-            check_(
-                vec.clear_and_assign(InputIterator {arr.begin()}, InputIterator {arr.end()}),
-                "");
+            check_(vec.assign(InputIterator {arr.begin()}, InputIterator {arr.end()}), "");
             check_(vec[0] == 1, "");
         }
 
         // Cast operators
         {
             auto svec = make_static_vector(0);
-            fixed_vector vec = svec;
+            fixed_vector vec {svec};
             span s1 = vec;
             span s2 = svec;
 
@@ -466,30 +461,15 @@ static void fvector_test() {
         {
             std::array arr1 = {1, 2};
             std::array arr2 = {3, 4, 0};
-            fixed_vector vec1 {arr1, 2};
-            fixed_vector vec2 {arr2, 3};
+            usize len1 = 2;
+            usize len2 = 3;
+            fixed_vector vec1 {arr1, len1};
+            fixed_vector vec2 {arr2, len2};
 
-            check_(
-                vec1.deep_swap(vec2).error() == Error::BufferFull,
-                "deep_copy must fail when capacity doesn't match");
+            std::swap(vec1, vec2);
 
-            check_(vec2[0] == 3 && vec2[1] == 4 && vec2[2] == 0, "deep_swap failure");
-            check_(vec1[0] == 1 && vec1[1] == 2, "deep_swap failure");
-        }
-        {
-            std::array arr1 = {1, 2, 4};
-            std::array arr2 = {3, 4, 0};
-            fixed_vector vec1 {arr1, 2};
-            fixed_vector vec2 {arr2, 3};
-
-            check_(vec1.deep_swap(vec2), "");
-
-            check_(vec1[0] == 3 && vec1[1] == 4 && vec1[2] == 0, "deep_swap failure");
-            check_(vec2[0] == 1 && vec2[1] == 2, "deep_swap failure");
-
-            check_(vec1.deep_swap(vec2), "");
-            check_(vec1[0] == 1 && vec1[1] == 2, "deep_swap failure");
-            check_(vec2[0] == 3 && vec2[1] == 4 && vec2[2] == 0, "deep_swap failure");
+            check_(vec1[0] == 3 && vec1[1] == 4 && vec1[2] == 0, "swap failure");
+            check_(vec2[0] == 1 && vec2[1] == 2, "swap failure");
         }
         return vec.size();
     }();
@@ -499,8 +479,10 @@ void svector_operators_test() {
     [[maybe_unused]] static constinit auto _ = [] {
         auto v1 = make_static_vector(1, 2, 3);
         std::array a1 = {1, 2, 3};
-        fixed_vector v2 {a1};
-        fixed_vector v3 {a1, 2};
+        usize len1 = a1.size();
+        usize len2 = 2;
+        fixed_vector v2 {a1, len1};
+        fixed_vector v3 {a1, len2};
 
         check_(v1 == v2, "");
         check_(v1 != v3, "");

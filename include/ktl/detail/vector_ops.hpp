@@ -9,7 +9,7 @@
 #include <ktl/int.hpp>
 #include <ktl/memory.hpp>
 
-#include "erase.hpp"
+#include "contiguous_common_implementation.hpp"
 
 namespace ktl::detail {
 // Determine the size_type for the given capacity
@@ -231,6 +231,7 @@ class vector_ops {
     template<std::input_iterator InputIt>
     constexpr auto assign(InputIt first, InputIt last) noexcept
         -> expected<void, std::pair<InputIt, Error>> {
+        clear();
         return assign_iter(first, last);
     }
 
@@ -396,27 +397,14 @@ class vector_ops {
 
     constexpr auto assign_range(std::input_iterator auto first, usize count) noexcept
         -> expected<void, Error> {
-        auto [begin, _, end_cap] = get_storage();
-        usize capacity = end_cap - begin;
-
-        if (count > capacity) {
-            TryV(grow_uninit(count));
-            // Vector is cleared and contains enough space to construct count elements
-
-            auto [nbeg, nend, nend_cap] = get_storage();
-            std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
-            capacity = end_cap - begin;
-        }
-
-        assert(capacity >= count);
-
-        uninitialized_copy_n(first, count, begin);
-        set_len(count);
-
-        return {};
+        return assign_impl(count, [&](auto* begin) { uninitialized_copy_n(first, count, begin); });
     }
 
     constexpr auto assign_fill(SizeT count, const T& value) -> expected<void, Error> {
+        return assign_impl(count, [&](auto* begin) { uninitialized_fill_n(begin, count, value); });
+    }
+
+    constexpr auto assign_impl(usize count, auto&& initializer) noexcept -> expected<void, Error> {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
 
@@ -431,7 +419,7 @@ class vector_ops {
 
         assert(capacity >= count);
 
-        uninitialized_fill_n(begin, count, value);
+        initializer(begin);
         set_len(count);
 
         return {};

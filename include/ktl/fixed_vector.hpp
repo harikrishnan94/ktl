@@ -33,70 +33,32 @@ class fixed_vector:
         && std::is_nothrow_destructible_v<T>);
 
     // Special member function definitions
-    constexpr fixed_vector() = default;
-    constexpr ~fixed_vector() = default;
-    constexpr fixed_vector(const fixed_vector&) = default;
-    constexpr fixed_vector(fixed_vector&&) noexcept = default;
-    constexpr auto operator=(const fixed_vector&) -> fixed_vector& = default;
-    constexpr auto operator=(fixed_vector&& o) noexcept -> fixed_vector& = default;
+    constexpr fixed_vector() = delete;
 
     // NOLINTNEXTLINE(*-easily-swappable-parameters)
-    constexpr fixed_vector(pointer base, size_type capacity, size_type len = 0) noexcept :
+    constexpr fixed_vector(not_null<pointer> base, size_type& len, size_type capacity) noexcept :
         m_data {base},
-        m_capacity {capacity},
-        m_len {len} {}
+        m_len {&len},
+        m_capacity {capacity} {}
 
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
                      && (std::numeric_limits<size_type>::max() >= Capacity)
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr fixed_vector(std::array<T, Capacity>& arr, size_type len = Capacity) noexcept :
+    constexpr fixed_vector(std::array<T, Capacity>& arr, size_type& len) noexcept :
         m_data {arr.data()},
-        m_capacity {Capacity},
-        m_len {static_cast<size_type>(len)} {}
+        m_len {&len},
+        m_capacity {arr.size()} {}
 
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
+        && (std::numeric_limits<size_type>::max() >= Capacity)
     // NOLINTNEXTLINE(*-explicit-conversions)
     constexpr fixed_vector(static_vector<T, Capacity>& vec) noexcept :
-        m_data {vec.data()},
-        m_capacity {vec.capacity()},
-        m_len {vec.size()} {}
+        fixed_vector {vec.as_fixed_vector()} {}
 
     constexpr auto max_size() const noexcept -> size_type {
         return m_capacity;
-    }
-
-    constexpr auto deep_swap(fixed_vector& o) noexcept -> expected<void, Error> {
-        if (m_len > o.m_capacity || o.m_len > m_capacity)
-            Throw(Error::BufferFull);
-
-        if (m_len > o.m_len) {
-            std::swap_ranges(m_data, m_data + o.m_len, o.m_data);
-            uninitialized_move_n(m_data + o.m_len, m_len - o.m_len, o.m_data + o.m_len);
-        } else {
-            std::swap_ranges(m_data, m_data + m_len, o.m_data);
-            uninitialized_move_n(o.m_data + m_len, o.m_len - m_len, m_data + m_len);
-        }
-
-        using std::swap;
-        swap(m_len, o.m_len);
-        return {};
-    }
-
-    constexpr void destroy() noexcept {
-        if constexpr (!std::is_trivially_destructible_v<T>) {
-            if (m_len) {
-                std::destroy_n(m_data, m_len);
-            }
-        }
-    }
-
-    template<std::input_iterator InputIter>
-    constexpr auto clear_and_assign(InputIter first, InputIter last) noexcept
-        -> expected<void, std::pair<InputIter, Error>> {
-        this->clear();
-        return this->assign_iter(first, last);
     }
 
   private:
@@ -104,10 +66,10 @@ class fixed_vector:
     friend class detail::vector_ops<T, size_type, fixed_vector<T, size_type>>;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
-        return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
+        return {.begin = m_data, .end = m_data + *m_len, .end_cap = m_data + m_capacity};
     }
     constexpr auto get_storage() noexcept -> detail::vector_storage<T> {
-        return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
+        return {.begin = m_data, .end = m_data + *m_len, .end_cap = m_data + m_capacity};
     }
 
     constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
@@ -122,28 +84,27 @@ class fixed_vector:
 
     constexpr auto set_len(size_type new_len) noexcept {
         assert(new_len <= m_capacity && "length cannot exceed capacity");
-        m_len = new_len;
+        *m_len = new_len;
     }
 
-    pointer m_data = nullptr;
-    size_type m_capacity = 0;
-    size_type m_len = 0;
+    pointer m_data;
+    size_type* __restrict__ m_len;
+    size_type m_capacity;
 };
 
-template<typename T, auto Capacity>
-fixed_vector(std::array<T, Capacity>&) -> fixed_vector<T, detail::size_t<Capacity>>;
-
-template<typename T, auto Capacity>
-fixed_vector(std::array<T, Capacity>&, usize) -> fixed_vector<T, detail::size_t<Capacity>>;
-
-template<typename T, auto Capacity>
-fixed_vector(static_vector<T, Capacity>&) -> fixed_vector<T, detail::size_t<Capacity>>;
+template<typename T, typename SizeT>
+fixed_vector(not_null<T*> ptr, SizeT& len, SizeT capacity) -> fixed_vector<T, SizeT>;
 
 template<typename T, typename SizeT>
-fixed_vector(T* ptr, SizeT) -> fixed_vector<T, SizeT>;
+fixed_vector(T* ptr, SizeT& len, SizeT capacity) -> fixed_vector<T, SizeT>;
 
-template<typename T, typename SizeT>
-fixed_vector(T* ptr, SizeT, SizeT) -> fixed_vector<T, SizeT>;
+template<typename T, auto Capacity>
+fixed_vector(std::array<T, Capacity>&, typename std::array<T, Capacity>::size_type&)
+    -> fixed_vector<T, typename std::array<T, Capacity>::size_type>;
+
+template<typename T, auto Capacity>
+fixed_vector(static_vector<T, Capacity>&)
+    -> fixed_vector<T, typename static_vector<T, Capacity>::size_type>;
 }  // namespace ktl
 
 namespace std {

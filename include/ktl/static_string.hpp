@@ -69,7 +69,11 @@ class basic_static_string:
         basic_static_string<CharT, Capacity, Traits>>;
 
   public:
-    constexpr basic_static_string() = default;
+    constexpr basic_static_string() : m_len {1} {
+        std::construct_at(m_chars.data(), base::NUL);
+    }
+
+    ~basic_static_string() = default;
 
     template<typename CharU, auto Cap, typename TraitsT>
         requires(std::same_as<CharU, CharT> && Cap == Capacity && std::same_as<Traits, TraitsT>)
@@ -78,9 +82,9 @@ class basic_static_string:
         auto view = proxy.view();
         assert(Capacity > view.length());
 
-        std::copy(view.begin(), view.end(), m_chars.data());
+        uninitialized_copy_n(view.begin(), view.length(), m_chars.data());
         m_len = view.length() + 1;
-        at(m_chars, m_len) = base::NUL;
+        at(m_chars, m_len - 1) = base::NUL;
     }
 
     // NOLINTNEXTLINE(*-explicit-conversions)
@@ -88,13 +92,39 @@ class basic_static_string:
         std::copy(std::begin(str), std::end(str), m_chars.data());
     }
 
+    constexpr basic_static_string(const basic_static_string& o) noexcept : m_len {o.m_len} {
+        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+    }
+
+    constexpr basic_static_string(basic_static_string&& o) noexcept : m_len {0} {
+        swap(o);
+    }
+
+    constexpr auto operator=(const basic_static_string& o) noexcept -> basic_static_string& {
+        basic_static_string {o}.swap(*this);
+        return *this;
+    }
+
+    constexpr auto operator=(basic_static_string&& o) noexcept -> basic_static_string& {
+        swap(o);
+        return *this;
+    }
+
+    friend constexpr void swap(basic_static_string& a, basic_static_string& b) noexcept {
+        a.swap(b);
+    }
+
+    constexpr void swap(basic_static_string& o) noexcept {
+        detail::swap_contiguous_static_containers(*this, o);
+    }
+
     constexpr auto max_size() const noexcept -> size_type {
         return Capacity - 1;
     }
 
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr operator fixed_string<value_type, size_type, Traits>() const noexcept {
-        return fixed_string {this->data(), this->capacity(), this->size()};
+    constexpr auto as_fixed_string() const noexcept -> fixed_string<value_type, size_type, Traits> {
+        return {this->data(), this->capacity(), this->size()};
     }
 
     // --------------------- Substr ---------------------
@@ -119,6 +149,10 @@ class basic_static_string:
         Traits,
         detail::size_t<Capacity>,
         basic_static_string<CharT, Capacity, Traits>>;
+
+    template<typename Container>
+    friend constexpr void
+    detail::swap_contiguous_static_containers(Container& a, Container& b) noexcept;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
         -> detail::string_storage<const CharT> {
@@ -149,8 +183,8 @@ class basic_static_string:
         m_len = new_len;
     }
 
-    std::array<CharT, Capacity> m_chars = {base::NUL};
-    size_type m_len = 1;
+    std::array<CharT, Capacity> m_chars;
+    size_type m_len;
 };
 
 template<typename CharT, auto Capacity, typename Traits = std::char_traits<CharT>>

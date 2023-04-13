@@ -29,54 +29,32 @@ class fixed_string:
         detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, size_type, Traits>>;
 
   public:
-    constexpr fixed_string() = default;
+    constexpr fixed_string() = delete;
+
+    // NOLINTNEXTLINE(*-easily-swappable-parameters)
+    constexpr fixed_string(not_null<pointer> chars, size_type& len, size_type capacity) noexcept :
+        m_chars {chars},
+        m_len {&len},
+        m_capacity {capacity} {
+        check_(*m_len > 0 && len <= m_capacity, "");
+        m_chars[*m_len - 1] = base::NUL;
+    }
 
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
-                     && (std::numeric_limits<size_type>::max() >= Capacity)
+        && (std::numeric_limits<size_type>::max() >= Capacity)
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr fixed_string(std::array<CharT, Capacity>& arr, usize len = 1) :
-        m_chars {arr.data()},
-        m_capacity {Capacity},
-        m_len {static_cast<size_type>(len)} {
-        check_(m_len > 0 && len <= m_capacity, "");
-        m_chars[m_len - 1] = base::NUL;
-    }
+    constexpr fixed_string(std::array<CharT, Capacity>& arr, size_type& len) :
+        fixed_string {arr.data(), len, arr.size()} {}
 
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
     // NOLINTNEXTLINE(*-explicit-conversions)
     constexpr fixed_string(basic_static_string<CharT, Capacity, Traits>& str) :
-        m_chars {str.data()},
-        m_capacity {str.capacity()},
-        m_len {str.length() + 1} {}
+        fixed_string {str.as_fixed_string()} {}
 
     constexpr auto max_size() const noexcept -> size_type {
         return m_capacity - 1;
-    }
-
-    constexpr auto deep_swap(fixed_string& o) noexcept -> expected<void, Error> {
-        if (m_len > o.m_capacity || o.m_len > m_capacity)
-            Throw(Error::BufferFull);
-
-        if (m_len > o.m_len) {
-            std::swap_ranges(m_chars, m_chars + o.m_len, o.m_chars);
-            std::copy_n(m_chars + o.m_len, m_len - o.m_len, o.m_chars + o.m_len);
-        } else {
-            std::swap_ranges(m_chars, m_chars + m_len, o.m_chars);
-            std::copy_n(o.m_chars + m_len, o.m_len - m_len, m_chars + m_len);
-        }
-
-        using std::swap;
-        swap(m_len, o.m_len);
-        return {};
-    }
-
-    template<std::input_iterator InputIter>
-    constexpr auto clear_and_assign(InputIter first, InputIter last) noexcept
-        -> expected<void, std::pair<InputIter, Error>> {
-        this->clear();
-        return this->assign_iter(first, last);
     }
 
   private:
@@ -85,10 +63,10 @@ class fixed_string:
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
         -> detail::string_storage<const CharT> {
-        return {.begin = m_chars, .end = m_chars + m_len, .end_cap = m_chars + m_capacity};
+        return {.begin = m_chars, .end = m_chars + *m_len, .end_cap = m_chars + m_capacity};
     }
     constexpr auto get_storage() noexcept -> detail::string_storage<CharT> {
-        return {.begin = m_chars, .end = m_chars + m_len, .end_cap = m_chars + m_capacity};
+        return {.begin = m_chars, .end = m_chars + *m_len, .end_cap = m_chars + m_capacity};
     }
 
     constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
@@ -103,27 +81,35 @@ class fixed_string:
 
     constexpr auto set_len(size_type new_len) noexcept {
         assert(new_len <= m_capacity && "length cannot exceed capacity");
-        m_len = new_len;
+        *m_len = new_len;
     }
 
-    pointer m_chars = nullptr;
-    size_type m_capacity = 0;
-    size_type m_len = 0;
+    pointer m_chars;
+    size_type* __restrict__ m_len;
+    size_type m_capacity;
 };
 
-template<typename CharT, auto Capacity>
-fixed_string(std::array<CharT, Capacity>&) -> fixed_string<CharT, detail::size_t<Capacity>>;
+template<typename CharT, typename SizeT>
+fixed_string(not_null<CharT*> ptr, SizeT& len, SizeT capacity) -> fixed_string<CharT, SizeT>;
+
+template<typename CharT, typename SizeT>
+fixed_string(CharT* ptr, SizeT& len, SizeT capacity) -> fixed_string<CharT, SizeT>;
 
 template<typename CharT, auto Capacity>
-fixed_string(std::array<CharT, Capacity>&, usize) -> fixed_string<CharT, detail::size_t<Capacity>>;
+fixed_string(std::array<CharT, Capacity>&, typename std::array<CharT, Capacity>::size_type&)
+    -> fixed_string<CharT, typename std::array<CharT, Capacity>::size_type>;
 
 template<typename CharT, auto Capacity, typename Traits>
-fixed_string(basic_static_string<CharT, Capacity, Traits>&)
-    -> fixed_string<CharT, detail::size_t<Capacity>, Traits>;
-
-template<typename CharT, typename SizeT>
-fixed_string(CharT* ptr, SizeT) -> fixed_string<CharT, SizeT>;
-
-template<typename CharT, typename SizeT>
-fixed_string(CharT* ptr, SizeT, SizeT) -> fixed_string<CharT, SizeT>;
+fixed_string(basic_static_string<CharT, Capacity, Traits>&) -> fixed_string<
+    CharT,
+    typename basic_static_string<CharT, Capacity, Traits>::size_type,
+    Traits>;
 }  // namespace ktl
+
+namespace std {
+template<typename T, std::integral Capacity, typename Traits>
+inline constexpr bool ranges::enable_borrowed_range<ktl::fixed_string<T, Capacity, Traits>> = true;
+
+template<typename ElementType, std::integral Capacity, typename Traits>
+inline constexpr bool ranges::enable_view<ktl::fixed_string<ElementType, Capacity, Traits>> = true;
+}  // namespace std

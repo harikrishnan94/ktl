@@ -10,7 +10,7 @@
 #include <ktl/memory.hpp>
 #include <ktl/string_view.hpp>
 
-#include "erase.hpp"
+#include "contiguous_common_implementation.hpp"
 
 namespace ktl::detail {
 // Determine the size_type for the given capacity
@@ -1096,6 +1096,20 @@ class string_ops {
 
     constexpr auto assign_range(std::input_iterator auto first, usize count) noexcept
         -> expected<non_null_ptr, Error> {
+        return assign_impl(count, [&](auto* begin) { uninitialized_copy_n(first, count, begin); });
+    }
+
+    constexpr auto assign_string_view(basic_string_view<CharT, Traits> str) noexcept
+        -> expected<non_null_ptr, Error> {
+        return assign_range(str.begin(), str.size());
+    }
+
+    constexpr auto assign_fill(SizeT count, CharT ch) noexcept -> expected<non_null_ptr, Error> {
+        return assign_impl(count, [&](auto* begin) { uninitialized_fill_n(begin, count, ch); });
+    }
+
+    constexpr auto assign_impl(usize count, auto&& initializer) noexcept
+        -> expected<non_null_ptr, Error> {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
 
@@ -1109,33 +1123,7 @@ class string_ops {
         }
         assert(capacity > count);
 
-        uninitialized_copy_n(first, count, begin);
-        std::construct_at(begin + count, NUL);
-        set_len(count + 1);
-
-        return non_null_ptr {static_cast<StringT&>(*this)};
-    }
-
-    constexpr auto assign_string_view(basic_string_view<CharT, Traits> str) noexcept
-        -> expected<non_null_ptr, Error> {
-        return assign_range(str.begin(), str.size());
-    }
-
-    constexpr auto assign_fill(SizeT count, CharT ch) noexcept -> expected<non_null_ptr, Error> {
-        auto [begin, _, end_cap] = get_storage();
-        usize capacity = end_cap - begin;
-
-        if (static_cast<usize>(count) + 1 > capacity) {  // account for trailing NUL char
-            TryV(grow_uninit(count + 1));
-            // String is cleared and contains enough space to construct count elements
-
-            auto [nbeg, nend, nend_cap] = get_storage();
-            std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
-            capacity = end_cap - begin;
-        }
-        assert(capacity > count);
-
-        uninitialized_fill_n(begin, count, ch);
+        initializer(begin);
         std::construct_at(begin + count, NUL);
         set_len(count + 1);
 
@@ -1156,23 +1144,9 @@ class string_ops {
 
     constexpr auto append_range(std::input_iterator auto first, usize count) noexcept
         -> expected<non_null_ptr, Error> {
-        auto [begin, end, end_cap] = get_storage();
-        usize capacity = end_cap - begin;
-        usize old_len = end - begin - 1;  // account for trailing NUL char
-
-        if (count + old_len + 1 > capacity) {
-            TryV(grow(old_len + count + 1));
-
-            auto [nbeg, nend, nend_cap] = get_storage();
-            std::tie(begin, end, end_cap) = std::tie(nbeg, nend, nend_cap);
-            capacity = end_cap - begin;
-        }
-
-        auto new_end = uninitialized_copy_n(first, count, begin + old_len);
-        std::construct_at(new_end, NUL);
-        set_len(old_len + count + 1);
-
-        return non_null_ptr {static_cast<StringT&>(*this)};
+        return append_impl(count, [&](auto* end) {
+            return uninitialized_copy_n(first, count, end);
+        });
     }
 
     constexpr auto append_string_view(basic_string_view<CharT, Traits> str) noexcept
@@ -1181,6 +1155,11 @@ class string_ops {
     }
 
     constexpr auto append_fill(SizeT count, CharT ch) noexcept -> expected<non_null_ptr, Error> {
+        return append_impl(count, [&](auto* end) { return uninitialized_fill_n(end, count, ch); });
+    }
+
+    constexpr auto append_impl(usize count, auto&& initializer) noexcept
+        -> expected<non_null_ptr, Error> {
         auto [begin, end, end_cap] = get_storage();
         usize capacity = end_cap - begin;
         usize old_len = end - begin - 1;  // account for trailing NUL char
@@ -1192,9 +1171,8 @@ class string_ops {
             std::tie(begin, end, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - begin;
         }
-        assert(capacity >= count + old_len + 1);
 
-        auto new_end = uninitialized_fill_n(begin + old_len, count, ch);
+        auto new_end = initializer(begin + old_len);
         std::construct_at(new_end, NUL);
         set_len(old_len + count + 1);
 

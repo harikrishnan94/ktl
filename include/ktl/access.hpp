@@ -5,8 +5,7 @@
 #include "int.hpp"
 
 namespace ktl {
-constexpr auto
-at(detail::random_access_container auto&& container, std::integral auto index) noexcept -> auto& {
+constexpr auto at(detail::random_access_container auto&& container, usize index) noexcept -> auto& {
     check_(index < container.size(), "out of bounds indexing");
     return container[index];
 }
