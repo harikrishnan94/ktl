@@ -84,9 +84,9 @@ class fixed_string:
         *m_len = new_len;
     }
 
-    pointer m_chars = nullptr;
-    size_type* __restrict__ m_len = 0;
-    size_type m_capacity = 0;
+    pointer m_chars;
+    size_type* __restrict__ m_len;
+    size_type m_capacity;
 };
 
 template<typename CharT, typename SizeT>

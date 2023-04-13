@@ -87,9 +87,9 @@ class fixed_vector:
         *m_len = new_len;
     }
 
-    pointer m_data = nullptr;
-    size_type* __restrict__ m_len = 0;
-    size_type m_capacity = 0;
+    pointer m_data;
+    size_type* __restrict__ m_len;
+    size_type m_capacity;
 };
 
 template<typename T, typename SizeT>
