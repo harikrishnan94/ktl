@@ -45,39 +45,20 @@ class static_vector:
         }
     }
 
-    constexpr static_vector(const static_vector&)
-        requires std::is_trivially_copy_constructible_v<T>
-    = default;
-    constexpr static_vector(const static_vector& o) noexcept
-        requires(!std::is_trivially_copy_constructible_v<T>)
-        : m_len {o.m_len} {
+    constexpr static_vector(const static_vector& o) noexcept : m_len {o.m_len} {
         uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
-    constexpr static_vector(static_vector&&) noexcept
-        requires std::is_trivially_move_constructible_v<T>
-    = default;
-    constexpr static_vector(static_vector&& o) noexcept
-        requires(!std::is_trivially_move_constructible_v<T>)
-    {
+    constexpr static_vector(static_vector&& o) noexcept {
         swap(o);
     }
 
-    constexpr auto operator=(const static_vector&) -> static_vector&
-        requires std::is_trivially_copy_assignable_v<T>
-    = default;
-    constexpr auto operator=(static_vector&&) noexcept -> static_vector&
-        requires std::is_trivially_move_assignable_v<T>
-    = default;
-    constexpr auto operator=(const static_vector& o) noexcept -> static_vector&
-        requires(!std::is_trivially_copy_assignable_v<T>)
-    {
+    constexpr auto operator=(const static_vector& o) noexcept -> static_vector& {
         static_vector {o}.swap(*this);
         return *this;
     }
-    constexpr auto operator=(static_vector&& o) noexcept -> static_vector&
-        requires(!std::is_trivially_move_assignable_v<T>)
-    {
+
+    constexpr auto operator=(static_vector&& o) noexcept -> static_vector& {
         swap(o);
         return *this;
     }
@@ -86,31 +67,17 @@ class static_vector:
         a.swap(b);
     }
 
+    constexpr void swap(static_vector& o) noexcept {
+        detail::swap_contiguous_static_containers(*this, o);
+    }
+
     constexpr auto max_size() const noexcept -> size_type {
         return Capacity;
     }
 
-    constexpr void swap(static_vector& o) noexcept {
-        auto len = m_len;
-        auto o_len = o.m_len;
-        auto begin = get_storage().begin;
-        auto o_begin = o.get_storage().begin;
-
-        if (len > o_len) {
-            std::swap_ranges(begin, begin + o_len, o_begin);
-            uninitialized_move_n(begin + o_len, len - o_len, o_begin);
-        } else {
-            std::swap_ranges(begin, begin + len, o_begin);
-            uninitialized_move_n(o_begin + len, o_len - len, begin);
-        }
-
-        using std::swap;
-        swap(m_len, o.m_len);
-    }
-
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr operator fixed_vector<value_type, size_type>() const noexcept {
-        return fixed_vector {this->data(), this->capacity(), this->size()};
+    constexpr auto as_fixed_vector() noexcept -> fixed_vector<value_type, size_type> {
+        return {this->data(), m_len, this->capacity()};
     }
 
     template<typename U, typename... OT>
@@ -126,6 +93,10 @@ class static_vector:
 
     // Allow access to internal members. Classic CRTP.
     friend class detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
+
+    template<typename Container>
+    friend constexpr void
+    detail::swap_contiguous_static_containers(Container& a, Container& b) noexcept;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
         auto data = [&] {

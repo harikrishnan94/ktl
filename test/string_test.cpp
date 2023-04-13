@@ -23,12 +23,7 @@ static void fstring_test();
 static void sstring_test() {
     static_assert(sizeof(static_string<3>) == sizeof(char) * 4);
 
-    static_assert(std::conjunction_v<
-                  std::is_trivially_destructible<static_string<3>>,
-                  std::is_trivially_copy_constructible<static_string<3>>,
-                  std::is_trivially_copy_assignable<static_string<3>>,
-                  std::is_trivially_move_constructible<static_string<3>>,
-                  std::is_trivially_move_assignable<static_string<3>>>);
+    static_assert(std::is_trivially_destructible_v<static_string<3>>);
 
     static_assert(make_static_string("012").size() == 3);
     static_assert(make_static_string<4>("abc").size() == 3);
@@ -765,20 +760,22 @@ void sstring_operators_test() {
 void fstring_test() {
     [[maybe_unused]] static constinit auto _ = [] {
         std::array<char, 4> arr {};
-        fixed_string str {arr};
+        usize len = 1;
+        fixed_string str {arr, len};
 
         check_(str.push_back('x'), "");
         check_(str.append("yy"), "");
         check_(str == "xyy", "");
 
         std::array<char, 4> arr2 {};
-        fixed_string str2 {arr2};
+        usize len2 = 1;
+        fixed_string str2 {arr2, len2};
 
         check_(str2.assign("yx"), "");
 
         check_(str < str2, "");
 
-        check_(str.deep_swap(str2), "");
+        std::swap(str, str2);
         check_(str == "yx", "");
         check_(str2 == "xyy", "");
 

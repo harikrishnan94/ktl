@@ -15,8 +15,12 @@ class not_null {
   public:
     not_null(std::nullptr_t) = delete;
 
+#ifndef __CLANGD__
+    [[gnu::nonnull(2)]]
+#endif
     // NOLINTNEXTLINE(*-explicit-conversions)
-    [[gnu::nonnull(2)]] constexpr not_null(Ptr p) : m_ptr(p) {
+    constexpr not_null(Ptr p) :
+        m_ptr(p) {
         check_(m_ptr != nullptr, "nullptr is not expected");
     }
 
