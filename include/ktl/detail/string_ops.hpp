@@ -232,14 +232,16 @@ class string_ops {
         -> expected<void, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
-        if (end == end_cap) [[unlikely]] {
-            TryV(grow(len + 1));
-            auto [nbegin, nend, nend_cap] = get_storage();
-            std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        {
+            if (end == end_cap) [[unlikely]] {
+                TryV(grow(len + 1));
+                auto [nbegin, nend, nend_cap] = get_storage();
+                std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+            }
+            set_len(len + 1);
         }
         std::construct_at(end - 1, c);
         std::construct_at(end, NUL);
-        set_len(len + 1);
         return {};
     }
 
@@ -1074,17 +1076,17 @@ class string_ops {
         auto [beg, end, end_cap] = get_storage();
         usize size = end - beg;
         usize capacity = end_cap - beg;
-
-        if (size + count > capacity) {
-            TryV(grow(size + count));
-            auto [nbeg, nend, nend_cap] = get_storage();
-            std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
-            capacity = end_cap - beg;
+        {
+            if (size + count > capacity) {
+                TryV(grow(size + count));
+                auto [nbeg, nend, nend_cap] = get_storage();
+                std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
+                capacity = end_cap - beg;
+            }
+            assert(capacity >= size + count);
+            set_len(size + count);
         }
-        assert(capacity >= size + count);
-
         uninitialized_move_backward(beg + pos, end, end + count);
-        set_len(size + count);
 
         return begin() + pos;
     }
@@ -1112,21 +1114,20 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
+        {
+            if (count + 1 > capacity) {  // account for trailing NUL char
+                TryV(grow_uninit(count + 1));
+                // String is cleared and contains enough space to construct count elements
 
-        if (count + 1 > capacity) {  // account for trailing NUL char
-            TryV(grow_uninit(count + 1));
-            // String is cleared and contains enough space to construct count elements
-
-            auto [nbeg, nend, nend_cap] = get_storage();
-            std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
-            capacity = end_cap - begin;
+                auto [nbeg, nend, nend_cap] = get_storage();
+                std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
+                capacity = end_cap - begin;
+            }
+            assert(capacity > count);
+            set_len(count + 1);
         }
-        assert(capacity > count);
-
         initializer(begin);
         std::construct_at(begin + count, NUL);
-        set_len(count + 1);
-
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -1163,19 +1164,18 @@ class string_ops {
         auto [begin, end, end_cap] = get_storage();
         usize capacity = end_cap - begin;
         usize old_len = end - begin - 1;  // account for trailing NUL char
+        {
+            if (count + old_len + 1 > capacity) {
+                TryV(grow(old_len + count + 1));
 
-        if (count + old_len + 1 > capacity) {
-            TryV(grow(old_len + count + 1));
-
-            auto [nbeg, nend, nend_cap] = get_storage();
-            std::tie(begin, end, end_cap) = std::tie(nbeg, nend, nend_cap);
-            capacity = end_cap - begin;
+                auto [nbeg, nend, nend_cap] = get_storage();
+                std::tie(begin, end, end_cap) = std::tie(nbeg, nend, nend_cap);
+                capacity = end_cap - begin;
+            }
+            set_len(old_len + count + 1);
         }
-
         auto new_end = initializer(begin + old_len);
         std::construct_at(new_end, NUL);
-        set_len(old_len + count + 1);
-
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -1185,11 +1185,13 @@ class string_ops {
         usize len = end - begin;
         usize capacity = end_cap - begin;
         usize new_len = count + 1;
-
-        if (new_len > capacity) {
-            TryV(grow(new_len));
-            auto [nbegin, nend, nend_cap] = get_storage();
-            std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        {
+            if (new_len > capacity) {
+                TryV(grow(new_len));
+                auto [nbegin, nend, nend_cap] = get_storage();
+                std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+            }
+            set_len(new_len);
         }
 
         if constexpr (Initialize) {
@@ -1202,7 +1204,6 @@ class string_ops {
         }
 
         std::construct_at(begin + count, NUL);
-        set_len(new_len);
         return {};
     }
 
@@ -1237,7 +1238,6 @@ class string_ops {
     constexpr void set_len(SizeT new_len) noexcept {
         static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
         static_cast<StringT*>(this)->set_len(new_len);
-        assert(*end() == NUL);  // Must contain trailing NUL char
     }
 };
 
