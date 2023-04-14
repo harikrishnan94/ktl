@@ -102,10 +102,6 @@ class string_ops {
         auto [begin, end, _] = get_storage();
         return end - begin - 1;  // Don't count trailing 'NUL' character
     }
-    // Return # of accessible elements in the data array
-    constexpr auto full_size() const noexcept -> SizeT {
-        return size() + 1;
-    }
     constexpr auto length() const noexcept -> SizeT {
         auto [begin, end, _] = get_storage();
         return end - begin - 1;  // Don't count trailing 'NUL' character

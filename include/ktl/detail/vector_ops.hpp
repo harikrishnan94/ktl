@@ -73,10 +73,6 @@ class vector_ops {
         auto [begin, end, _] = get_storage();
         return end - begin;
     }
-    // Return # of accessible elements in the data array
-    constexpr auto full_size() const noexcept -> SizeT {
-        return size();
-    }
     constexpr auto capacity() const noexcept -> SizeT {
         [[maybe_unused]] auto [begin, end, end_cap] = get_storage();
         return end_cap - begin;

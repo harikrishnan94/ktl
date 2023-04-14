@@ -86,7 +86,10 @@ namespace detail {
         constexpr ~RealAsanAnnotator() noexcept {
             if (!std::is_constant_evaluated()) {
                 if (m_cont) {
-                    auto* new_mid = m_beg + m_cont->full_size();
+                    auto [beg, new_mid, end] = m_cont->get_storage_for_asan_annotator();
+                    check_(
+                        beg == m_beg && end == m_end,
+                        "reallocate happened without notification");
                     if (m_mid != new_mid) {
                         __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, new_mid);
                     }
