@@ -21,8 +21,7 @@ static void sstring_operators_test();
 static void fstring_test();
 
 static void sstring_test() {
-    static_assert(sizeof(static_string<3>) == sizeof(char) * 4);
-
+    static_assert(ASAN_ENABLED ? true : sizeof(static_string<3>) == sizeof(char) * 4);
     static_assert(ASAN_ENABLED ? true : std::is_trivially_destructible_v<static_string<3>>);
 
     static_assert(make_static_string("012").size() == 3);
