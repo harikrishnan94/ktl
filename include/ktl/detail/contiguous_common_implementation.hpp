@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <concepts>
 
+#include <ktl/memory.hpp>
+
 namespace ktl {
 namespace detail {
     template<typename T>
@@ -27,6 +29,11 @@ namespace detail {
         auto b_len = b.m_len;
         auto a_begin = a.get_storage().begin;
         auto b_begin = b.get_storage().begin;
+        auto asan_annotator_a = AsanAnnotator(a);
+        auto asan_annotator_b = AsanAnnotator(b);
+
+        asan_annotator_a.allow_full_access();
+        asan_annotator_b.allow_full_access();
 
         if (a_len > b_len) {
             std::swap_ranges(a_begin, a_begin + b_len, b_begin);
@@ -59,5 +66,80 @@ constexpr auto erase_if(Container& c, Pred pred) -> typename Container::size_typ
     auto r = std::distance(it, end);
     c.erase(it, end);
     return r;
+}
+
+namespace detail {
+    template<typename ContiguousContainer>
+    class RealAsanAnnotator {
+      public:
+        RealAsanAnnotator(const RealAsanAnnotator&) = delete;
+        RealAsanAnnotator(RealAsanAnnotator&&) = delete;
+        auto operator=(const RealAsanAnnotator&) -> RealAsanAnnotator& = delete;
+        auto operator=(RealAsanAnnotator&&) -> RealAsanAnnotator& = delete;
+
+        constexpr explicit RealAsanAnnotator(const ContiguousContainer& cont) noexcept :
+            m_cont {&cont} {
+            auto [begin, end, end_cap] = cont.get_storage();
+            std::tie(m_beg, m_mid, m_end) = std::tie(begin, end, end_cap);
+        }
+
+        constexpr ~RealAsanAnnotator() noexcept {
+            if (!std::is_constant_evaluated()) {
+                if (m_cont) {
+                    auto* new_mid = m_beg + m_cont->full_size();
+                    if (m_mid != new_mid) {
+                        __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, new_mid);
+                    }
+                }
+            }
+        }
+
+        constexpr void start_container_lifetime() noexcept {
+            if (!std::is_constant_evaluated()) {
+                __sanitizer_annotate_contiguous_container(m_beg, m_end, m_beg, m_mid);
+            }
+        }
+
+        constexpr void allow_full_access() noexcept {
+            if (!std::is_constant_evaluated()) {
+                __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, m_end);
+                m_mid = m_end;
+            }
+        }
+
+        constexpr void reallocate() noexcept {
+            if (!std::is_constant_evaluated()) {
+                __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, m_beg);
+
+                m_beg = m_cont->data();
+                m_end = m_beg + m_cont->capacity();
+                m_mid = m_end;
+                start_container_lifetime();
+            }
+        }
+
+      private:
+        const ContiguousContainer* m_cont;
+        typename ContiguousContainer::const_pointer m_beg;
+        typename ContiguousContainer::const_pointer m_mid;
+        typename ContiguousContainer::const_pointer m_end;
+    };
+
+    struct [[maybe_unused]] DummyAsanAnnotator {
+        constexpr explicit DummyAsanAnnotator([[maybe_unused]] auto& /*cont*/) {}
+
+        constexpr void start_container_lifetime() noexcept {}
+        constexpr void allow_full_access() noexcept {}
+        constexpr void reallocate() noexcept {}
+    };
+}  // namespace detail
+
+template<typename ContiguousContainer>
+constexpr auto AsanAnnotator(ContiguousContainer& cont) noexcept {
+    if constexpr (ASAN_ENABLED) {
+        return detail::DummyAsanAnnotator {cont};
+    } else {
+        return detail::DummyAsanAnnotator {cont};
+    }
 }
 }  // namespace ktl
