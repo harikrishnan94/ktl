@@ -206,6 +206,14 @@ class basic_static_string:
         m_len = new_len;
     }
 
+    template<typename Container>
+    friend class detail::RealAsanAnnotator;
+
+    constexpr auto get_storage_for_asan_annotator() const noexcept
+        -> detail::string_storage<const CharT> {
+        return get_storage();
+    }
+
     size_type m_len;
     std::array<CharT, Capacity> m_chars;
 };

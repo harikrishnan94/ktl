@@ -79,7 +79,7 @@ namespace detail {
 
         constexpr explicit RealAsanAnnotator(const ContiguousContainer& cont) noexcept :
             m_cont {&cont} {
-            auto [begin, end, end_cap] = cont.get_storage();
+            auto [begin, end, end_cap] = cont.get_storage_for_asan_annotator();
             std::tie(m_beg, m_mid, m_end) = std::tie(begin, end, end_cap);
         }
 
@@ -126,7 +126,7 @@ namespace detail {
     };
 
     struct [[maybe_unused]] DummyAsanAnnotator {
-        constexpr explicit DummyAsanAnnotator([[maybe_unused]] auto& /*cont*/) {}
+        constexpr explicit DummyAsanAnnotator([[maybe_unused]] const auto& /*cont*/) {}
 
         constexpr void start_lifetime() noexcept {}
         constexpr void allow_full_access() noexcept {}
@@ -144,7 +144,7 @@ concept asan_annotator_like = requires(AA a) {
 template<typename ContiguousContainer>
 constexpr auto AsanAnnotator(ContiguousContainer& cont) noexcept -> asan_annotator_like auto {
     if constexpr (ASAN_ENABLED) {
-        return detail::DummyAsanAnnotator {cont};
+        return detail::RealAsanAnnotator {cont};
     } else {
         return detail::DummyAsanAnnotator {cont};
     }

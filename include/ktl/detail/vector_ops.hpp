@@ -73,6 +73,10 @@ class vector_ops {
         auto [begin, end, _] = get_storage();
         return end - begin;
     }
+    // Return # of accessible elements in the data array
+    constexpr auto full_size() const noexcept -> SizeT {
+        return size();
+    }
     constexpr auto capacity() const noexcept -> SizeT {
         [[maybe_unused]] auto [begin, end, end_cap] = get_storage();
         return end_cap - begin;
@@ -183,7 +187,7 @@ class vector_ops {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<VectorT&>(*this));
             if (end == end_cap) [[unlikely]] {
                 TryV(grow(len + 1, asan_annotator));
                 auto [nbegin, nend, nend_cap] = get_storage();
@@ -197,7 +201,7 @@ class vector_ops {
     constexpr void pop_back() noexcept {
         auto [begin, end, _] = get_storage();
         auto len = end - begin;
-        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<VectorT&>(*this));
 
         check_(len != 0, "cannot pop_back empty vector");
 
@@ -211,7 +215,7 @@ class vector_ops {
         auto [begin, end, _] = get_storage();
 
         if (end != begin) {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<VectorT&>(*this));
             if constexpr (!std::is_trivially_destructible_v<T>) {
                 std::destroy(begin, end);
             }
@@ -393,7 +397,7 @@ class vector_ops {
         usize capacity = end_cap - beg;
         auto pos_i = std::distance(cbegin(), pos);
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<VectorT&>(*this));
             if (size + count > capacity) {
                 TryV(grow(size + count, asan_annotator));
                 auto [nbeg, nend, nend_cap] = get_storage();
@@ -420,7 +424,7 @@ class vector_ops {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<VectorT&>(*this));
             if (count > capacity) {
                 TryV(grow_uninit(count, asan_annotator));
                 // Vector is cleared and contains enough space to construct count elements
@@ -458,7 +462,7 @@ class vector_ops {
         auto len = end - begin;
         usize capacity = end_cap - begin;
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<VectorT&>(*this));
             if (new_len > capacity) {
                 TryV(grow(new_len, asan_annotator));
                 auto [nbegin, nend, nend_cap] = get_storage();

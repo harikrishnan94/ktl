@@ -94,6 +94,14 @@ class fixed_string:
         *m_len = new_len;
     }
 
+    template<typename Container>
+    friend class detail::RealAsanAnnotator;
+
+    constexpr auto get_storage_for_asan_annotator() const noexcept
+        -> detail::string_storage<const CharT> {
+        return get_storage();
+    }
+
     pointer m_chars;
     size_type* __restrict__ m_len;
     size_type m_capacity;

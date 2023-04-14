@@ -162,6 +162,14 @@ class static_vector:
         m_len = new_len;
     }
 
+    template<typename Container>
+    friend class detail::RealAsanAnnotator;
+
+    constexpr auto get_storage_for_asan_annotator() const noexcept
+        -> detail::vector_storage<const T> {
+        return get_storage();
+    }
+
     struct trivial_storage_t {
         [[no_unique_address]] std::array<T, Capacity> elems = [] {
             if (std::is_constant_evaluated()) {

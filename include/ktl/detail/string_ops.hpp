@@ -102,6 +102,10 @@ class string_ops {
         auto [begin, end, _] = get_storage();
         return end - begin - 1;  // Don't count trailing 'NUL' character
     }
+    // Return # of accessible elements in the data array
+    constexpr auto full_size() const noexcept -> SizeT {
+        return size() + 1;
+    }
     constexpr auto length() const noexcept -> SizeT {
         auto [begin, end, _] = get_storage();
         return end - begin - 1;  // Don't count trailing 'NUL' character
@@ -238,7 +242,7 @@ class string_ops {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
             if (end == end_cap) [[unlikely]] {
                 TryV(grow(len + 1, asan_annotator));
                 auto [nbegin, nend, nend_cap] = get_storage();
@@ -254,7 +258,7 @@ class string_ops {
     constexpr void pop_back() noexcept {
         auto [begin, end, _] = get_storage();
         auto len = end - begin;
-        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
 
         check_(len != 1, "cannot pop_back empty string");  // Contains trailing NUL char
 
@@ -263,7 +267,7 @@ class string_ops {
     }
 
     constexpr void clear() noexcept {
-        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
         auto [begin, _end, _end_cap] = get_storage();
         std::construct_at(begin, NUL);  // Empty NUL terminate,string
         set_len(1);
@@ -965,7 +969,7 @@ class string_ops {
             Throw(Error::IndexOutOfBounds);
         }
 
-        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
 
         count = std::min<usize>(count, size - pos);
 
@@ -1000,7 +1004,7 @@ class string_ops {
   private:
     constexpr void erase_impl(SizeT index, SizeT count) noexcept {
         check_(index < size(), "erase index cannot exceed string length");
-        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
 
         count = std::min<SizeT>(count, size() - index);
 
@@ -1088,7 +1092,7 @@ class string_ops {
         usize size = end - beg;
         usize capacity = end_cap - beg;
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
             if (size + count > capacity) {
                 TryV(grow(size + count, asan_annotator));
                 auto [nbeg, nend, nend_cap] = get_storage();
@@ -1127,7 +1131,7 @@ class string_ops {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
             if (count + 1 > capacity) {  // account for trailing NUL char
                 TryV(grow_uninit(count + 1, asan_annotator));
                 // String is cleared and contains enough space to construct count elements
@@ -1178,7 +1182,7 @@ class string_ops {
         usize capacity = end_cap - begin;
         usize old_len = end - begin - 1;  // account for trailing NUL char
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
             if (count + old_len + 1 > capacity) {
                 TryV(grow(old_len + count + 1, asan_annotator));
 
@@ -1200,7 +1204,7 @@ class string_ops {
         usize capacity = end_cap - begin;
         usize new_len = count + 1;
         {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            asan_annotator_like auto asan_annotator = AsanAnnotator(static_cast<StringT&>(*this));
             if (new_len > capacity) {
                 TryV(grow(new_len, asan_annotator));
                 auto [nbegin, nend, nend_cap] = get_storage();

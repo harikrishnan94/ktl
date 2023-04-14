@@ -96,6 +96,14 @@ class fixed_vector:
         *m_len = new_len;
     }
 
+    template<typename Container>
+    friend class detail::RealAsanAnnotator;
+
+    constexpr auto get_storage_for_asan_annotator() const noexcept
+        -> detail::vector_storage<const T> {
+        return get_storage();
+    }
+
     pointer m_data;
     size_type* __restrict__ m_len;
     size_type m_capacity;

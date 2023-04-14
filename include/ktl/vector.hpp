@@ -209,6 +209,14 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
         m_len = new_len;
     }
 
+    template<typename Container>
+    friend class detail::RealAsanAnnotator;
+
+    constexpr auto get_storage_for_asan_annotator() const noexcept
+        -> detail::vector_storage<const T> {
+        return get_storage();
+    }
+
     pointer m_data = nullptr;
     size_type m_len = 0;
     size_type m_capacity = 0;

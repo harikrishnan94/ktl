@@ -365,6 +365,14 @@ class basic_string:
         std::construct_at(chars, base::NUL);
     }
 
+    template<typename Container>
+    friend class detail::RealAsanAnnotator;
+
+    constexpr auto get_storage_for_asan_annotator() const noexcept
+        -> detail::string_storage<const CharT> {
+        return get_storage();
+    }
+
     storage_t m_storage = {};
     [[no_unique_address]] Allocator m_alloc = {};
 };
