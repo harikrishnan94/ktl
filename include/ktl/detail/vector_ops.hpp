@@ -177,12 +177,14 @@ class vector_ops {
     emplace_back(Args&&... args) noexcept -> expected<std::reference_wrapper<T>, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
-        if (end == end_cap) [[unlikely]] {
-            TryV(grow(len + 1));
-            auto [nbegin, nend, nend_cap] = get_storage();
-            std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        {
+            if (end == end_cap) [[unlikely]] {
+                TryV(grow(len + 1));
+                auto [nbegin, nend, nend_cap] = get_storage();
+                std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+            }
+            set_len(len + 1);
         }
-        set_len(len + 1);
         return *std::construct_at(end, std::forward<Args>(args)...);
     }
 
@@ -383,15 +385,17 @@ class vector_ops {
         usize capacity = end_cap - beg;
         auto pos_i = std::distance(cbegin(), pos);
 
-        if (size + count > capacity) {
-            TryV(grow(size + count));
-            auto [nbeg, nend, nend_cap] = get_storage();
-            std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
+        {
+            if (size + count > capacity) {
+                TryV(grow(size + count));
+                auto [nbeg, nend, nend_cap] = get_storage();
+                std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
+            }
+            // NOTE: Cannot use `pos` here as it might have been invalidated by previous call to
+            // grow.
+            set_len(size + count);
         }
-        // NOTE: Cannot use `pos` here as it might have been invalidated by previous call to
-        // grow.
         uninitialized_move_backward(beg + pos_i, end, end + count);
-        set_len(size + count);
         return begin() + pos_i;
     }
 
@@ -407,21 +411,19 @@ class vector_ops {
     constexpr auto assign_impl(usize count, auto&& initializer) noexcept -> expected<void, Error> {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
+        {
+            if (count > capacity) {
+                TryV(grow_uninit(count));
+                // Vector is cleared and contains enough space to construct count elements
 
-        if (count > capacity) {
-            TryV(grow_uninit(count));
-            // Vector is cleared and contains enough space to construct count elements
-
-            auto [nbeg, nend, nend_cap] = get_storage();
-            std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
-            capacity = end_cap - begin;
+                auto [nbeg, nend, nend_cap] = get_storage();
+                std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
+                capacity = end_cap - begin;
+            }
+            assert(capacity >= count);
+            set_len(count);
         }
-
-        assert(capacity >= count);
-
         initializer(begin);
-        set_len(count);
-
         return {};
     }
 
@@ -446,20 +448,20 @@ class vector_ops {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
         usize capacity = end_cap - begin;
-
-        if (new_len > capacity) {
-            TryV(grow(new_len));
-            auto [nbegin, nend, nend_cap] = get_storage();
-            std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        {
+            if (new_len > capacity) {
+                TryV(grow(new_len));
+                auto [nbegin, nend, nend_cap] = get_storage();
+                std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+            }
+            set_len(new_len);
         }
-
         if constexpr (!std::is_trivially_destructible_v<T>) {
             if (new_len < len) {
                 std::destroy(begin + new_len, end);
             }
         }
 
-        set_len(new_len);
         return {};
     }
 
