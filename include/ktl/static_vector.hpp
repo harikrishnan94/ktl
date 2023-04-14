@@ -50,16 +50,31 @@ class static_vector:
     }
 
     constexpr static_vector(static_vector&& o) noexcept {
-        swap(o);
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            m_len = o.m_len;
+            uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        } else {
+            swap(o);
+        }
     }
 
     constexpr auto operator=(const static_vector& o) noexcept -> static_vector& {
-        static_vector {o}.swap(*this);
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            m_len = o.m_len;
+            uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        } else {
+            static_vector {o}.swap(*this);
+        }
         return *this;
     }
 
     constexpr auto operator=(static_vector&& o) noexcept -> static_vector& {
-        swap(o);
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            m_len = o.m_len;
+            uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        } else {
+            swap(o);
+        }
         return *this;
     }
 
@@ -150,9 +165,9 @@ class static_vector:
         [[no_unique_address]] alignas(T) std::array<std::byte, sizeof(T) * Capacity> elems;
     };
 
+    size_type m_len = 0;
     [[no_unique_address]] std::conditional_t<is_trivial, trivial_storage_t, generic_storage_t>
         m_storage;
-    size_type m_len = 0;
 };
 
 template<typename T, typename... OT>

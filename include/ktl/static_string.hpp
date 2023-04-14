@@ -71,9 +71,18 @@ class basic_static_string:
   public:
     constexpr basic_static_string() : m_len {1} {
         std::construct_at(m_chars.data(), base::NUL);
+        AsanAnnotator(*this).start_container_lifetime();
     }
 
-    ~basic_static_string() = default;
+    ~basic_static_string()
+        requires(!ASAN_ENABLED)
+    = default;
+
+    constexpr ~basic_static_string()
+        requires(ASAN_ENABLED)
+    {
+        this->clear();
+    }
 
     template<typename CharU, auto Cap, typename TraitsT>
         requires(std::same_as<CharU, CharT> && Cap == Capacity && std::same_as<Traits, TraitsT>)
@@ -96,17 +105,20 @@ class basic_static_string:
         uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
-    constexpr basic_static_string(basic_static_string&& o) noexcept : m_len {0} {
-        swap(o);
+    constexpr basic_static_string(basic_static_string&& o) noexcept : m_len {o.m_len} {
+        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
     }
 
+    // NOLINTNEXTLINE(cert-oop54-cpp)
     constexpr auto operator=(const basic_static_string& o) noexcept -> basic_static_string& {
-        basic_static_string {o}.swap(*this);
+        m_len = o.m_len;
+        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
 
     constexpr auto operator=(basic_static_string&& o) noexcept -> basic_static_string& {
-        swap(o);
+        m_len = o.m_len;
+        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
 
@@ -183,8 +195,8 @@ class basic_static_string:
         m_len = new_len;
     }
 
-    std::array<CharT, Capacity> m_chars;
     size_type m_len;
+    std::array<CharT, Capacity> m_chars;
 };
 
 template<typename CharT, auto Capacity, typename Traits = std::char_traits<CharT>>
