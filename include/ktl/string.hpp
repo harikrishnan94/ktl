@@ -101,7 +101,8 @@ class basic_string:
     }
 
     constexpr auto reserve(size_type new_cap) noexcept -> expected<void, Error> {
-        return grow(new_cap);
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        return grow(new_cap, asan_annotator);
     }
 
     constexpr auto shrink_to_fit() noexcept -> expected<void, Error> {
@@ -306,20 +307,29 @@ class basic_string:
         return {.begin = chars, .end = chars + len, .end_cap = chars + capacity};
     }
 
-    constexpr auto grow(usize req_cap) noexcept -> expected<void, Error> {
-        return grow_impl(req_cap, [](CharT* new_chars, auto* chars, auto len) {
-            uninitialized_move_n(chars, len, new_chars);
-        });
+    constexpr auto grow(usize req_cap, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
+        return grow_impl(
+            req_cap,
+            [](CharT* new_chars, auto* chars, auto len) {
+                uninitialized_move_n(chars, len, new_chars);
+            },
+            asan_annotator);
     }
-    constexpr auto grow_uninit(usize req_cap) noexcept -> expected<void, Error> {
-        return grow_impl(req_cap, [](CharT* new_chars, auto* /* chars */, auto len) {
-            std::construct_at(new_chars + len - 1, base::NUL);
-        });
+    constexpr auto grow_uninit(usize req_cap, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
+        return grow_impl(
+            req_cap,
+            [](CharT* new_chars, auto* /* chars */, auto len) {
+                std::construct_at(new_chars + len - 1, base::NUL);
+            },
+            asan_annotator);
     }
 
-    template<typename Initializer>
-    constexpr auto grow_impl(usize req_cap, Initializer&& initializer) noexcept
-        -> expected<void, Error> {
+    constexpr auto grow_impl(
+        usize req_cap,
+        auto&& initializer,
+        asan_annotator_like auto& /* asan_annotator */) noexcept -> expected<void, Error> {
         auto [is_short, chars, len, capacity] = m_storage.extract();
         assert(len != 0);
 
@@ -331,7 +341,7 @@ class basic_string:
             auto new_cap = ktl::grow<GP>(m_alloc, capacity, req_cap);
             Try(new_chars, alloc_traits::allocate(m_alloc, new_cap));
 
-            std::invoke(std::forward<Initializer>(initializer), new_chars, chars, len);
+            initializer(new_chars, chars, len);
 
             if (!is_short) {
                 alloc_traits::deallocate(m_alloc, chars, capacity);

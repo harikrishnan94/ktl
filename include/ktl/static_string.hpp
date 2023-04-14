@@ -71,7 +71,7 @@ class basic_static_string:
   public:
     constexpr basic_static_string() : m_len {1} {
         std::construct_at(m_chars.data(), base::NUL);
-        AsanAnnotator(*this).start_container_lifetime();
+        AsanAnnotator(*this).start_lifetime();
     }
 
     ~basic_static_string()
@@ -94,30 +94,38 @@ class basic_static_string:
         uninitialized_copy_n(view.begin(), view.length(), m_chars.data());
         m_len = view.length() + 1;
         at(m_chars, m_len - 1) = base::NUL;
+        AsanAnnotator(*this).start_lifetime();
     }
 
     // NOLINTNEXTLINE(*-explicit-conversions)
     constexpr basic_static_string(const CharT (&str)[Capacity]) : m_len {Capacity} {
         std::copy(std::begin(str), std::end(str), m_chars.data());
+        AsanAnnotator(*this).start_lifetime();
     }
 
     constexpr basic_static_string(const basic_static_string& o) noexcept : m_len {o.m_len} {
         uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        AsanAnnotator(*this).start_lifetime();
     }
 
     constexpr basic_static_string(basic_static_string&& o) noexcept : m_len {o.m_len} {
         uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        AsanAnnotator(*this).start_lifetime();
     }
 
     // NOLINTNEXTLINE(cert-oop54-cpp)
     constexpr auto operator=(const basic_static_string& o) noexcept -> basic_static_string& {
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
         m_len = o.m_len;
+        asan_annotator.allow_full_access();
         uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
 
     constexpr auto operator=(basic_static_string&& o) noexcept -> basic_static_string& {
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
         m_len = o.m_len;
+        asan_annotator.allow_full_access();
         uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
@@ -180,14 +188,17 @@ class basic_static_string:
             .end_cap = m_chars.data() + Capacity};
     }
 
-    constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
+    constexpr auto grow(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         if (req_len > Capacity) [[unlikely]] {
             Throw(Error::BufferFull);
         }
+        asan_annotator.allow_full_access();
         return {};
     }
-    constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
-        return grow(req_len);
+    constexpr auto grow_uninit(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
+        return grow(req_len, asan_annotator);
     }
 
     constexpr auto set_len(size_type new_len) noexcept {

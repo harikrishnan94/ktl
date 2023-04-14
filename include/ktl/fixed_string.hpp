@@ -29,7 +29,13 @@ class fixed_string:
         detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, size_type, Traits>>;
 
   public:
-    constexpr fixed_string() = delete;
+    fixed_string() = delete;
+    fixed_string(const fixed_string&) = delete;
+    auto operator=(const fixed_string&) -> fixed_string = delete;
+
+    ~fixed_string() = default;
+    fixed_string(fixed_string&&) noexcept = default;
+    auto operator=(fixed_string&&) noexcept -> fixed_string& = default;
 
     // NOLINTNEXTLINE(*-easily-swappable-parameters)
     constexpr fixed_string(not_null<pointer> chars, size_type& len, size_type capacity) noexcept :
@@ -38,6 +44,7 @@ class fixed_string:
         m_capacity {capacity} {
         check_(*m_len > 0 && len <= m_capacity, "");
         m_chars[*m_len - 1] = base::NUL;
+        AsanAnnotator(*this).start_lifetime();
     }
 
     template<auto Capacity>
@@ -69,14 +76,17 @@ class fixed_string:
         return {.begin = m_chars, .end = m_chars + *m_len, .end_cap = m_chars + m_capacity};
     }
 
-    constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
+    constexpr auto grow(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         if (req_len > m_capacity) [[unlikely]] {
             Throw(Error::BufferFull);
         }
+        asan_annotator.allow_full_access();
         return {};
     }
-    constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
-        return grow(req_len);
+    constexpr auto grow_uninit(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
+        return grow(req_len, asan_annotator);
     }
 
     constexpr auto set_len(size_type new_len) noexcept {

@@ -125,7 +125,8 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     }
 
     constexpr auto reserve(size_type new_cap) noexcept -> expected<void, Error> {
-        return grow(new_cap);
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        return grow(new_cap, asan_annotator);
     }
 
     constexpr auto shrink_to_fit() noexcept -> expected<void, Error> {
@@ -167,30 +168,38 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
         return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
     }
 
-    constexpr auto grow(usize req_cap) noexcept -> expected<void, Error> {
-        return grow_impl(req_cap, [](auto* new_data, auto* data, auto len) {
-            uninitialized_move_n(data, len, new_data);
-        });
+    constexpr auto grow(usize req_cap, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
+        return grow_impl(
+            req_cap,
+            [](auto* new_data, auto* data, auto len) { uninitialized_move_n(data, len, new_data); },
+            asan_annotator);
     }
-    constexpr auto grow_uninit(usize req_cap) noexcept -> expected<void, Error> {
-        return grow_impl(req_cap, [](auto, auto* data, auto& len) {
-            std::destroy_n(data, len);
-            len = 0;
-        });
+    constexpr auto grow_uninit(usize req_cap, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
+        return grow_impl(
+            req_cap,
+            [](auto, auto* data, auto& len) {
+                std::destroy_n(data, len);
+                len = 0;
+            },
+            asan_annotator);
     }
 
-    template<typename Transfer>
-    constexpr auto grow_impl(usize req_cap, Transfer&& transfer) noexcept -> expected<void, Error> {
+    constexpr auto
+    grow_impl(usize req_cap, auto&& transfer, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
         if (req_cap > m_capacity) [[unlikely]] {
             auto new_cap = ktl::grow<GP>(m_alloc, m_capacity, req_cap);
             Try(new_data, alloc_traits::allocate(m_alloc, new_cap));
 
-            std::invoke(std::forward<Transfer>(transfer), static_cast<T*>(new_data), m_data, m_len);
+            transfer(static_cast<T*>(new_data), m_data, m_len);
             alloc_traits::deallocate(m_alloc, m_data, m_capacity);
             m_data = new_data;
             m_capacity = new_cap;
         }
+        asan_annotator.allow_full_access();
         return {};
     }
 

@@ -33,22 +33,28 @@ class fixed_vector:
         && std::is_nothrow_destructible_v<T>);
 
     // Special member function definitions
-    constexpr fixed_vector() = delete;
+    fixed_vector() = delete;
+    fixed_vector(const fixed_vector&) = delete;
+    auto operator=(const fixed_vector&) -> fixed_vector& = delete;
+
+    ~fixed_vector() = default;
+    fixed_vector(fixed_vector&&) noexcept = default;
+    auto operator=(fixed_vector&&) noexcept -> fixed_vector& = default;
 
     // NOLINTNEXTLINE(*-easily-swappable-parameters)
     constexpr fixed_vector(not_null<pointer> base, size_type& len, size_type capacity) noexcept :
         m_data {base},
         m_len {&len},
-        m_capacity {capacity} {}
+        m_capacity {capacity} {
+        AsanAnnotator(*this).start_lifetime();
+    }
 
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
-                     && (std::numeric_limits<size_type>::max() >= Capacity)
+        && (std::numeric_limits<size_type>::max() >= Capacity)
     // NOLINTNEXTLINE(*-explicit-conversions)
     constexpr fixed_vector(std::array<T, Capacity>& arr, size_type& len) noexcept :
-        m_data {arr.data()},
-        m_len {&len},
-        m_capacity {arr.size()} {}
+        fixed_vector {arr.data(), len, arr.size()} {}
 
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
@@ -72,14 +78,17 @@ class fixed_vector:
         return {.begin = m_data, .end = m_data + *m_len, .end_cap = m_data + m_capacity};
     }
 
-    constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
+    constexpr auto grow(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         if (req_len > m_capacity) [[unlikely]] {
             Throw(Error::BufferFull);
         }
+        asan_annotator.allow_full_access();
         return {};
     }
-    constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
-        return grow(req_len);
+    constexpr auto grow_uninit(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
+        return grow(req_len, asan_annotator);
     }
 
     constexpr auto set_len(size_type new_len) noexcept {

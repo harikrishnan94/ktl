@@ -35,14 +35,19 @@ struct string_storage {
 };
 
 template<typename StringT, typename CharT, typename SizeT>
-concept string_like = requires(StringT str, const StringT cstr, SizeT req_len, SizeT new_len) {
+concept string_like = requires(
+    StringT str,
+    const StringT cstr,
+    SizeT req_len,
+    SizeT new_len,
+    DummyAsanAnnotator asan_annotator) {
     { str.get_storage() } -> std::same_as<string_storage<CharT>>;
     { cstr.get_storage() } -> std::same_as<string_storage<const CharT>>;
 
     // Grow must ensure capacity for atleast 'req_len' (1st parameter)
     // elements.
-    { str.grow(req_len) } -> std::same_as<expected<void, Error>>;
-    { str.grow_uninit(req_len) } -> std::same_as<expected<void, Error>>;
+    { str.grow(req_len, asan_annotator) } -> std::same_as<expected<void, Error>>;
+    { str.grow_uninit(req_len, asan_annotator) } -> std::same_as<expected<void, Error>>;
 
     { str.set_len(new_len) };
 };
@@ -233,8 +238,9 @@ class string_ops {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (end == end_cap) [[unlikely]] {
-                TryV(grow(len + 1));
+                TryV(grow(len + 1, asan_annotator));
                 auto [nbegin, nend, nend_cap] = get_storage();
                 std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
             }
@@ -248,6 +254,7 @@ class string_ops {
     constexpr void pop_back() noexcept {
         auto [begin, end, _] = get_storage();
         auto len = end - begin;
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
 
         check_(len != 1, "cannot pop_back empty string");  // Contains trailing NUL char
 
@@ -256,6 +263,7 @@ class string_ops {
     }
 
     constexpr void clear() noexcept {
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
         auto [begin, _end, _end_cap] = get_storage();
         std::construct_at(begin, NUL);  // Empty NUL terminate,string
         set_len(1);
@@ -957,6 +965,8 @@ class string_ops {
             Throw(Error::IndexOutOfBounds);
         }
 
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+
         count = std::min<usize>(count, size - pos);
 
         if (pos > 0) {
@@ -990,6 +1000,7 @@ class string_ops {
   private:
     constexpr void erase_impl(SizeT index, SizeT count) noexcept {
         check_(index < size(), "erase index cannot exceed string length");
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
 
         count = std::min<SizeT>(count, size() - index);
 
@@ -1077,8 +1088,9 @@ class string_ops {
         usize size = end - beg;
         usize capacity = end_cap - beg;
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (size + count > capacity) {
-                TryV(grow(size + count));
+                TryV(grow(size + count, asan_annotator));
                 auto [nbeg, nend, nend_cap] = get_storage();
                 std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
                 capacity = end_cap - beg;
@@ -1115,8 +1127,9 @@ class string_ops {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (count + 1 > capacity) {  // account for trailing NUL char
-                TryV(grow_uninit(count + 1));
+                TryV(grow_uninit(count + 1, asan_annotator));
                 // String is cleared and contains enough space to construct count elements
 
                 auto [nbeg, nend, nend_cap] = get_storage();
@@ -1165,8 +1178,9 @@ class string_ops {
         usize capacity = end_cap - begin;
         usize old_len = end - begin - 1;  // account for trailing NUL char
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (count + old_len + 1 > capacity) {
-                TryV(grow(old_len + count + 1));
+                TryV(grow(old_len + count + 1, asan_annotator));
 
                 auto [nbeg, nend, nend_cap] = get_storage();
                 std::tie(begin, end, end_cap) = std::tie(nbeg, nend, nend_cap);
@@ -1186,8 +1200,9 @@ class string_ops {
         usize capacity = end_cap - begin;
         usize new_len = count + 1;
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (new_len > capacity) {
-                TryV(grow(new_len));
+                TryV(grow(new_len, asan_annotator));
                 auto [nbegin, nend, nend_cap] = get_storage();
                 std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
             }
@@ -1226,13 +1241,15 @@ class string_ops {
         return res;
     }
 
-    constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
+    constexpr auto grow(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
-        return static_cast<StringT*>(this)->grow(req_len);
+        return static_cast<StringT*>(this)->grow(req_len, asan_annotator);
     }
-    constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
+    constexpr auto grow_uninit(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
-        return static_cast<StringT*>(this)->grow_uninit(req_len);
+        return static_cast<StringT*>(this)->grow_uninit(req_len, asan_annotator);
     }
 
     constexpr void set_len(SizeT new_len) noexcept {

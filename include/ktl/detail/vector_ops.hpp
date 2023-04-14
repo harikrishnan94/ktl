@@ -34,14 +34,19 @@ struct vector_storage {
 };
 
 template<typename VectorT, typename T, typename SizeT>
-concept vector_like = requires(VectorT vec, const VectorT cvec, SizeT req_len, SizeT new_len) {
+concept vector_like = requires(
+    VectorT vec,
+    const VectorT cvec,
+    SizeT req_len,
+    SizeT new_len,
+    DummyAsanAnnotator asan_annotator) {
     { vec.get_storage() } -> std::same_as<vector_storage<T>>;
     { cvec.get_storage() } -> std::same_as<vector_storage<const T>>;
 
     // Grow must ensure capacity for atleast 'req_len' (1st parameter)
     // elements.
-    { vec.grow(req_len) } -> std::same_as<expected<void, Error>>;
-    { vec.grow_uninit(req_len) } -> std::same_as<expected<void, Error>>;
+    { vec.grow(req_len, asan_annotator) } -> std::same_as<expected<void, Error>>;
+    { vec.grow_uninit(req_len, asan_annotator) } -> std::same_as<expected<void, Error>>;
 
     { vec.set_len(new_len) };
 };
@@ -178,8 +183,9 @@ class vector_ops {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (end == end_cap) [[unlikely]] {
-                TryV(grow(len + 1));
+                TryV(grow(len + 1, asan_annotator));
                 auto [nbegin, nend, nend_cap] = get_storage();
                 std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
             }
@@ -191,6 +197,7 @@ class vector_ops {
     constexpr void pop_back() noexcept {
         auto [begin, end, _] = get_storage();
         auto len = end - begin;
+        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
 
         check_(len != 0, "cannot pop_back empty vector");
 
@@ -204,6 +211,7 @@ class vector_ops {
         auto [begin, end, _] = get_storage();
 
         if (end != begin) {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if constexpr (!std::is_trivially_destructible_v<T>) {
                 std::destroy(begin, end);
             }
@@ -384,10 +392,10 @@ class vector_ops {
         usize size = end - beg;
         usize capacity = end_cap - beg;
         auto pos_i = std::distance(cbegin(), pos);
-
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (size + count > capacity) {
-                TryV(grow(size + count));
+                TryV(grow(size + count, asan_annotator));
                 auto [nbeg, nend, nend_cap] = get_storage();
                 std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
             }
@@ -412,8 +420,9 @@ class vector_ops {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (count > capacity) {
-                TryV(grow_uninit(count));
+                TryV(grow_uninit(count, asan_annotator));
                 // Vector is cleared and contains enough space to construct count elements
 
                 auto [nbeg, nend, nend_cap] = get_storage();
@@ -449,8 +458,9 @@ class vector_ops {
         auto len = end - begin;
         usize capacity = end_cap - begin;
         {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (new_len > capacity) {
-                TryV(grow(new_len));
+                TryV(grow(new_len, asan_annotator));
                 auto [nbegin, nend, nend_cap] = get_storage();
                 std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
             }
@@ -480,14 +490,16 @@ class vector_ops {
         return res;
     }
 
-    constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
+    constexpr auto grow(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
-        return static_cast<VectorT*>(this)->grow(req_len);
+        return static_cast<VectorT*>(this)->grow(req_len, asan_annotator);
     }
 
-    constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
+    constexpr auto grow_uninit(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
-        return static_cast<VectorT*>(this)->grow_uninit(req_len);
+        return static_cast<VectorT*>(this)->grow_uninit(req_len, asan_annotator);
     }
 
     constexpr void set_len(SizeT new_len) noexcept {

@@ -31,7 +31,7 @@ static void svector_test() {
     static_assert(sizeof(static_vector<u16, 3>) == sizeof(u16) * 4);
     static_assert(sizeof(static_vector<u32, 3>) == sizeof(u32) * 4);
     static_assert(sizeof(static_vector<u64, 3>) == sizeof(u64) * 4);
-    static_assert(std::is_trivially_destructible_v<static_vector<u64, 3>>);
+    static_assert(ASAN_ENABLED ? true : std::is_trivially_destructible_v<static_vector<u64, 3>>);
     static_assert(make_static_vector<4>(1, 2, 3).size() == 3);
     static_assert(make_static_vector(1.0, 2, 3, .0f)[0] == 1.0);
 

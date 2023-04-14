@@ -94,7 +94,7 @@ namespace detail {
             }
         }
 
-        constexpr void start_container_lifetime() noexcept {
+        constexpr void start_lifetime() noexcept {
             if (!std::is_constant_evaluated()) {
                 __sanitizer_annotate_contiguous_container(m_beg, m_end, m_beg, m_mid);
             }
@@ -114,7 +114,7 @@ namespace detail {
                 m_beg = m_cont->data();
                 m_end = m_beg + m_cont->capacity();
                 m_mid = m_end;
-                start_container_lifetime();
+                start_lifetime();
             }
         }
 
@@ -128,14 +128,21 @@ namespace detail {
     struct [[maybe_unused]] DummyAsanAnnotator {
         constexpr explicit DummyAsanAnnotator([[maybe_unused]] auto& /*cont*/) {}
 
-        constexpr void start_container_lifetime() noexcept {}
+        constexpr void start_lifetime() noexcept {}
         constexpr void allow_full_access() noexcept {}
         constexpr void reallocate() noexcept {}
     };
 }  // namespace detail
 
+template<typename AA>
+concept asan_annotator_like = requires(AA a) {
+    { a.start_lifetime() };
+    { a.allow_full_access() };
+    { a.reallocate() };
+};
+
 template<typename ContiguousContainer>
-constexpr auto AsanAnnotator(ContiguousContainer& cont) noexcept {
+constexpr auto AsanAnnotator(ContiguousContainer& cont) noexcept -> asan_annotator_like auto {
     if constexpr (ASAN_ENABLED) {
         return detail::DummyAsanAnnotator {cont};
     } else {
