@@ -59,7 +59,7 @@ class basic_string:
     constexpr auto operator=(const basic_string&) -> basic_string& = delete;
 
     constexpr basic_string(basic_string&& o) noexcept :
-        m_storage(std::move(o.m_storage).take()),
+        m_storage(std::exchange(o.m_storage, {})),
         m_alloc {std::move(o.m_alloc)} {
         AsanAnnotator(*this).start_lifetime();
         if (std::is_constant_evaluated()) {
@@ -345,11 +345,11 @@ class basic_string:
     constexpr auto
     grow_impl(usize req_cap, auto&& initializer, asan_annotator_like auto& asan_annotator) noexcept
         -> expected<void, Error> {
-        auto [is_short, chars, len, capacity] = m_storage.extract();
+        auto [was_short, chars, len, capacity] = m_storage.extract();
         assert(len != 0);
 
         if (req_cap > capacity) [[unlikely]] {
-            if (is_short && storage_t::is_short(req_cap)) {
+            if (was_short && storage_t::is_short(req_cap)) {
                 return {};
             }
 
@@ -358,8 +358,8 @@ class basic_string:
 
             initializer(new_chars, chars, len);
 
-            asan_annotator.reallocate();
-            if (!is_short) {
+            if (!was_short) {
+                asan_annotator.reallocate();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
             }
             m_storage.set_long_str(new_chars, len, new_cap);

@@ -69,6 +69,19 @@ constexpr auto erase_if(Container& c, Pred pred) -> typename Container::size_typ
 }
 
 namespace detail {
+    template<typename T>
+    constexpr void sanitizer_annotate_contiguous_container(
+        const T* beg,
+        const T* end,
+        const T* old_mid,
+        const T* new_mid) noexcept {
+        if constexpr (ASAN_ENABLED) {
+            if (!std::is_constant_evaluated()) {
+                __sanitizer_annotate_contiguous_container(beg, end, old_mid, new_mid);
+            }
+        }
+    }
+
     template<typename ContiguousContainer>
     class RealAsanAnnotator {
       public:
@@ -153,7 +166,7 @@ concept asan_annotator_like = requires(AA a) {
 template<typename ContiguousContainer>
 constexpr auto AsanAnnotator(ContiguousContainer& cont) noexcept -> asan_annotator_like auto {
     if constexpr (ASAN_ENABLED) {
-        return detail::RealAsanAnnotator {cont};
+        return detail::DummyAsanAnnotator {cont};
     } else {
         return detail::DummyAsanAnnotator {cont};
     }
