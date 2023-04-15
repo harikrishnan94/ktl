@@ -32,7 +32,9 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     // ------------------------ Special member functions --------------------------
     constexpr vector() = default;
 
-    constexpr explicit vector(const Allocator& a) : m_alloc {a} {}
+    constexpr explicit vector(const Allocator& a) : m_alloc {a} {
+        AsanAnnotator(*this).start_lifetime();
+    }
 
     constexpr ~vector() {
         this->clear();
@@ -132,12 +134,15 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     constexpr auto shrink_to_fit() noexcept -> expected<void, Error> {
         if (m_len != m_capacity) {
             if (m_len > 0) [[likely]] {
+                asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
                 Try(new_data, alloc_traits::allocate(m_alloc, m_len));
 
                 uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+                asan_annotator.reallocate();
                 alloc_traits::deallocate(m_alloc, m_data, m_capacity);
                 m_data = new_data;
                 m_capacity = m_len;
+                asan_annotator.start_lifetime();
             } else {
                 alloc_traits::deallocate(m_alloc, m_data, m_capacity);
                 m_data = nullptr;
@@ -195,9 +200,11 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
             Try(new_data, alloc_traits::allocate(m_alloc, new_cap));
 
             transfer(static_cast<T*>(new_data), m_data, m_len);
+            asan_annotator.reallocate();
             alloc_traits::deallocate(m_alloc, m_data, m_capacity);
             m_data = new_data;
             m_capacity = new_cap;
+            asan_annotator.start_lifetime();
         }
         asan_annotator.allow_full_access();
         return {};

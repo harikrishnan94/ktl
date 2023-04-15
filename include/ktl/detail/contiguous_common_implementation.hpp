@@ -79,8 +79,10 @@ namespace detail {
 
         constexpr explicit RealAsanAnnotator(const ContiguousContainer& cont) noexcept :
             m_cont {&cont} {
-            auto [begin, end, end_cap] = cont.get_storage_for_asan_annotator();
-            std::tie(m_beg, m_mid, m_end) = std::tie(begin, end, end_cap);
+            if (!std::is_constant_evaluated()) {
+                auto [begin, end, end_cap] = cont.get_storage_for_asan_annotator();
+                std::tie(m_beg, m_mid, m_end) = std::tie(begin, end, end_cap);
+            }
         }
 
         constexpr ~RealAsanAnnotator() noexcept {
@@ -99,7 +101,13 @@ namespace detail {
 
         constexpr void start_lifetime() noexcept {
             if (!std::is_constant_evaluated()) {
-                __sanitizer_annotate_contiguous_container(m_beg, m_end, m_beg, m_mid);
+                if (!m_beg) {
+                    auto [begin, end, end_cap] = m_cont->get_storage_for_asan_annotator();
+                    std::tie(m_beg, m_mid, m_end) = std::tie(begin, end, end_cap);
+                }
+                if (m_beg) {
+                    __sanitizer_annotate_contiguous_container(m_beg, m_end, m_beg, m_mid);
+                }
             }
         }
 
@@ -112,12 +120,10 @@ namespace detail {
 
         constexpr void reallocate() noexcept {
             if (!std::is_constant_evaluated()) {
-                __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, m_beg);
-
-                m_beg = m_cont->data();
-                m_end = m_beg + m_cont->capacity();
-                m_mid = m_end;
-                start_lifetime();
+                if (m_beg) {
+                    __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, m_beg);
+                    m_beg = nullptr;
+                }
             }
         }
 

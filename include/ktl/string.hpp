@@ -39,10 +39,16 @@ class basic_string:
     constexpr explicit basic_string(const Allocator& a = {}) noexcept : m_alloc {a} {
         if (std::is_constant_evaluated()) {
             const_init();
+        } else {
+            AsanAnnotator(*this).start_lifetime();
         }
     }
 
     constexpr ~basic_string() {
+        if constexpr (ASAN_ENABLED) {
+            this->clear();
+        }
+
         auto [is_short, chars, _, capacity] = m_storage.extract();
         if (!is_short) {
             alloc_traits::deallocate(m_alloc, chars, capacity);
@@ -54,7 +60,12 @@ class basic_string:
 
     constexpr basic_string(basic_string&& o) noexcept :
         m_storage(std::move(o.m_storage).take()),
-        m_alloc {std::move(o.m_alloc)} {}
+        m_alloc {std::move(o.m_alloc)} {
+        AsanAnnotator(*this).start_lifetime();
+        if (std::is_constant_evaluated()) {
+            o.const_init();
+        }
+    }
 
     // Based on Howard Hinnat's answer: https://stackoverflow.com/a/27472502
     constexpr auto operator=(basic_string&& o) noexcept -> basic_string& {
@@ -110,20 +121,25 @@ class basic_string:
         assert(len > 0);
 
         if (len != capacity && !is_short) {
+            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
             if (storage_t::is_short(len)) {
                 (void)std::move(m_storage);
 
                 std::construct_at(&m_storage);
                 auto new_chars = std::get<pointer>(m_storage.extract());
                 uninitialized_move_n(chars, len, new_chars);
+                asan_annotator.reallocate();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_len(len);
+                asan_annotator.start_lifetime();
             } else {
                 Try(new_chars, alloc_traits::allocate(m_alloc, len));
 
                 uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
+                asan_annotator.reallocate();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_long_str(new_chars, len, len);
+                asan_annotator.start_lifetime();
             }
         }
 
@@ -326,10 +342,9 @@ class basic_string:
             asan_annotator);
     }
 
-    constexpr auto grow_impl(
-        usize req_cap,
-        auto&& initializer,
-        asan_annotator_like auto& /* asan_annotator */) noexcept -> expected<void, Error> {
+    constexpr auto
+    grow_impl(usize req_cap, auto&& initializer, asan_annotator_like auto& asan_annotator) noexcept
+        -> expected<void, Error> {
         auto [is_short, chars, len, capacity] = m_storage.extract();
         assert(len != 0);
 
@@ -343,11 +358,14 @@ class basic_string:
 
             initializer(new_chars, chars, len);
 
+            asan_annotator.reallocate();
             if (!is_short) {
                 alloc_traits::deallocate(m_alloc, chars, capacity);
             }
             m_storage.set_long_str(new_chars, len, new_cap);
+            asan_annotator.start_lifetime();
         }
+        asan_annotator.allow_full_access();
         return {};
     }
 
