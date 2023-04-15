@@ -10,7 +10,7 @@
 #include <ktl/memory.hpp>
 #include <ktl/string_view.hpp>
 
-#include "contiguous_common_implementation.hpp"
+#include "contiguous_container_common_defs.hpp"
 
 namespace ktl::detail {
 // Determine the size_type for the given capacity
