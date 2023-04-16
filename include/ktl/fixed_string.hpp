@@ -44,7 +44,7 @@ class fixed_string:
         m_capacity {capacity} {
         check_(*m_len > 0 && len <= m_capacity, "");
         m_chars[*m_len - 1] = base::NUL;
-        AsanAnnotator(*this).start_lifetime();
+        AsanAnnotator<fixed_string>::start_lifetime(*this);
     }
 
     template<auto Capacity>
@@ -76,7 +76,7 @@ class fixed_string:
         return {.begin = m_chars, .end = m_chars + *m_len, .end_cap = m_chars + m_capacity};
     }
 
-    constexpr auto grow(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow(usize req_len, AsanAnnotator<fixed_string>& asan_annotator) noexcept
         -> expected<void, Error> {
         if (req_len > m_capacity) [[unlikely]] {
             Throw(Error::BufferFull);
@@ -84,7 +84,7 @@ class fixed_string:
         asan_annotator.allow_full_access();
         return {};
     }
-    constexpr auto grow_uninit(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow_uninit(usize req_len, AsanAnnotator<fixed_string>& asan_annotator) noexcept
         -> expected<void, Error> {
         return grow(req_len, asan_annotator);
     }

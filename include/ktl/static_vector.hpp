@@ -39,7 +39,7 @@ class static_vector:
     constexpr static_vector()
         requires(ASAN_ENABLED)
     {
-        AsanAnnotator(*this).start_lifetime();
+        AsanAnnotator<static_vector>::start_lifetime(*this);
     }
 
     constexpr ~static_vector()
@@ -53,14 +53,14 @@ class static_vector:
 
     constexpr static_vector(const static_vector& o) noexcept : m_len {o.m_len} {
         uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
-        AsanAnnotator(*this).start_lifetime();
+        AsanAnnotator<static_vector>::start_lifetime(*this);
     }
 
     constexpr static_vector(static_vector&& o) noexcept {
         if constexpr (std::is_trivially_copyable_v<T>) {
             m_len = o.m_len;
             uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
-            AsanAnnotator(*this).start_lifetime();
+            AsanAnnotator<static_vector>::start_lifetime(*this);
         } else {
             swap(o);
         }
@@ -68,7 +68,7 @@ class static_vector:
 
     constexpr auto operator=(const static_vector& o) noexcept -> static_vector& {
         if constexpr (std::is_trivially_copyable_v<T>) {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            AsanAnnotator<static_vector> asan_annotator {*this};
             m_len = o.m_len;
             uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         } else {
@@ -79,7 +79,7 @@ class static_vector:
 
     constexpr auto operator=(static_vector&& o) noexcept -> static_vector& {
         if constexpr (std::is_trivially_copyable_v<T>) {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            AsanAnnotator<static_vector> asan_annotator {*this};
             m_len = o.m_len;
             uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         } else {
@@ -144,7 +144,7 @@ class static_vector:
         return {.begin = data, .end = data + m_len, .end_cap = data + Capacity};
     }
 
-    constexpr auto grow(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow(usize req_len, AsanAnnotator<static_vector>& asan_annotator) noexcept
         -> expected<void, Error> {
         if (req_len > Capacity) [[unlikely]] {
             Throw(Error::BufferFull);
@@ -152,7 +152,7 @@ class static_vector:
         asan_annotator.allow_full_access();
         return {};
     }
-    constexpr auto grow_uninit(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow_uninit(usize req_len, AsanAnnotator<static_vector>& asan_annotator) noexcept
         -> expected<void, Error> {
         return grow(req_len, asan_annotator);
     }

@@ -46,7 +46,7 @@ class fixed_vector:
         m_data {base},
         m_len {&len},
         m_capacity {capacity} {
-        AsanAnnotator(*this).start_lifetime();
+        AsanAnnotator<fixed_vector>::start_lifetime(*this);
     }
 
     template<auto Capacity>
@@ -78,7 +78,7 @@ class fixed_vector:
         return {.begin = m_data, .end = m_data + *m_len, .end_cap = m_data + m_capacity};
     }
 
-    constexpr auto grow(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow(usize req_len, AsanAnnotator<fixed_vector>& asan_annotator) noexcept
         -> expected<void, Error> {
         if (req_len > m_capacity) [[unlikely]] {
             Throw(Error::BufferFull);
@@ -86,7 +86,7 @@ class fixed_vector:
         asan_annotator.allow_full_access();
         return {};
     }
-    constexpr auto grow_uninit(usize req_len, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow_uninit(usize req_len, AsanAnnotator<fixed_vector>& asan_annotator) noexcept
         -> expected<void, Error> {
         return grow(req_len, asan_annotator);
     }

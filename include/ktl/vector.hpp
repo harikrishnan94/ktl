@@ -33,7 +33,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     constexpr vector() = default;
 
     constexpr explicit vector(const Allocator& a) : m_alloc {a} {
-        AsanAnnotator(*this).start_lifetime();
+        AsanAnnotator<vector>::start_lifetime(*this);
     }
 
     constexpr ~vector() {
@@ -127,22 +127,22 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     }
 
     constexpr auto reserve(size_type new_cap) noexcept -> expected<void, Error> {
-        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        AsanAnnotator<vector> asan_annotator {*this};
         return grow(new_cap, asan_annotator);
     }
 
     constexpr auto shrink_to_fit() noexcept -> expected<void, Error> {
         if (m_len != m_capacity) {
             if (m_len > 0) [[likely]] {
-                asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+                AsanAnnotator<vector> asan_annotator {*this};
                 Try(new_data, alloc_traits::allocate(m_alloc, m_len));
 
                 uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
-                asan_annotator.reallocate();
+                asan_annotator.deallocate();
                 alloc_traits::deallocate(m_alloc, m_data, m_capacity);
                 m_data = new_data;
                 m_capacity = m_len;
-                asan_annotator.start_lifetime();
+                asan_annotator.update();
             } else {
                 alloc_traits::deallocate(m_alloc, m_data, m_capacity);
                 m_data = nullptr;
@@ -173,14 +173,14 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
         return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
     }
 
-    constexpr auto grow(usize req_cap, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow(usize req_cap, AsanAnnotator<vector>& asan_annotator) noexcept
         -> expected<void, Error> {
         return grow_impl(
             req_cap,
             [](auto* new_data, auto* data, auto len) { uninitialized_move_n(data, len, new_data); },
             asan_annotator);
     }
-    constexpr auto grow_uninit(usize req_cap, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow_uninit(usize req_cap, AsanAnnotator<vector>& asan_annotator) noexcept
         -> expected<void, Error> {
         return grow_impl(
             req_cap,
@@ -192,7 +192,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     }
 
     constexpr auto
-    grow_impl(usize req_cap, auto&& transfer, asan_annotator_like auto& asan_annotator) noexcept
+    grow_impl(usize req_cap, auto&& transfer, AsanAnnotator<vector>& asan_annotator) noexcept
         -> expected<void, Error> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
         if (req_cap > m_capacity) [[unlikely]] {
@@ -200,13 +200,14 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
             Try(new_data, alloc_traits::allocate(m_alloc, new_cap));
 
             transfer(static_cast<T*>(new_data), m_data, m_len);
-            asan_annotator.reallocate();
+            asan_annotator.deallocate();
             alloc_traits::deallocate(m_alloc, m_data, m_capacity);
             m_data = new_data;
             m_capacity = new_cap;
-            asan_annotator.start_lifetime();
+            asan_annotator.update();
+        } else {
+            asan_annotator.allow_full_access();
         }
-        asan_annotator.allow_full_access();
         return {};
     }
 

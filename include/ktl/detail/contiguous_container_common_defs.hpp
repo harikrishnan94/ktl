@@ -21,31 +21,6 @@ namespace detail {
         };
         { c.erase(std::begin(c), std::end(c)) };
     };
-
-    // Very specific implementation, shared by both static_string and static_vector
-    template<typename Container>
-    constexpr void swap_contiguous_static_containers(Container& a, Container& b) noexcept {
-        auto a_len = a.m_len;
-        auto b_len = b.m_len;
-        auto a_begin = a.get_storage().begin;
-        auto b_begin = b.get_storage().begin;
-        auto asan_annotator_a = AsanAnnotator(a);
-        auto asan_annotator_b = AsanAnnotator(b);
-
-        asan_annotator_a.allow_full_access();
-        asan_annotator_b.allow_full_access();
-
-        if (a_len > b_len) {
-            std::swap_ranges(a_begin, a_begin + b_len, b_begin);
-            uninitialized_move_n(a_begin + b_len, a_len - b_len, b_begin);
-        } else {
-            std::swap_ranges(a_begin, a_begin + a_len, b_begin);
-            uninitialized_move_n(b_begin + a_len, b_len - a_len, a_begin);
-        }
-
-        using std::swap;
-        swap(a.m_len, b.m_len);
-    }
 }  // namespace detail
 
 template<detail::erasable Container, typename T>
@@ -112,30 +87,40 @@ namespace detail {
             }
         }
 
-        constexpr void start_lifetime() noexcept {
+        constexpr static void start_lifetime(ContiguousContainer& cont) noexcept {
             if (!std::is_constant_evaluated()) {
-                if (!m_beg) {
-                    auto [begin, end, end_cap] = m_cont->get_storage_for_asan_annotator();
-                    std::tie(m_beg, m_mid, m_end) = std::tie(begin, end, end_cap);
-                }
-                if (m_beg) {
-                    __sanitizer_annotate_contiguous_container(m_beg, m_end, m_beg, m_mid);
+                auto [begin, end, end_cap] = cont.get_storage_for_asan_annotator();
+                if (begin) {
+                    __sanitizer_annotate_contiguous_container(begin, end_cap, begin, end);
                 }
             }
         }
 
         constexpr void allow_full_access() noexcept {
             if (!std::is_constant_evaluated()) {
-                __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, m_end);
+                if (m_beg) {
+                    __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, m_end);
+                }
                 m_mid = m_end;
             }
         }
 
-        constexpr void reallocate() noexcept {
+        constexpr void deallocate() noexcept {
             if (!std::is_constant_evaluated()) {
                 if (m_beg) {
                     __sanitizer_annotate_contiguous_container(m_beg, m_end, m_mid, m_beg);
-                    m_beg = nullptr;
+                }
+                m_beg = m_end = m_mid = nullptr;
+            }
+        }
+
+        template<typename T = ContiguousContainer::value_type>
+        constexpr void update() noexcept {
+            if (!std::is_constant_evaluated()) {
+                auto [begin, end, end_cap] = m_cont->get_storage_for_asan_annotator();
+                std::tie(m_beg, m_mid, m_end) = std::tie(begin, end, end_cap);
+                if (m_beg) {
+                    __sanitizer_annotate_contiguous_container(m_beg, m_end, m_beg, m_mid);
                 }
             }
         }
@@ -147,28 +132,48 @@ namespace detail {
         typename ContiguousContainer::const_pointer m_end;
     };
 
+    template<typename ContiguousContainer>
     struct [[maybe_unused]] DummyAsanAnnotator {
-        constexpr explicit DummyAsanAnnotator([[maybe_unused]] const auto& /*cont*/) {}
+        constexpr explicit DummyAsanAnnotator(
+            [[maybe_unused]] const ContiguousContainer& /*cont*/) {}
 
-        constexpr void start_lifetime() noexcept {}
+        constexpr static void start_lifetime() noexcept {}
         constexpr void allow_full_access() noexcept {}
-        constexpr void reallocate() noexcept {}
+        constexpr void deallocate() noexcept {}
+        constexpr void update() noexcept {}
     };
 }  // namespace detail
 
-template<typename AA>
-concept asan_annotator_like = requires(AA a) {
-    { a.start_lifetime() };
-    { a.allow_full_access() };
-    { a.reallocate() };
-};
-
 template<typename ContiguousContainer>
-constexpr auto AsanAnnotator(ContiguousContainer& cont) noexcept -> asan_annotator_like auto {
-    if constexpr (ASAN_ENABLED) {
-        return detail::DummyAsanAnnotator {cont};
-    } else {
-        return detail::DummyAsanAnnotator {cont};
+using AsanAnnotator = std::conditional_t<
+    ASAN_ENABLED,
+    detail::RealAsanAnnotator<ContiguousContainer>,
+    detail::DummyAsanAnnotator<ContiguousContainer>>;
+
+namespace detail {
+    // Very specific implementation, shared by both static_string and static_vector
+    template<typename Container>
+    constexpr void swap_contiguous_static_containers(Container& a, Container& b) noexcept {
+        auto a_len = a.m_len;
+        auto b_len = b.m_len;
+        auto a_begin = a.get_storage().begin;
+        auto b_begin = b.get_storage().begin;
+        AsanAnnotator<Container> asan_annotator_a {a};
+        AsanAnnotator<Container> asan_annotator_b {b};
+
+        asan_annotator_a.allow_full_access();
+        asan_annotator_b.allow_full_access();
+
+        if (a_len > b_len) {
+            std::swap_ranges(a_begin, a_begin + b_len, b_begin);
+            uninitialized_move_n(a_begin + b_len, a_len - b_len, b_begin);
+        } else {
+            std::swap_ranges(a_begin, a_begin + a_len, b_begin);
+            uninitialized_move_n(b_begin + a_len, b_len - a_len, a_begin);
+        }
+
+        using std::swap;
+        swap(a.m_len, b.m_len);
     }
-}
+}  // namespace detail
 }  // namespace ktl

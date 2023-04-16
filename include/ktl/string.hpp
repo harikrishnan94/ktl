@@ -40,7 +40,7 @@ class basic_string:
         if (std::is_constant_evaluated()) {
             const_init();
         } else {
-            AsanAnnotator(*this).start_lifetime();
+            AsanAnnotator<basic_string>::start_lifetime(*this);
         }
     }
 
@@ -61,7 +61,7 @@ class basic_string:
     constexpr basic_string(basic_string&& o) noexcept :
         m_storage(std::exchange(o.m_storage, {})),
         m_alloc {std::move(o.m_alloc)} {
-        AsanAnnotator(*this).start_lifetime();
+        AsanAnnotator<basic_string>::start_lifetime(*this);
         if (std::is_constant_evaluated()) {
             o.const_init();
         }
@@ -112,7 +112,7 @@ class basic_string:
     }
 
     constexpr auto reserve(size_type new_cap) noexcept -> expected<void, Error> {
-        asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+        AsanAnnotator<basic_string> asan_annotator {*this};
         return grow(new_cap, asan_annotator);
     }
 
@@ -121,25 +121,25 @@ class basic_string:
         assert(len > 0);
 
         if (len != capacity && !is_short) {
-            asan_annotator_like auto asan_annotator = AsanAnnotator(*this);
+            AsanAnnotator<basic_string> asan_annotator {*this};
             if (storage_t::is_short(len)) {
                 (void)std::move(m_storage);
 
                 std::construct_at(&m_storage);
                 auto new_chars = std::get<pointer>(m_storage.extract());
                 uninitialized_move_n(chars, len, new_chars);
-                asan_annotator.reallocate();
+                asan_annotator.deallocate();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_len(len);
-                asan_annotator.start_lifetime();
+                asan_annotator.update();
             } else {
                 Try(new_chars, alloc_traits::allocate(m_alloc, len));
 
                 uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
-                asan_annotator.reallocate();
+                asan_annotator.deallocate();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_long_str(new_chars, len, len);
-                asan_annotator.start_lifetime();
+                asan_annotator.update();
             }
         }
 
@@ -323,7 +323,7 @@ class basic_string:
         return {.begin = chars, .end = chars + len, .end_cap = chars + capacity};
     }
 
-    constexpr auto grow(usize req_cap, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow(usize req_cap, AsanAnnotator<basic_string>& asan_annotator) noexcept
         -> expected<void, Error> {
         return grow_impl(
             req_cap,
@@ -332,7 +332,7 @@ class basic_string:
             },
             asan_annotator);
     }
-    constexpr auto grow_uninit(usize req_cap, asan_annotator_like auto& asan_annotator) noexcept
+    constexpr auto grow_uninit(usize req_cap, AsanAnnotator<basic_string>& asan_annotator) noexcept
         -> expected<void, Error> {
         return grow_impl(
             req_cap,
@@ -342,9 +342,10 @@ class basic_string:
             asan_annotator);
     }
 
-    constexpr auto
-    grow_impl(usize req_cap, auto&& initializer, asan_annotator_like auto& asan_annotator) noexcept
-        -> expected<void, Error> {
+    constexpr auto grow_impl(
+        usize req_cap,
+        auto&& initializer,
+        AsanAnnotator<basic_string>& asan_annotator) noexcept -> expected<void, Error> {
         auto [was_short, chars, len, capacity] = m_storage.extract();
         assert(len != 0);
 
@@ -359,11 +360,11 @@ class basic_string:
             initializer(new_chars, chars, len);
 
             if (!was_short) {
-                asan_annotator.reallocate();
+                asan_annotator.deallocate();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
             }
             m_storage.set_long_str(new_chars, len, new_cap);
-            asan_annotator.start_lifetime();
+            asan_annotator.update();
         }
         asan_annotator.allow_full_access();
         return {};
