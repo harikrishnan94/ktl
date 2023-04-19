@@ -5,7 +5,7 @@ project(
     VERSION 0.0.3
     HOMEPAGE_URL "https://github.com/harikrishnan94/ktl"
     DESCRIPTION "Minimal and Safe C++ standard library usable for Kernel and other bare metal developments"
-    LANGUAGES CXX ASM)
+    LANGUAGES C CXX ASM)
 
 find_program(CCACHE_PROGRAM ccache)
 

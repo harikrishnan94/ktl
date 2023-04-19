@@ -856,12 +856,12 @@ constexpr void sanity_test() {
 
 void string_test() {
     [[maybe_unused]] static constinit auto const_test = [] {
-        sanity_test<ConstAllocator<char>>();
+        sanity_test<Allocator<char>>();
         return true;
     }();
 
     // Short string test
-    sanity_test<BumpAllocator<char>>();
+    sanity_test<Allocator<char>>();
 }
 
 auto main() -> int {
