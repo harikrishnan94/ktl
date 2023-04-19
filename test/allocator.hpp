@@ -46,7 +46,7 @@ class BumpAllocator {
 
     auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
         void* current = arr.data() + (arr.size() - remaining);
-        auto* ptr = std::align(ALIGN, n, current, remaining);
+        auto* ptr = std::align(ASAN_ALIGN<T>, n, current, remaining);
         if (ptr == nullptr) {
             Throw(Error::OutOfMemory);
         }
@@ -54,7 +54,6 @@ class BumpAllocator {
     }
 
   private:
-    static constexpr auto ALIGN = ASAN_ENABLED ? std::min(alignof(T), ASAN_MIN_ALIGN) : alignof(T);
     static inline std::array<char, Capacity * sizeof(T)> arr = {};
     static inline usize remaining = arr.size();
 };

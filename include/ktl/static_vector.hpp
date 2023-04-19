@@ -188,9 +188,8 @@ class static_vector:
     };
 
     size_type m_len = 0;
-    alignas(ASAN_ENABLED ? std::max(alignof(T), ASAN_MIN_ALIGN) : alignof(T))
-        [[no_unique_address]] std::
-            conditional_t<is_trivial, trivial_storage_t, generic_storage_t> m_storage;
+    alignas(ASAN_ALIGN<T>) [[no_unique_address]] std::
+        conditional_t<is_trivial, trivial_storage_t, generic_storage_t> m_storage;
 };
 
 template<typename T, typename... OT>

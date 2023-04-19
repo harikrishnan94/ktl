@@ -217,8 +217,7 @@ class basic_static_string:
     }
 
     size_type m_len;
-    alignas(ASAN_ENABLED ? std::max(alignof(CharT), ASAN_MIN_ALIGN) : alignof(CharT))
-        std::array<CharT, Capacity> m_chars;
+    alignas(ASAN_ALIGN<CharT>) std::array<CharT, Capacity> m_chars;
 };
 
 template<typename CharT, auto Capacity, typename Traits = std::char_traits<CharT>>
