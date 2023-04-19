@@ -9,7 +9,7 @@ class fixed_vector;
 
 template<typename T, allocator_for<T> Allocator, typename GP = default_growth_policy>
     requires growth_policy<GP> || growth_policy_for<GP, Allocator>
-class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
+class vector: public vec::detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
   public:
     using value_type = T;
     using size_type = usize;
@@ -21,7 +21,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     using allocator_type = Allocator;
 
   private:
-    using base = detail::vector_ops<T, size_type, vector<T, Allocator, GP>>;
+    using base = vec::detail::vector_ops<T, size_type, vector<T, Allocator, GP>>;
     using alloc_traits = allocator_traits<Allocator>;
 
   public:
@@ -156,7 +156,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::vector_ops<T, size_type, vector<T, Allocator, GP>>;
+    friend class vec::detail::vector_ops<T, size_type, vector<T, Allocator, GP>>;
 
     constexpr auto swap_storage(vector& o) noexcept {
         using std::swap;
@@ -165,11 +165,12 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
         swap(m_len, o.m_len);
     }
 
-    [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
+    [[nodiscard]] constexpr auto get_storage() const noexcept
+        -> vec::detail::vector_storage<const T> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
         return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::vector_storage<T> {
+    constexpr auto get_storage() noexcept -> vec::detail::vector_storage<T> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
         return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
     }
@@ -222,7 +223,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     friend class detail::RealAsanAnnotator;
 
     constexpr auto get_storage_for_asan_annotator() const noexcept
-        -> detail::vector_storage<const T> {
+        -> vec::detail::vector_storage<const T> {
         return get_storage();
     }
 

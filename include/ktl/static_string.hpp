@@ -46,15 +46,15 @@ namespace detail {
 template<typename CharT, auto Capacity, typename Traits>
     requires std::is_trivial_v<CharT> && std::integral<std::decay_t<decltype(Capacity)>>
 class basic_static_string:
-    public detail::string_ops<
+    public str::detail::string_ops<
         CharT,
         Traits,
-        detail::size_t<Capacity>,
+        str::detail::size_t<Capacity>,
         basic_static_string<CharT, Capacity, Traits>> {
   public:
     using traits_type = Traits;
     using value_type = CharT;
-    using size_type = detail::size_t<Capacity>;
+    using size_type = str::detail::size_t<Capacity>;
     using difference_type = isize;
     using reference = CharT&;
     using const_reference = const CharT&;
@@ -62,10 +62,10 @@ class basic_static_string:
     using const_pointer = const CharT*;
 
   private:
-    using base = detail::string_ops<
+    using base = str::detail::string_ops<
         CharT,
         Traits,
-        detail::size_t<Capacity>,
+        str::detail::size_t<Capacity>,
         basic_static_string<CharT, Capacity, Traits>>;
 
   public:
@@ -165,10 +165,10 @@ class basic_static_string:
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::string_ops<
+    friend class str::detail::string_ops<
         CharT,
         Traits,
-        detail::size_t<Capacity>,
+        str::detail::size_t<Capacity>,
         basic_static_string<CharT, Capacity, Traits>>;
 
     template<typename Container>
@@ -176,13 +176,13 @@ class basic_static_string:
     detail::swap_contiguous_static_containers(Container& a, Container& b) noexcept;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> str::detail::string_storage<const CharT> {
         return {
             .begin = m_chars.data(),
             .end = m_chars.data() + m_len,
             .end_cap = m_chars.data() + Capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::string_storage<CharT> {
+    constexpr auto get_storage() noexcept -> str::detail::string_storage<CharT> {
         return {
             .begin = m_chars.data(),
             .end = m_chars.data() + m_len,
@@ -212,7 +212,7 @@ class basic_static_string:
     friend class detail::RealAsanAnnotator;
 
     constexpr auto get_storage_for_asan_annotator() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> str::detail::string_storage<const CharT> {
         return get_storage();
     }
 

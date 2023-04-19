@@ -13,10 +13,10 @@ class fixed_vector;
 template<typename T, auto Capacity>
     requires std::integral<std::decay_t<decltype(Capacity)>>
 class static_vector:
-    public detail::vector_ops<T, detail::size_t<Capacity>, static_vector<T, Capacity>> {
+    public vec::detail::vector_ops<T, vec::detail::size_t<Capacity>, static_vector<T, Capacity>> {
   public:
     using value_type = T;
-    using size_type = detail::size_t<Capacity>;
+    using size_type = vec::detail::size_t<Capacity>;
     using difference_type = isize;
     using reference = T&;
     using const_reference = const T&;
@@ -24,7 +24,7 @@ class static_vector:
     using const_pointer = const T*;
 
   private:
-    using base = detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
+    using base = vec::detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
 
   public:
     static_assert(
@@ -118,13 +118,14 @@ class static_vector:
     static constexpr auto is_trivial = std::is_trivial_v<T>;
 
     // Allow access to internal members. Classic CRTP.
-    friend class detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
+    friend class vec::detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
 
     template<typename Container>
     friend constexpr void
     detail::swap_contiguous_static_containers(Container& a, Container& b) noexcept;
 
-    [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
+    [[nodiscard]] constexpr auto get_storage() const noexcept
+        -> vec::detail::vector_storage<const T> {
         auto data = [&] {
             if constexpr (is_trivial) {
                 return m_storage.elems.data();
@@ -134,7 +135,7 @@ class static_vector:
         }();
         return {.begin = data, .end = data + m_len, .end_cap = data + Capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::vector_storage<T> {
+    constexpr auto get_storage() noexcept -> vec::detail::vector_storage<T> {
         auto data = [&] {
             if constexpr (is_trivial) {
                 return m_storage.elems.data();
@@ -167,7 +168,7 @@ class static_vector:
     friend class detail::RealAsanAnnotator;
 
     constexpr auto get_storage_for_asan_annotator() const noexcept
-        -> detail::vector_storage<const T> {
+        -> vec::detail::vector_storage<const T> {
         return get_storage();
     }
 

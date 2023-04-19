@@ -12,7 +12,7 @@
 
 #include "contiguous_container_common_defs.hpp"
 
-namespace ktl::detail {
+namespace ktl::str::detail {
 // Determine the size_type for the given capacity
 template<auto Capacity>
 using size_t = std::conditional_t<
@@ -1264,26 +1264,26 @@ concept comparable_string = requires(const V& v) {
     { static_cast<basic_string_view<typename V::value_type, typename V::traits_type>>(v) };
 };
 
-}  // namespace ktl::detail
+}  // namespace ktl::str::detail
 
 // ---------------------- Comparison Operators ---------------------
 namespace ktl {
-template<detail::comparable_string Str1, detail::comparable_string Str2>
+template<str::detail::comparable_string Str1, str::detail::comparable_string Str2>
 constexpr auto operator==(const Str1& lhs, const Str2& rhs) noexcept -> bool {
     return basic_string_view {lhs} == rhs;
 }
 
-template<detail::comparable_string Str>
+template<str::detail::comparable_string Str>
 constexpr auto operator==(const Str& lhs, const typename Str::value_type* rhs) noexcept -> bool {
     return basic_string_view {lhs} == rhs;
 }
 
-template<detail::comparable_string Str1, detail::comparable_string Str2>
+template<str::detail::comparable_string Str1, str::detail::comparable_string Str2>
 constexpr auto operator<=>(const Str1& lhs, const Str2& rhs) noexcept {
     return basic_string_view {lhs} <=> rhs;
 }
 
-template<detail::comparable_string Str>
+template<str::detail::comparable_string Str>
 constexpr auto operator<=>(const Str& lhs, const typename Str::value_type* rhs) noexcept {
     return basic_string_view {lhs} <=> rhs;
 }

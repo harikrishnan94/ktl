@@ -12,7 +12,7 @@ class basic_static_string;
 template<typename CharT, std::integral Size, typename Traits = std::char_traits<CharT>>
     requires(!std::is_const_v<CharT>)
 class fixed_string:
-    public detail::
+    public str::detail::
         string_ops<CharT, Traits, std::make_unsigned_t<Size>, fixed_string<CharT, Size, Traits>> {
   public:
     using traits_type = Traits;
@@ -26,7 +26,7 @@ class fixed_string:
 
   private:
     using base =
-        detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, size_type, Traits>>;
+        str::detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, size_type, Traits>>;
 
   public:
     fixed_string() = delete;
@@ -66,13 +66,14 @@ class fixed_string:
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, Size, Traits>>;
+    friend class str::detail::
+        string_ops<CharT, Traits, size_type, fixed_string<CharT, Size, Traits>>;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> str::detail::string_storage<const CharT> {
         return {.begin = m_chars, .end = m_chars + *m_len, .end_cap = m_chars + m_capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::string_storage<CharT> {
+    constexpr auto get_storage() noexcept -> str::detail::string_storage<CharT> {
         return {.begin = m_chars, .end = m_chars + *m_len, .end_cap = m_chars + m_capacity};
     }
 
@@ -98,7 +99,7 @@ class fixed_string:
     friend class detail::RealAsanAnnotator;
 
     constexpr auto get_storage_for_asan_annotator() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> str::detail::string_storage<const CharT> {
         return get_storage();
     }
 

@@ -17,7 +17,8 @@ template<
     typename GP = default_growth_policy>
     requires(std::is_trivial_v<CharT> && growth_policy<GP>) || growth_policy_for<GP, Allocator>
 class basic_string:
-    public detail::string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator, GP>> {
+    public str::detail::
+        string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator, GP>> {
   public:
     using traits_type = Traits;
     using allocator_type = Allocator;
@@ -31,8 +32,8 @@ class basic_string:
 
   private:
     using alloc_traits = allocator_traits<Allocator>;
-    using base =
-        detail::string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
+    using base = str::detail::
+        string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
 
   public:
     // ------------------------ Special member functions --------------------------
@@ -178,7 +179,7 @@ class basic_string:
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::
+    friend class str::detail::
         string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
 
     // NOLINTBEGIN(*-pro-type-union-access)
@@ -315,11 +316,11 @@ class basic_string:
     // NOLINTEND(*-pro-type-union-access)
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> str::detail::string_storage<const CharT> {
         auto [_, chars, len, capacity] = m_storage.extract();
         return {.begin = chars, .end = chars + len, .end_cap = chars + capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::string_storage<CharT> {
+    constexpr auto get_storage() noexcept -> str::detail::string_storage<CharT> {
         auto [_, chars, len, capacity] = m_storage.extract();
         return {.begin = chars, .end = chars + len, .end_cap = chars + capacity};
     }
@@ -389,7 +390,7 @@ class basic_string:
     friend class detail::RealAsanAnnotator;
 
     constexpr auto get_storage_for_asan_annotator() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> str::detail::string_storage<const CharT> {
         return get_storage();
     }
 

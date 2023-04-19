@@ -11,7 +11,7 @@
 
 #include "contiguous_container_common_defs.hpp"
 
-namespace ktl::detail {
+namespace ktl::vec::detail {
 // Determine the size_type for the given capacity
 template<auto Capacity>
 using size_t = std::conditional_t<
@@ -520,10 +520,10 @@ concept comparable_vector = requires(const V& v) {
         same_as<std::iter_value_t<std::decay_t<decltype(std::end(v))>>, typename V::value_type>;
 };
 
-}  // namespace ktl::detail
+}  // namespace ktl::vec::detail
 
 namespace ktl {
-template<detail::comparable_vector Vec1, detail::comparable_vector Vec2>
+template<vec::detail::comparable_vector Vec1, vec::detail::comparable_vector Vec2>
     requires std::equality_comparable_with<typename Vec1::value_type, typename Vec2::value_type>
 constexpr auto operator==(const Vec1& lhs, const Vec2& rhs) noexcept -> bool {
     auto beg1 = std::begin(lhs);
@@ -539,7 +539,7 @@ constexpr auto operator==(const Vec1& lhs, const Vec2& rhs) noexcept -> bool {
     return std::equal(beg1, end1, beg2);
 }
 
-template<detail::comparable_vector Vec1, detail::comparable_vector Vec2>
+template<vec::detail::comparable_vector Vec1, vec::detail::comparable_vector Vec2>
     requires std::three_way_comparable_with<typename Vec1::value_type, typename Vec2::value_type>
 constexpr auto operator<=>(const Vec1& lhs, const Vec2& rhs) noexcept {
     return std::lexicographical_compare_three_way(

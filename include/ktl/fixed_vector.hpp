@@ -14,7 +14,7 @@ class static_vector;
 template<typename T, std::integral Size>
     requires(!std::is_const_v<T>)
 class fixed_vector:
-    public detail::vector_ops<T, std::make_unsigned_t<Size>, fixed_vector<T, Size>> {
+    public vec::detail::vector_ops<T, std::make_unsigned_t<Size>, fixed_vector<T, Size>> {
   public:
     using value_type = T;
     using size_type = std::make_unsigned_t<Size>;
@@ -25,7 +25,7 @@ class fixed_vector:
     using const_pointer = const T*;
 
   private:
-    using base = detail::vector_ops<T, size_type, fixed_vector<T, size_type>>;
+    using base = vec::detail::vector_ops<T, size_type, fixed_vector<T, size_type>>;
 
   public:
     static_assert(
@@ -69,12 +69,13 @@ class fixed_vector:
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::vector_ops<T, size_type, fixed_vector<T, size_type>>;
+    friend class vec::detail::vector_ops<T, size_type, fixed_vector<T, size_type>>;
 
-    [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
+    [[nodiscard]] constexpr auto get_storage() const noexcept
+        -> vec::detail::vector_storage<const T> {
         return {.begin = m_data, .end = m_data + *m_len, .end_cap = m_data + m_capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::vector_storage<T> {
+    constexpr auto get_storage() noexcept -> vec::detail::vector_storage<T> {
         return {.begin = m_data, .end = m_data + *m_len, .end_cap = m_data + m_capacity};
     }
 
@@ -100,7 +101,7 @@ class fixed_vector:
     friend class detail::RealAsanAnnotator;
 
     constexpr auto get_storage_for_asan_annotator() const noexcept
-        -> detail::vector_storage<const T> {
+        -> vec::detail::vector_storage<const T> {
         return get_storage();
     }
 
