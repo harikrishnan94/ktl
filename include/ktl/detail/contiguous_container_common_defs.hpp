@@ -19,26 +19,6 @@ namespace detail {
         };
         { c.erase(std::begin(c), std::end(c)) };
     };
-
-    // Very specific implementation, shared by both static_string and static_vector
-    template<typename Container>
-    constexpr void swap_contiguous_static_containers(Container& a, Container& b) noexcept {
-        auto a_len = a.m_len;
-        auto b_len = b.m_len;
-        auto a_begin = a.get_storage().begin;
-        auto b_begin = b.get_storage().begin;
-
-        if (a_len > b_len) {
-            std::swap_ranges(a_begin, a_begin + b_len, b_begin);
-            uninitialized_move_n(a_begin + b_len, a_len - b_len, b_begin);
-        } else {
-            std::swap_ranges(a_begin, a_begin + a_len, b_begin);
-            uninitialized_move_n(b_begin + a_len, b_len - a_len, a_begin);
-        }
-
-        using std::swap;
-        swap(a.m_len, b.m_len);
-    }
 }  // namespace detail
 
 template<detail::erasable Container, typename T>
@@ -60,4 +40,26 @@ constexpr auto erase_if(Container& c, Pred pred) -> typename Container::size_typ
     c.erase(it, end);
     return r;
 }
+
+namespace detail {
+    // Very specific implementation, shared by both static_string and static_vector
+    template<typename Container>
+    constexpr void swap_contiguous_static_containers(Container& a, Container& b) noexcept {
+        auto a_len = a.m_len;
+        auto b_len = b.m_len;
+        auto a_begin = a.get_storage().begin;
+        auto b_begin = b.get_storage().begin;
+
+        if (a_len > b_len) {
+            std::swap_ranges(a_begin, a_begin + b_len, b_begin);
+            uninitialized_move_n(a_begin + b_len, a_len - b_len, b_begin);
+        } else {
+            std::swap_ranges(a_begin, a_begin + a_len, b_begin);
+            uninitialized_move_n(b_begin + a_len, b_len - a_len, a_begin);
+        }
+
+        using std::swap;
+        swap(a.m_len, b.m_len);
+    }
+}  // namespace detail
 }  // namespace ktl

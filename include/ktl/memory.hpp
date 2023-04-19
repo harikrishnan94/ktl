@@ -297,12 +297,22 @@ struct default_growth_policy {
         return std::max(old_cap * 2, req_cap);
     }
 };
+}  // namespace ktl
 
-#if __SANITIZE_ADDRESS__ == 1
-    #define ASAN_ENABLED 1
-#elif defined(__has_feature)
+#ifdef __has_feature
     #if __has_feature(address_sanitizer)
-        #define ASAN_ENABLED 1
+        #define __SANITIZE_ADDRESS__ 1
     #endif
 #endif
+
+#if __SANITIZE_ADDRESS__ == 1 || defined(__CLANGD__)
+namespace ktl {
+static constexpr auto ASAN_ENABLED = true;
+static constexpr usize ASAN_MIN_ALIGN = 8;
 }  // namespace ktl
+    #include <sanitizer/common_interface_defs.h>
+#else
+namespace ktl {
+static constexpr auto ASAN_ENABLED = false;
+}
+#endif

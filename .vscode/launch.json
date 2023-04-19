@@ -8,7 +8,12 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${command:cmake.getLaunchTargetDirectory}",
-            "environment": [],
+            "environment": [
+                {
+                    "name": "ASAN_OPTIONS",
+                    "value": "abort_on_error=1"
+                }
+            ],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [

@@ -45,18 +45,18 @@ class BumpAllocator {
     using is_noop_dealloc = std::true_type;
 
     auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
-        auto idx = allocated;
-        if (allocated + n > Capacity) {
-            Throw(Error::BufferFull);
+        void* current = arr.data() + (arr.size() - remaining);
+        auto* ptr = std::align(ALIGN, n, current, remaining);
+        if (ptr == nullptr) {
+            Throw(Error::OutOfMemory);
         }
-        allocated += n;
-
-        return std::bit_cast<T*>(&at(arr, idx * sizeof(T)));
+        return static_cast<T*>(ptr);
     }
 
   private:
-    alignas(T) static inline std::array<char, Capacity * sizeof(T)> arr = {};
-    static inline usize allocated = 0;
+    static constexpr auto ALIGN = ASAN_ENABLED ? std::min(alignof(T), ASAN_MIN_ALIGN) : alignof(T);
+    static inline std::array<char, Capacity * sizeof(T)> arr = {};
+    static inline usize remaining = arr.size();
 };
 #endif
 }  // namespace ktl
