@@ -38,6 +38,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
 
     constexpr ~vector() {
         this->clear();
+        AsanAnnotator<vector>::end_lifetime(*this);
         alloc_traits::deallocate(m_alloc, m_data, m_capacity);
     }
 

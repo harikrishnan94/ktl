@@ -82,6 +82,7 @@ class basic_static_string:
         requires(ASAN_ENABLED)
     {
         this->clear();
+        AsanAnnotator<basic_static_string>::end_lifetime(*this);
     }
 
     template<typename CharU, auto Cap, typename TraitsT>

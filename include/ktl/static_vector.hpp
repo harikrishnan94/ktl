@@ -49,6 +49,7 @@ class static_vector:
         requires(!std::is_trivially_destructible_v<T> || ASAN_ENABLED)
     {
         this->clear();
+        AsanAnnotator<static_vector>::end_lifetime(*this);
     }
 
     constexpr static_vector(const static_vector& o) noexcept : m_len {o.m_len} {

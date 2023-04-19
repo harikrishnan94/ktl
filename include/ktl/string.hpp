@@ -53,6 +53,7 @@ class basic_string:
         if (!is_short) {
             alloc_traits::deallocate(m_alloc, chars, capacity);
         }
+        AsanAnnotator<basic_string>::end_lifetime(*this);
     }
 
     constexpr basic_string(const basic_string&) = delete;

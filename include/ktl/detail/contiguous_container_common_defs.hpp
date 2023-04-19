@@ -96,6 +96,15 @@ namespace detail {
             }
         }
 
+        constexpr static void end_lifetime(ContiguousContainer& cont) noexcept {
+            if (!std::is_constant_evaluated()) {
+                auto [begin, end, end_cap] = cont.get_storage_for_asan_annotator();
+                if (begin) {
+                    __sanitizer_annotate_contiguous_container(begin, end_cap, end, end_cap);
+                }
+            }
+        }
+
         constexpr void allow_full_access() noexcept {
             if (!std::is_constant_evaluated()) {
                 if (m_beg) {
