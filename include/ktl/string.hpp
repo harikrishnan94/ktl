@@ -373,7 +373,7 @@ class basic_string:
     }
 
     constexpr auto set_len(usize new_len) noexcept {
-        auto [_is_short, _chars, _len, capacity] = m_storage.extract();
+        [[maybe_unused]] auto [_is_short, _chars, _len, capacity] = m_storage.extract();
         assert(new_len <= capacity && "length cannot exceed capacity");
         m_storage.set_len(new_len);
     }

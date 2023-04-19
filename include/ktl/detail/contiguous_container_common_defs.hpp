@@ -141,12 +141,11 @@ namespace detail {
         typename ContiguousContainer::const_pointer m_end;
     };
 
-    template<typename ContiguousContainer>
     struct [[maybe_unused]] DummyAsanAnnotator {
-        constexpr explicit DummyAsanAnnotator(
-            [[maybe_unused]] const ContiguousContainer& /*cont*/) {}
+        constexpr explicit DummyAsanAnnotator([[maybe_unused]] const auto& /*cont*/) {}
 
-        constexpr static void start_lifetime() noexcept {}
+        constexpr static void start_lifetime(auto& /* cont */) noexcept {}
+        constexpr static void end_lifetime(auto& /* cont */) noexcept {}
         constexpr void allow_full_access() noexcept {}
         constexpr void deallocate() noexcept {}
         constexpr void update() noexcept {}
@@ -157,7 +156,7 @@ template<typename ContiguousContainer>
 using AsanAnnotator = std::conditional_t<
     ASAN_ENABLED,
     detail::RealAsanAnnotator<ContiguousContainer>,
-    detail::DummyAsanAnnotator<ContiguousContainer>>;
+    detail::DummyAsanAnnotator>;
 
 namespace detail {
     // Very specific implementation, shared by both static_string and static_vector
