@@ -1230,6 +1230,11 @@ class string_ops {
 
 #undef as_view
 
+    constexpr auto get_storage_impl() const noexcept -> string_storage<const CharT> {
+        static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
+        return static_cast<const StringT*>(this)->get_storage();
+    }
+
     constexpr auto get_storage() const noexcept -> string_storage<const CharT> {
         static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
         auto res = static_cast<const StringT*>(this)->get_storage();

@@ -250,9 +250,4 @@ constexpr auto make_vector(InputIt first, InputIt last, const Alloc& a = Alloc {
 
     return vec;
 }
-
-template<typename T, allocator_for<T> Allocator, typename GP>
-constexpr void swap(vector<T, Allocator, GP>& v1, vector<T, Allocator, GP>& v2) noexcept {
-    v1.swap(v2);
-}
 }  // namespace ktl

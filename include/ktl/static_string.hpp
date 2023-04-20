@@ -117,8 +117,8 @@ class basic_static_string:
         if (this == &o) {
             return *this;
         }
+        this->adjust_lifetime(o.m_len);
         m_len = o.m_len;
-        this->adjust_lifetime(m_len);
         ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
@@ -127,8 +127,8 @@ class basic_static_string:
         if (this == &o) {
             return *this;
         }
+        this->adjust_lifetime(o.m_len);
         m_len = o.m_len;
-        this->adjust_lifetime(m_len);
         ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }

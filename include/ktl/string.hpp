@@ -463,11 +463,4 @@ make_string(std::initializer_list<CharT> ilist, const Allocator& alloc = Allocat
     TryV(str.assign(ilist));
     return str;
 }
-
-template<typename CharT, typename Traits, allocator_for<CharT> Allocator, typename GP>
-constexpr void swap(
-    basic_string<CharT, Traits, Allocator, GP>& s1,
-    basic_string<CharT, Traits, Allocator, GP>& s2) noexcept {
-    s1.swap(s2);
-}
 }  // namespace ktl

@@ -21,6 +21,11 @@ namespace detail {
         };
         { c.erase(std::begin(c), std::end(c)) };
     };
+
+    template<typename Container>
+    concept has_swap_mem_fn = requires(Container c) {
+        { c.swap(c) } -> std::same_as<void>;
+    };
 }  // namespace detail
 
 template<detail::erasable Container, typename T>
@@ -43,6 +48,11 @@ constexpr auto erase_if(Container& c, Pred pred) -> typename Container::size_typ
     return r;
 }
 
+template<detail::has_swap_mem_fn Container>
+constexpr auto swap(Container& c1, Container& c2) noexcept {
+    c1.swap(c2);
+}
+
 namespace detail {
     // Very specific implementation, shared by both static_string and static_vector
     template<std::movable T, std::integral SizeT>
@@ -54,10 +64,10 @@ namespace detail {
 
         if (a_len > b_len) {
             std::swap_ranges(a_begin, a_begin + b_len, b_begin);
-            uninitialized_move_n(a_begin + b_len, a_len - b_len, b_begin);
+            ktl::uninitialized_move_n(a_begin + b_len, a_len - b_len, b_begin + b_len);
         } else {
             std::swap_ranges(a_begin, a_begin + a_len, b_begin);
-            uninitialized_move_n(b_begin + a_len, b_len - a_len, a_begin);
+            ktl::uninitialized_move_n(b_begin + a_len, b_len - a_len, a_begin + a_len);
         }
 
         using std::swap;
@@ -81,7 +91,7 @@ namespace detail {
     constexpr void start_lifetime() const noexcept { \
         if constexpr (ASAN_ENABLED) { \
             if (!std::is_constant_evaluated()) { \
-                auto [begin, end, end_cap] = get_storage(); \
+                auto [begin, end, end_cap] = get_storage_impl(); \
                 sanitizer_annotate_contiguous_container(begin, end_cap, end_cap, end); \
             } \
         } \
@@ -89,7 +99,7 @@ namespace detail {
     constexpr void end_lifetime() const noexcept { \
         if constexpr (ASAN_ENABLED) { \
             if (!std::is_constant_evaluated()) { \
-                auto [begin, end, end_cap] = get_storage(); \
+                auto [begin, end, end_cap] = get_storage_impl(); \
                 if (begin != nullptr) { \
                     sanitizer_annotate_contiguous_container(begin, end_cap, end, end_cap); \
                 } \
@@ -102,7 +112,7 @@ namespace detail {
                 if constexpr (requires(const container& cont) { cont.adjust_lifetime_impl(0); }) { \
                     static_cast<const container&>(*this).adjust_lifetime_impl(new_len); \
                 } else { \
-                    auto [begin, end, end_cap] = get_storage(); \
+                    auto [begin, end, end_cap] = get_storage_impl(); \
                     check_( \
                         static_cast<usize>(end_cap - begin) >= new_len, \
                         "asan annotation bug: adjust_lifetime"); \

@@ -336,13 +336,15 @@ class vector_ops {
         check_(first >= cbegin() && first <= cend(), "iterator does not belong to the container");
         check_(last >= first && last <= cend(), "iterator range does not belong to the container");
 
+        auto last_ind = std::distance(cbegin(), last);
         if (first == last) {
-            return begin() + std::distance(cbegin(), last);
+            return begin() + last_ind;
         }
 
         auto it = begin() + std::distance(cbegin(), first);
-        std::move(last, cend(), it);
-        set_len<UpdateLifetime>(size() - std::distance(first, last));
+        auto [beg, end, _] = get_storage();
+        std::move(beg + last_ind, end, it);
+        set_len<UpdateLifetime>(end - beg - std::distance(first, last));
         return it;
     }
 
@@ -481,6 +483,11 @@ class vector_ops {
 
         set_len<!UpdateLifetime>(new_len);
         return {};
+    }
+
+    constexpr auto get_storage_impl() const noexcept -> vector_storage<const T> {
+        static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a string");
+        return static_cast<const VectorT*>(this)->get_storage();
     }
 
     constexpr auto get_storage() const noexcept -> vector_storage<const T> {
