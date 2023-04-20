@@ -1,5 +1,4 @@
 #include <bit>
-#include <ktl/test/platform.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
@@ -7,6 +6,7 @@
 #include <ktl/fmt/format.hpp>
 #include <ktl/int.hpp>
 #include <ktl/sanitizer.hpp>
+#include <ktl/test/platform.hpp>
 
 using namespace ktl;
 

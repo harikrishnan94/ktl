@@ -27,11 +27,11 @@ static void svector_operators_test();
 static void vector_test();
 
 static void svector_test() {
-    static_assert(sizeof(static_vector<u8, 3>) == sizeof(u8) * 4);
-    static_assert(sizeof(static_vector<u16, 3>) == sizeof(u16) * 4);
-    static_assert(sizeof(static_vector<u32, 3>) == sizeof(u32) * 4);
-    static_assert(sizeof(static_vector<u64, 3>) == sizeof(u64) * 4);
-    static_assert(std::is_trivially_destructible_v<static_vector<u64, 3>>);
+    static_assert(ASAN_ENABLED ? true : sizeof(static_vector<u8, 3>) == sizeof(u8) * 4);
+    static_assert(ASAN_ENABLED ? true : sizeof(static_vector<u16, 3>) == sizeof(u16) * 4);
+    static_assert(ASAN_ENABLED ? true : sizeof(static_vector<u32, 3>) == sizeof(u32) * 4);
+    static_assert(ASAN_ENABLED ? true : sizeof(static_vector<u64, 3>) == sizeof(u64) * 4);
+    static_assert(ASAN_ENABLED ? true : std::is_trivially_destructible_v<static_vector<u64, 3>>);
     static_assert(make_static_vector<4>(1, 2, 3).size() == 3);
     static_assert(make_static_vector(1.0, 2, 3, .0f)[0] == 1.0);
 
@@ -499,8 +499,8 @@ void svector_operators_test() {
 
 void vector_test() {
     [[maybe_unused]] static constinit auto sanity = [] {
-        auto v1 = *make_vector<int, ConstAllocator<int>>({1, 1, 1});
-        auto v2 = *make_vector<int, ConstAllocator<int>>(3, 1);
+        auto v1 = *make_vector<int, Allocator<int>>({1, 1, 1});
+        auto v2 = *make_vector<int, Allocator<int>>(3, 1);
         auto v3 = clone(v1);
 
         static_assert(sizeof(v1) == 24);  // Empty allocator must not consume space.
@@ -540,7 +540,7 @@ void vector_test() {
     }();
 
     [[maybe_unused]] static constinit auto non_trivial = [] {
-        vector<int_t, ConstAllocator<int_t>> v1;
+        vector<int_t, Allocator<int_t>> v1;
 
         check_(v1.assign({int_t {}, int_t {1}, int_t {2}}), "");
 
@@ -588,7 +588,7 @@ void vector_test() {
             }
         };
 
-        vector<move_test, BumpAllocator<move_test>> vec;
+        vector<move_test, Allocator<move_test>> vec;
 
         check_(vec.empty(), "vector must be empty");
         check_(vec.push_back({}), "push_back must succeed");
@@ -644,7 +644,7 @@ void vector_test() {
             }
         };
 
-        vector<non_copyable, ConstAllocator<non_copyable>> vec;
+        vector<non_copyable, Allocator<non_copyable>> vec;
 
         check_(vec.push_back({1}), "");
         check_(vec.insert(vec.end(), non_copyable {2}), "");

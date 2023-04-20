@@ -31,3 +31,9 @@ RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
 RUN (echo '#!/usr/bin/env bash' && \
     echo 'bashit enable plugin alias-completion colors edit-mode-vi explain extract git gitstatus git-subrepo history-eternal history history-search history-substring-search man projects sudo' && \
     echo 'bashit enable alias apt bash-it git tmux vim') > /usr/local/bin/enable-bashit-common && chmod +x /usr/local/bin/enable-bashit-common
+
+# Set timezone
+RUN apt update && \
+    apt install -yq tzdata && \
+    ln -fs /usr/share/zoneinfo/America/Kolkata /etc/localtime && \
+    dpkg-reconfigure -f noninteractive tzdata

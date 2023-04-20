@@ -9,7 +9,7 @@ class fixed_vector;
 
 template<typename T, allocator_for<T> Allocator, typename GP = default_growth_policy>
     requires growth_policy<GP> || growth_policy_for<GP, Allocator>
-class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
+class vector: public detail::vec::vector_ops<T, usize, vector<T, Allocator, GP>> {
   public:
     using value_type = T;
     using size_type = usize;
@@ -21,7 +21,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
     using allocator_type = Allocator;
 
   private:
-    using base = detail::vector_ops<T, size_type, vector<T, Allocator, GP>>;
+    using base = detail::vec::vector_ops<T, size_type, vector<T, Allocator, GP>>;
     using alloc_traits = allocator_traits<Allocator>;
 
   public:
@@ -30,7 +30,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
         && std::is_nothrow_destructible_v<T>);
 
     // ------------------------ Special member functions --------------------------
-    constexpr vector() = default;
+    vector() = default;
 
     constexpr explicit vector(const Allocator& a) : m_alloc {a} {}
 
@@ -39,8 +39,8 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
         alloc_traits::deallocate(m_alloc, m_data, m_capacity);
     }
 
-    constexpr vector(const vector&) = delete;
-    constexpr auto operator=(const vector&) -> vector& = delete;
+    vector(const vector&) = delete;
+    auto operator=(const vector&) -> vector& = delete;
 
     constexpr vector(vector&& o) noexcept :
         m_data {std::exchange(o.m_data, nullptr)},
@@ -133,7 +133,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
             if (m_len > 0) [[likely]] {
                 Try(new_data, alloc_traits::allocate(m_alloc, m_len));
 
-                uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+                ktl::uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
                 alloc_traits::deallocate(m_alloc, m_data, m_capacity);
                 m_data = new_data;
                 m_capacity = m_len;
@@ -149,7 +149,7 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::vector_ops<T, size_type, vector<T, Allocator, GP>>;
+    friend class detail::vec::vector_ops<T, size_type, vector<T, Allocator, GP>>;
 
     constexpr auto swap_storage(vector& o) noexcept {
         using std::swap;
@@ -158,18 +158,19 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
         swap(m_len, o.m_len);
     }
 
-    [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
+    [[nodiscard]] constexpr auto get_storage() const noexcept
+        -> detail::vec::vector_storage<const T> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
         return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::vector_storage<T> {
+    constexpr auto get_storage() noexcept -> detail::vec::vector_storage<T> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
         return {.begin = m_data, .end = m_data + m_len, .end_cap = m_data + m_capacity};
     }
 
     constexpr auto grow(usize req_cap) noexcept -> expected<void, Error> {
         return grow_impl(req_cap, [](auto* new_data, auto* data, auto len) {
-            uninitialized_move_n(data, len, new_data);
+            ktl::uninitialized_move_n(data, len, new_data);
         });
     }
     constexpr auto grow_uninit(usize req_cap) noexcept -> expected<void, Error> {
@@ -179,14 +180,13 @@ class vector: public detail::vector_ops<T, usize, vector<T, Allocator, GP>> {
         });
     }
 
-    template<typename Transfer>
-    constexpr auto grow_impl(usize req_cap, Transfer&& transfer) noexcept -> expected<void, Error> {
+    constexpr auto grow_impl(usize req_cap, auto&& transfer) noexcept -> expected<void, Error> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
         if (req_cap > m_capacity) [[unlikely]] {
             auto new_cap = ktl::grow<GP>(m_alloc, m_capacity, req_cap);
             Try(new_data, alloc_traits::allocate(m_alloc, new_cap));
 
-            std::invoke(std::forward<Transfer>(transfer), static_cast<T*>(new_data), m_data, m_len);
+            transfer(static_cast<T*>(new_data), m_data, m_len);
             alloc_traits::deallocate(m_alloc, m_data, m_capacity);
             m_data = new_data;
             m_capacity = new_cap;

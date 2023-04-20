@@ -43,12 +43,12 @@ constexpr auto erase_if(Container& c, Pred pred) -> typename Container::size_typ
 
 namespace detail {
     // Very specific implementation, shared by both static_string and static_vector
-    template<typename Container>
-    constexpr void swap_contiguous_static_containers(Container& a, Container& b) noexcept {
-        auto a_len = a.m_len;
-        auto b_len = b.m_len;
-        auto a_begin = a.get_storage().begin;
-        auto b_begin = b.get_storage().begin;
+    template<std::movable T, std::integral SizeT>
+    constexpr void swap_range_with_len(T* r1, SizeT& len1, T* r2, SizeT& len2) noexcept {
+        auto a_len = len1;
+        auto b_len = len2;
+        auto a_begin = r1;
+        auto b_begin = r2;
 
         if (a_len > b_len) {
             std::swap_ranges(a_begin, a_begin + b_len, b_begin);
@@ -59,7 +59,7 @@ namespace detail {
         }
 
         using std::swap;
-        swap(a.m_len, b.m_len);
+        swap(len1, len2);
     }
 }  // namespace detail
 }  // namespace ktl

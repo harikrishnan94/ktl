@@ -308,7 +308,6 @@ struct default_growth_policy {
 #if __SANITIZE_ADDRESS__ == 1 || defined(__CLANGD__)
 namespace ktl {
 static constexpr auto ASAN_ENABLED = true;
-static constexpr usize ASAN_MIN_ALIGN = 8;
 }  // namespace ktl
     #include <sanitizer/common_interface_defs.h>
 #else
@@ -316,3 +315,8 @@ namespace ktl {
 static constexpr auto ASAN_ENABLED = false;
 }
 #endif
+
+namespace ktl {
+template<typename T>
+constexpr usize ASAN_ALIGN = ASAN_ENABLED ? std::max<usize>(alignof(T), 8) : alignof(T);
+}

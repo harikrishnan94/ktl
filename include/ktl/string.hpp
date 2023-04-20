@@ -17,7 +17,8 @@ template<
     typename GP = default_growth_policy>
     requires(std::is_trivial_v<CharT> && growth_policy<GP>) || growth_policy_for<GP, Allocator>
 class basic_string:
-    public detail::string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator, GP>> {
+    public detail::str::
+        string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator, GP>> {
   public:
     using traits_type = Traits;
     using allocator_type = Allocator;
@@ -31,8 +32,8 @@ class basic_string:
 
   private:
     using alloc_traits = allocator_traits<Allocator>;
-    using base =
-        detail::string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
+    using base = detail::str::
+        string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
 
   public:
     // ------------------------ Special member functions --------------------------
@@ -49,12 +50,16 @@ class basic_string:
         }
     }
 
-    constexpr basic_string(const basic_string&) = delete;
-    constexpr auto operator=(const basic_string&) -> basic_string& = delete;
+    basic_string(const basic_string&) = delete;
+    auto operator=(const basic_string&) -> basic_string& = delete;
 
     constexpr basic_string(basic_string&& o) noexcept :
-        m_storage(std::move(o.m_storage).take()),
-        m_alloc {std::move(o.m_alloc)} {}
+        m_storage(std::exchange(o.m_storage, {})),
+        m_alloc {std::move(o.m_alloc)} {
+        if (std::is_constant_evaluated()) {
+            o.const_init();
+        }
+    }
 
     // Based on Howard Hinnat's answer: https://stackoverflow.com/a/27472502
     constexpr auto operator=(basic_string&& o) noexcept -> basic_string& {
@@ -114,13 +119,13 @@ class basic_string:
 
                 std::construct_at(&m_storage);
                 auto new_chars = std::get<pointer>(m_storage.extract());
-                uninitialized_move_n(chars, len, new_chars);
+                ktl::uninitialized_move_n(chars, len, new_chars);
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_len(len);
             } else {
                 Try(new_chars, alloc_traits::allocate(m_alloc, len));
 
-                uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
+                ktl::uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_long_str(new_chars, len, len);
             }
@@ -160,7 +165,7 @@ class basic_string:
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::
+    friend class detail::str::
         string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
 
     // NOLINTBEGIN(*-pro-type-union-access)
@@ -297,18 +302,18 @@ class basic_string:
     // NOLINTEND(*-pro-type-union-access)
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> detail::str::string_storage<const CharT> {
         auto [_, chars, len, capacity] = m_storage.extract();
         return {.begin = chars, .end = chars + len, .end_cap = chars + capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::string_storage<CharT> {
+    constexpr auto get_storage() noexcept -> detail::str::string_storage<CharT> {
         auto [_, chars, len, capacity] = m_storage.extract();
         return {.begin = chars, .end = chars + len, .end_cap = chars + capacity};
     }
 
     constexpr auto grow(usize req_cap) noexcept -> expected<void, Error> {
         return grow_impl(req_cap, [](CharT* new_chars, auto* chars, auto len) {
-            uninitialized_move_n(chars, len, new_chars);
+            ktl::uninitialized_move_n(chars, len, new_chars);
         });
     }
     constexpr auto grow_uninit(usize req_cap) noexcept -> expected<void, Error> {
@@ -317,23 +322,21 @@ class basic_string:
         });
     }
 
-    template<typename Initializer>
-    constexpr auto grow_impl(usize req_cap, Initializer&& initializer) noexcept
-        -> expected<void, Error> {
-        auto [is_short, chars, len, capacity] = m_storage.extract();
+    constexpr auto grow_impl(usize req_cap, auto&& initializer) noexcept -> expected<void, Error> {
+        auto [was_short, chars, len, capacity] = m_storage.extract();
         assert(len != 0);
 
         if (req_cap > capacity) [[unlikely]] {
-            if (is_short && storage_t::is_short(req_cap)) {
+            if (was_short && storage_t::is_short(req_cap)) {
                 return {};
             }
 
             auto new_cap = ktl::grow<GP>(m_alloc, capacity, req_cap);
             Try(new_chars, alloc_traits::allocate(m_alloc, new_cap));
 
-            std::invoke(std::forward<Initializer>(initializer), new_chars, chars, len);
+            initializer(new_chars, chars, len);
 
-            if (!is_short) {
+            if (!was_short) {
                 alloc_traits::deallocate(m_alloc, chars, capacity);
             }
             m_storage.set_long_str(new_chars, len, new_cap);
@@ -342,7 +345,7 @@ class basic_string:
     }
 
     constexpr auto set_len(usize new_len) noexcept {
-        auto [_is_short, _chars, _len, capacity] = m_storage.extract();
+        [[maybe_unused]] auto [_is_short, _chars, _len, capacity] = m_storage.extract();
         assert(new_len <= capacity && "length cannot exceed capacity");
         m_storage.set_len(new_len);
     }
