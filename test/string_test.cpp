@@ -21,9 +21,8 @@ static void sstring_operators_test();
 static void fstring_test();
 
 static void sstring_test() {
-    static_assert(sizeof(static_string<3>) == sizeof(char) * 4);
-
-    static_assert(std::is_trivially_destructible_v<static_string<3>>);
+    static_assert(ASAN_ENABLED ? true : sizeof(static_string<3>) == sizeof(char) * 4);
+    static_assert(ASAN_ENABLED ? true : std::is_trivially_destructible_v<static_string<3>>);
 
     static_assert(make_static_string("012").size() == 3);
     static_assert(make_static_string<4>("abc").size() == 3);
@@ -857,12 +856,12 @@ constexpr void sanity_test() {
 
 void string_test() {
     [[maybe_unused]] static constinit auto const_test = [] {
-        sanity_test<ConstAllocator<char>>();
+        sanity_test<Allocator<char>>();
         return true;
     }();
 
     // Short string test
-    sanity_test<BumpAllocator<char>>();
+    sanity_test<Allocator<char>>();
 }
 
 auto main() -> int {

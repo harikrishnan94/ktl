@@ -10,9 +10,9 @@
 #include <ktl/memory.hpp>
 #include <ktl/string_view.hpp>
 
-#include "contiguous_common_implementation.hpp"
+#include "contiguous_container_common_defs.hpp"
 
-namespace ktl::detail {
+namespace ktl::detail::str {
 // Determine the size_type for the given capacity
 template<auto Capacity>
 using size_t = std::conditional_t<
@@ -228,18 +228,20 @@ class string_ops {
 
     // --------------------- Member functions ---------------------
 
-    [[nodiscard("must check if push_back succeeded")]] constexpr auto push_back(CharT c) noexcept
-        -> expected<void, Error> {
+    constexpr auto push_back(CharT c) noexcept -> expected<void, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
+        auto new_len = len + 1;
         if (end == end_cap) [[unlikely]] {
-            TryV(grow(len + 1));
+            TryV(grow(new_len));
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_len);
         }
         std::construct_at(end - 1, c);
         std::construct_at(end, NUL);
-        set_len(len + 1);
+        set_len<!UpdateLifetime>(new_len);
         return {};
     }
 
@@ -250,27 +252,24 @@ class string_ops {
         check_(len != 1, "cannot pop_back empty string");  // Contains trailing NUL char
 
         std::construct_at(end - 2, NUL);
-        set_len(len - 1);
+        set_len<UpdateLifetime>(len - 1);
     }
 
     constexpr void clear() noexcept {
         auto [begin, _end, _end_cap] = get_storage();
         std::construct_at(begin, NUL);  // Empty NUL terminate,string
-        set_len(1);
+        set_len<UpdateLifetime>(1);
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto
-    resize(SizeT count, CharT ch) noexcept -> expected<void, Error> {
+    constexpr auto resize(SizeT count, CharT ch) noexcept -> expected<void, Error> {
         return resize_impl<true>(count, ch);
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto resize(SizeT new_len) noexcept
-        -> expected<void, Error> {
+    constexpr auto resize(SizeT new_len) noexcept -> expected<void, Error> {
         return resize(new_len, NUL);
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto
-    resize_uninitialized(SizeT new_len) noexcept -> expected<void, Error> {
+    constexpr auto resize_uninitialized(SizeT new_len) noexcept -> expected<void, Error> {
         return resize_impl<false>(new_len, NUL);
     }
 
@@ -417,10 +416,10 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         if constexpr (std::convertible_to<IndexT, SizeT>) {
             Try(it, make_space_at(index, count));
-            uninitialized_fill_n(it, count, ch);
+            ktl::uninitialized_fill_n(it, count, ch);
         } else {
             Try(it, make_space_at(index, count));
-            uninitialized_fill_n(it, count, ch);
+            ktl::uninitialized_fill_n(it, count, ch);
         }
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -429,7 +428,7 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         Try(it, make_space_at(index, count));
 
-        uninitialized_copy_n(s, count, it);
+        ktl::uninitialized_copy_n(s, count, it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -464,7 +463,7 @@ class string_ops {
         auto str = as_view(t);
         Try(it, make_space_at(index, str.size()));
 
-        uninitialized_copy_n(str.begin(), str.size(), it);
+        ktl::uninitialized_copy_n(str.begin(), str.size(), it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -486,7 +485,7 @@ class string_ops {
         auto n = std::distance(first, last);
         Try(it, make_space_at(pos, n));
 
-        uninitialized_copy_n(first, n, it);
+        ktl::uninitialized_copy_n(first, n, it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -516,7 +515,7 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         Try(it, make_space_at(pos, ilist.size()));
 
-        uninitialized_copy_n(ilist.begin(), ilist.size(), it);
+        ktl::uninitialized_copy_n(ilist.begin(), ilist.size(), it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -668,7 +667,7 @@ class string_ops {
         }
 
         count = std::min<SizeT>(count, size - pos);
-        auto dest_last = uninitialized_copy_n(beg + pos, count, dest);
+        auto dest_last = ktl::uninitialized_copy_n(beg + pos, count, dest);
 
         return std::distance(dest, dest_last);
     }
@@ -961,7 +960,7 @@ class string_ops {
             end = std::move(beg + pos, beg + pos + count, beg);
         }
         std::construct_at(beg + count, NUL);
-        set_len(count + 1);
+        set_len<UpdateLifetime>(count + 1);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -985,7 +984,13 @@ class string_ops {
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
+    ASAN_ANNOTATION_HELPERS;
+
   private:
+    using container = StringT;
+
+    static constexpr bool UpdateLifetime = true;
+
     constexpr void erase_impl(SizeT index, SizeT count) noexcept {
         check_(index < size(), "erase index cannot exceed string length");
 
@@ -995,7 +1000,7 @@ class string_ops {
         auto size = end - beg;
 
         std::move(beg + index + count, end, beg + index);
-        set_len(size - count);
+        set_len<UpdateLifetime>(size - count);
     }
 
     constexpr auto
@@ -1007,7 +1012,7 @@ class string_ops {
             pos + std::min<usize>(count, str_len),
             static_cast<isize>(count) - static_cast<isize>(str_len)));
 
-        uninitialized_copy_n(str.begin(), str_len, begin() + pos);
+        ktl::uninitialized_copy_n(str.begin(), str_len, begin() + pos);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1029,7 +1034,7 @@ class string_ops {
 
         check_(pos + count <= size(), "replace range must be valid");
         TryV(shift_chars_at(pos + std::min(count, str_len), count - str_len));
-        uninitialized_copy_n(first2, str_len, begin() + pos);
+        ktl::uninitialized_copy_n(first2, str_len, begin() + pos);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1042,7 +1047,7 @@ class string_ops {
 
         check_(pos + count <= size(), "replace range must be valid");
         TryV(shift_chars_at(pos + std::min(count, times), count - times));
-        uninitialized_fill_n(begin() + pos, times, ch);
+        ktl::uninitialized_fill_n(begin() + pos, times, ch);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1053,7 +1058,7 @@ class string_ops {
         TryV(shift_chars_at(
             pos + std::min<isize>(count, times),
             static_cast<isize>(count) - static_cast<isize>(times)));
-        uninitialized_fill_n(begin() + pos, times, ch);
+        ktl::uninitialized_fill_n(begin() + pos, times, ch);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1074,17 +1079,20 @@ class string_ops {
         auto [beg, end, end_cap] = get_storage();
         usize size = end - beg;
         usize capacity = end_cap - beg;
+        auto new_len = size + count;
 
-        if (size + count > capacity) {
-            TryV(grow(size + count));
+        if (new_len > capacity) {
+            TryV(grow(new_len));
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - beg;
+        } else {
+            adjust_lifetime(new_len);
         }
-        assert(capacity >= size + count);
+        assert(capacity >= new_len);
 
-        uninitialized_move_backward(beg + pos, end, end + count);
-        set_len(size + count);
+        ktl::uninitialized_move_backward(beg + pos, end, end + count);
+        set_len<!UpdateLifetime>(new_len);
 
         return begin() + pos;
     }
@@ -1096,7 +1104,9 @@ class string_ops {
 
     constexpr auto assign_range(std::input_iterator auto first, usize count) noexcept
         -> expected<non_null_ptr, Error> {
-        return assign_impl(count, [&](auto* begin) { uninitialized_copy_n(first, count, begin); });
+        return assign_impl(count, [&](auto* begin) {
+            ktl::uninitialized_copy_n(first, count, begin);
+        });
     }
 
     constexpr auto assign_string_view(basic_string_view<CharT, Traits> str) noexcept
@@ -1105,27 +1115,32 @@ class string_ops {
     }
 
     constexpr auto assign_fill(SizeT count, CharT ch) noexcept -> expected<non_null_ptr, Error> {
-        return assign_impl(count, [&](auto* begin) { uninitialized_fill_n(begin, count, ch); });
+        return assign_impl(count, [&](auto* begin) {
+            ktl::uninitialized_fill_n(begin, count, ch);
+        });
     }
 
     constexpr auto assign_impl(usize count, auto&& initializer) noexcept
         -> expected<non_null_ptr, Error> {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
+        auto new_len = count + 1;
 
-        if (count + 1 > capacity) {  // account for trailing NUL char
-            TryV(grow_uninit(count + 1));
+        if (new_len > capacity) {  // account for trailing NUL char
+            TryV(grow_uninit(new_len));
             // String is cleared and contains enough space to construct count elements
 
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - begin;
+        } else {
+            adjust_lifetime(new_len);
         }
         assert(capacity > count);
 
         initializer(begin);
         std::construct_at(begin + count, NUL);
-        set_len(count + 1);
+        set_len<!UpdateLifetime>(new_len);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1145,7 +1160,7 @@ class string_ops {
     constexpr auto append_range(std::input_iterator auto first, usize count) noexcept
         -> expected<non_null_ptr, Error> {
         return append_impl(count, [&](auto* end) {
-            return uninitialized_copy_n(first, count, end);
+            return ktl::uninitialized_copy_n(first, count, end);
         });
     }
 
@@ -1155,7 +1170,9 @@ class string_ops {
     }
 
     constexpr auto append_fill(SizeT count, CharT ch) noexcept -> expected<non_null_ptr, Error> {
-        return append_impl(count, [&](auto* end) { return uninitialized_fill_n(end, count, ch); });
+        return append_impl(count, [&](auto* end) {
+            return ktl::uninitialized_fill_n(end, count, ch);
+        });
     }
 
     constexpr auto append_impl(usize count, auto&& initializer) noexcept
@@ -1163,18 +1180,21 @@ class string_ops {
         auto [begin, end, end_cap] = get_storage();
         usize capacity = end_cap - begin;
         usize old_len = end - begin - 1;  // account for trailing NUL char
+        auto new_len = old_len + count + 1;
 
-        if (count + old_len + 1 > capacity) {
-            TryV(grow(old_len + count + 1));
+        if (new_len > capacity) {
+            TryV(grow(new_len));
 
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - begin;
+        } else {
+            adjust_lifetime(new_len);
         }
 
         auto new_end = initializer(begin + old_len);
         std::construct_at(new_end, NUL);
-        set_len(old_len + count + 1);
+        set_len<!UpdateLifetime>(new_len);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1190,11 +1210,13 @@ class string_ops {
             TryV(grow(new_len));
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_len);
         }
 
         if constexpr (Initialize) {
             if (count > len - 1) {
-                uninitialized_fill_n(
+                ktl::uninitialized_fill_n(
                     end - 1,
                     count - (len - 1),
                     ch);  // 'end[-1]' contains NUL char
@@ -1202,11 +1224,16 @@ class string_ops {
         }
 
         std::construct_at(begin + count, NUL);
-        set_len(new_len);
+        set_len<!UpdateLifetime>(new_len);
         return {};
     }
 
 #undef as_view
+
+    constexpr auto get_storage_impl() const noexcept -> string_storage<const CharT> {
+        static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
+        return static_cast<const StringT*>(this)->get_storage();
+    }
 
     constexpr auto get_storage() const noexcept -> string_storage<const CharT> {
         static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
@@ -1234,10 +1261,14 @@ class string_ops {
         return static_cast<StringT*>(this)->grow_uninit(req_len);
     }
 
+    template<bool UpdateLifetime>
     constexpr void set_len(SizeT new_len) noexcept {
         static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
         static_cast<StringT*>(this)->set_len(new_len);
         assert(*end() == NUL);  // Must contain trailing NUL char
+        if constexpr (UpdateLifetime) {
+            adjust_lifetime(new_len);
+        }
     }
 };
 
@@ -1247,26 +1278,26 @@ concept comparable_string = requires(const V& v) {
     { static_cast<basic_string_view<typename V::value_type, typename V::traits_type>>(v) };
 };
 
-}  // namespace ktl::detail
+}  // namespace ktl::detail::str
 
 // ---------------------- Comparison Operators ---------------------
 namespace ktl {
-template<detail::comparable_string Str1, detail::comparable_string Str2>
+template<detail::str::comparable_string Str1, detail::str::comparable_string Str2>
 constexpr auto operator==(const Str1& lhs, const Str2& rhs) noexcept -> bool {
     return basic_string_view {lhs} == rhs;
 }
 
-template<detail::comparable_string Str>
+template<detail::str::comparable_string Str>
 constexpr auto operator==(const Str& lhs, const typename Str::value_type* rhs) noexcept -> bool {
     return basic_string_view {lhs} == rhs;
 }
 
-template<detail::comparable_string Str1, detail::comparable_string Str2>
+template<detail::str::comparable_string Str1, detail::str::comparable_string Str2>
 constexpr auto operator<=>(const Str1& lhs, const Str2& rhs) noexcept {
     return basic_string_view {lhs} <=> rhs;
 }
 
-template<detail::comparable_string Str>
+template<detail::str::comparable_string Str>
 constexpr auto operator<=>(const Str& lhs, const typename Str::value_type* rhs) noexcept {
     return basic_string_view {lhs} <=> rhs;
 }

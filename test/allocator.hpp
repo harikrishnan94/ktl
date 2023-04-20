@@ -6,7 +6,7 @@
 
 namespace ktl {
 template<typename T>
-struct ConstAllocator {
+struct Allocator {
   public:
     using value_type = T;
 
@@ -14,49 +14,15 @@ struct ConstAllocator {
         if (std::is_constant_evaluated()) {
             return std::allocator<T> {}.allocate(n);
         }
-#if ASAN_ENABLED == 1
         return std::allocator<T> {}.allocate(n);
-#else
-        check_(false, "must be used only in constexpr expressions");
-#endif
     }
 
     constexpr void deallocate(T* ptr, usize n) noexcept {
         if (std::is_constant_evaluated()) {
             std::allocator<T> {}.deallocate(ptr, n);
         } else {
-#if ASAN_ENABLED == 1
             std::allocator<T> {}.deallocate(ptr, n);
-#else
-            check_(false, "must be used only in constexpr expressions");
-#endif
         }
     }
 };
-
-#if ASAN_ENABLED == 1
-template<typename T, auto Capacity = 0>
-using BumpAllocator = ConstAllocator<T>;
-#else
-template<typename T, auto Capacity = 256>
-class BumpAllocator {
-  public:
-    using value_type = T;
-    using is_noop_dealloc = std::true_type;
-
-    auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
-        auto idx = allocated;
-        if (allocated + n > Capacity) {
-            Throw(Error::BufferFull);
-        }
-        allocated += n;
-
-        return std::bit_cast<T*>(&at(arr, idx * sizeof(T)));
-    }
-
-  private:
-    alignas(T) static inline std::array<char, Capacity * sizeof(T)> arr = {};
-    static inline usize allocated = 0;
-};
-#endif
 }  // namespace ktl

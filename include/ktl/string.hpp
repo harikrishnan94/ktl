@@ -17,7 +17,8 @@ template<
     typename GP = default_growth_policy>
     requires(std::is_trivial_v<CharT> && growth_policy<GP>) || growth_policy_for<GP, Allocator>
 class basic_string:
-    public detail::string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator, GP>> {
+    public detail::str::
+        string_ops<CharT, Traits, usize, basic_string<CharT, Traits, Allocator, GP>> {
   public:
     using traits_type = Traits;
     using allocator_type = Allocator;
@@ -31,30 +32,41 @@ class basic_string:
 
   private:
     using alloc_traits = allocator_traits<Allocator>;
-    using base =
-        detail::string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
+    using base = detail::str::
+        string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
 
   public:
     // ------------------------ Special member functions --------------------------
     constexpr explicit basic_string(const Allocator& a = {}) noexcept : m_alloc {a} {
         if (std::is_constant_evaluated()) {
             const_init();
+        } else {
+            if constexpr (ASAN_ENABLED) {
+                if (!m_storage.is_short()) {
+                    this->start_lifetime();
+                }
+            }
         }
     }
 
     constexpr ~basic_string() {
         auto [is_short, chars, _, capacity] = m_storage.extract();
         if (!is_short) {
+            this->end_lifetime();
             alloc_traits::deallocate(m_alloc, chars, capacity);
         }
     }
 
-    constexpr basic_string(const basic_string&) = delete;
-    constexpr auto operator=(const basic_string&) -> basic_string& = delete;
+    basic_string(const basic_string&) = delete;
+    auto operator=(const basic_string&) -> basic_string& = delete;
 
     constexpr basic_string(basic_string&& o) noexcept :
-        m_storage(std::move(o.m_storage).take()),
-        m_alloc {std::move(o.m_alloc)} {}
+        m_storage(std::exchange(o.m_storage, {})),
+        m_alloc {std::move(o.m_alloc)} {
+        if (std::is_constant_evaluated()) {
+            o.const_init();
+        }
+    }
 
     // Based on Howard Hinnat's answer: https://stackoverflow.com/a/27472502
     constexpr auto operator=(basic_string&& o) noexcept -> basic_string& {
@@ -101,6 +113,9 @@ class basic_string:
     }
 
     constexpr auto reserve(size_type new_cap) noexcept -> expected<void, Error> {
+        if (new_cap <= this->capacity()) {
+            return {};
+        }
         return grow(new_cap);
     }
 
@@ -110,19 +125,22 @@ class basic_string:
 
         if (len != capacity && !is_short) {
             if (storage_t::is_short(len)) {
+                this->end_lifetime();
                 (void)std::move(m_storage);
 
                 std::construct_at(&m_storage);
                 auto new_chars = std::get<pointer>(m_storage.extract());
-                uninitialized_move_n(chars, len, new_chars);
+                ktl::uninitialized_move_n(chars, len, new_chars);
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_len(len);
             } else {
                 Try(new_chars, alloc_traits::allocate(m_alloc, len));
 
-                uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
+                ktl::uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
+                this->end_lifetime();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_long_str(new_chars, len, len);
+                this->start_lifetime();
             }
         }
 
@@ -160,7 +178,7 @@ class basic_string:
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::
+    friend class detail::str::
         string_ops<CharT, Traits, size_type, basic_string<CharT, Traits, Allocator, GP>>;
 
     // NOLINTBEGIN(*-pro-type-union-access)
@@ -171,7 +189,7 @@ class basic_string:
                 lstr = {};
             } else {
                 sstr.chars[0] = base::NUL;
-                sstr.len = 1;
+                sstr.inv_len = short_string::Capacity - 1;
             }
         }
 
@@ -190,6 +208,14 @@ class basic_string:
         }
         constexpr auto extract() noexcept -> std::tuple<bool, pointer, usize, usize> {
             return extract(*this);
+        }
+
+        [[nodiscard]] constexpr auto is_short() const noexcept -> bool {
+            if (std::is_constant_evaluated()) {
+                return false;
+            } else {  // NOLINT
+                return sstr.inv_len != LongStrTag;
+            }
         }
 
         // NOLINTNEXTLINE(*-easily-swappable-parameters)
@@ -212,7 +238,7 @@ class basic_string:
             if (is_short()) {
                 assert(is_short(len));
                 assert(len <= short_string::Capacity);
-                sstr.len = len;
+                sstr.inv_len = short_string::Capacity - len;
             } else {
                 assert(lstr.len <= lstr.cap);
                 lstr.len = len;
@@ -238,9 +264,10 @@ class basic_string:
 
             std::array<char, sizeof(long_string) - 1> chars;
             // Length of the string including NUL char.
+            // Stored as (capacity - actual_length)
             // Incase strlen(chars) == Capacity - 1, `len` is repurposed to store NUL char.
             // (i.e) `len` is considered an extension of `chars`.
-            char len;  // Len == Cap,
+            char inv_len;  // Len == Cap,
         };
 
         template<typename Self>
@@ -253,7 +280,7 @@ class basic_string:
                 return {
                     true,
                     self.sstr.chars.data(),
-                    static_cast<usize>(self.sstr.len),
+                    static_cast<usize>(short_string::Capacity - self.sstr.inv_len),
                     static_cast<usize>(short_string::Capacity)};
             }
 
@@ -275,14 +302,6 @@ class basic_string:
                 static_cast<usize>(cap)};
         }
 
-        [[nodiscard]] constexpr auto is_short() const noexcept -> bool {
-            if (std::is_constant_evaluated()) {
-                return false;
-            } else {  // NOLINT
-                return sstr.len != LongStrTag;
-            }
-        }
-
         static constexpr size_type LongStrTag = std::numeric_limits<char>::max();
         static constexpr size_type LongStrTagBits = std::numeric_limits<char>::digits;
         static constexpr size_type LongStrTagMask = std::endian::native == std::endian::little
@@ -297,18 +316,18 @@ class basic_string:
     // NOLINTEND(*-pro-type-union-access)
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> detail::str::string_storage<const CharT> {
         auto [_, chars, len, capacity] = m_storage.extract();
         return {.begin = chars, .end = chars + len, .end_cap = chars + capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::string_storage<CharT> {
+    constexpr auto get_storage() noexcept -> detail::str::string_storage<CharT> {
         auto [_, chars, len, capacity] = m_storage.extract();
         return {.begin = chars, .end = chars + len, .end_cap = chars + capacity};
     }
 
     constexpr auto grow(usize req_cap) noexcept -> expected<void, Error> {
         return grow_impl(req_cap, [](CharT* new_chars, auto* chars, auto len) {
-            uninitialized_move_n(chars, len, new_chars);
+            ktl::uninitialized_move_n(chars, len, new_chars);
         });
     }
     constexpr auto grow_uninit(usize req_cap) noexcept -> expected<void, Error> {
@@ -317,32 +336,33 @@ class basic_string:
         });
     }
 
-    template<typename Initializer>
-    constexpr auto grow_impl(usize req_cap, Initializer&& initializer) noexcept
-        -> expected<void, Error> {
-        auto [is_short, chars, len, capacity] = m_storage.extract();
+    constexpr auto grow_impl(usize req_len, auto&& initializer) noexcept -> expected<void, Error> {
+        auto [was_short, chars, len, capacity] = m_storage.extract();
         assert(len != 0);
 
-        if (req_cap > capacity) [[unlikely]] {
-            if (is_short && storage_t::is_short(req_cap)) {
+        if (req_len > capacity) [[unlikely]] {
+            if (was_short && storage_t::is_short(req_len)) {
                 return {};
             }
 
-            auto new_cap = ktl::grow<GP>(m_alloc, capacity, req_cap);
+            auto new_cap = ktl::grow<GP>(m_alloc, capacity, req_len);
             Try(new_chars, alloc_traits::allocate(m_alloc, new_cap));
 
-            std::invoke(std::forward<Initializer>(initializer), new_chars, chars, len);
+            initializer(new_chars, chars, len);
 
-            if (!is_short) {
+            if (!was_short) {
+                this->end_lifetime();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
             }
             m_storage.set_long_str(new_chars, len, new_cap);
+            this->start_lifetime();
         }
+        this->adjust_lifetime(req_len);
         return {};
     }
 
     constexpr auto set_len(usize new_len) noexcept {
-        auto [_is_short, _chars, _len, capacity] = m_storage.extract();
+        [[maybe_unused]] auto [_is_short, _chars, _len, capacity] = m_storage.extract();
         assert(new_len <= capacity && "length cannot exceed capacity");
         m_storage.set_len(new_len);
     }
@@ -353,6 +373,19 @@ class basic_string:
         CharT* chars = *res;
         m_storage.set_long_str(chars, 1, 1);
         std::construct_at(chars, base::NUL);
+    }
+
+    constexpr void adjust_lifetime_impl(usize new_len) const noexcept {
+        if constexpr (ASAN_ENABLED) {
+            auto [is_short, chars, len, capacity] = m_storage.extract();
+            if (!is_short) {
+                detail::sanitizer_annotate_contiguous_container(
+                    chars,
+                    chars + capacity,
+                    chars + len,
+                    chars + new_len);
+            }
+        }
     }
 
     storage_t m_storage = {};

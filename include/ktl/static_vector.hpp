@@ -13,10 +13,10 @@ class fixed_vector;
 template<typename T, auto Capacity>
     requires std::integral<std::decay_t<decltype(Capacity)>>
 class static_vector:
-    public detail::vector_ops<T, detail::size_t<Capacity>, static_vector<T, Capacity>> {
+    public detail::vec::vector_ops<T, detail::vec::size_t<Capacity>, static_vector<T, Capacity>> {
   public:
     using value_type = T;
-    using size_type = detail::size_t<Capacity>;
+    using size_type = detail::vec::size_t<Capacity>;
     using difference_type = isize;
     using reference = T&;
     using const_reference = const T&;
@@ -24,7 +24,7 @@ class static_vector:
     using const_pointer = const T*;
 
   private:
-    using base = detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
+    using base = detail::vec::vector_ops<T, size_type, static_vector<T, Capacity>>;
 
   public:
     static_assert(
@@ -32,34 +32,66 @@ class static_vector:
         && std::is_nothrow_destructible_v<T>);
 
     // Special member function definitions
-    constexpr static_vector() = default;
+    static_vector()
+        requires(!ASAN_ENABLED)
+    = default;
+
+    constexpr static_vector()
+        requires(ASAN_ENABLED)
+    {
+        this->start_lifetime();
+    }
 
     constexpr ~static_vector()
-        requires std::is_trivially_destructible_v<T>
+        requires std::is_trivially_destructible_v<T> && (!ASAN_ENABLED)
     = default;
     constexpr ~static_vector()
-        requires(!std::is_trivially_destructible_v<T>)
+        requires(!std::is_trivially_destructible_v<T> || ASAN_ENABLED)
     {
-        if (m_len) {
-            std::destroy_n(get_storage().begin, m_len);
-        }
+        this->clear();
     }
 
     constexpr static_vector(const static_vector& o) noexcept : m_len {o.m_len} {
-        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        this->start_lifetime();
     }
 
     constexpr static_vector(static_vector&& o) noexcept {
-        swap(o);
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            m_len = o.m_len;
+            ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+            this->start_lifetime();
+        } else {
+            swap(o);
+        }
     }
 
     constexpr auto operator=(const static_vector& o) noexcept -> static_vector& {
-        static_vector {o}.swap(*this);
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            if (this == &o) {
+                return *this;
+            }
+
+            this->adjust_lifetime(o.m_len);
+            m_len = o.m_len;
+            ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        } else {
+            static_vector {o}.swap(*this);
+        }
         return *this;
     }
 
     constexpr auto operator=(static_vector&& o) noexcept -> static_vector& {
-        swap(o);
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            if (this == &o) {
+                return *this;
+            }
+            this->adjust_lifetime(o.m_len);
+            m_len = o.m_len;
+            ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        } else {
+            swap(o);
+        }
         return *this;
     }
 
@@ -68,7 +100,16 @@ class static_vector:
     }
 
     constexpr void swap(static_vector& o) noexcept {
-        detail::swap_contiguous_static_containers(*this, o);
+        if (this == &o)
+            return;
+
+        this->adjust_lifetime(std::max(m_len, o.m_len));
+        o.adjust_lifetime(std::max(m_len, o.m_len));
+
+        detail::swap_range_with_len(this->get_data(), m_len, o.get_data(), o.m_len);
+
+        this->adjust_lifetime(m_len);
+        o.adjust_lifetime(o.m_len);
     }
 
     constexpr auto max_size() const noexcept -> size_type {
@@ -92,30 +133,43 @@ class static_vector:
     static constexpr auto is_trivial = std::is_trivial_v<T>;
 
     // Allow access to internal members. Classic CRTP.
-    friend class detail::vector_ops<T, size_type, static_vector<T, Capacity>>;
+    friend class detail::vec::vector_ops<T, size_type, static_vector<T, Capacity>>;
 
-    template<typename Container>
-    friend constexpr void
-    detail::swap_contiguous_static_containers(Container& a, Container& b) noexcept;
+    template<typename U, typename... OU>
+        requires(sizeof...(OU) + 1 <= Capacity)
+    constexpr void load(U&& first_val, OU&&... other_vals) noexcept {
+        this->end_lifetime();
 
-    [[nodiscard]] constexpr auto get_storage() const noexcept -> detail::vector_storage<const T> {
-        auto data = [&] {
-            if constexpr (is_trivial) {
-                return m_storage.elems.data();
-            } else {
-                return std::bit_cast<const T*>(m_storage.elems.data());
-            }
-        }();
+        auto data = get_data();
+        std::construct_at(data, std::forward<U>(first_val));
+        (std::construct_at(++data, std::forward<OU>(other_vals)), ...);
+        set_len(sizeof...(OU) + 1);
+
+        this->start_lifetime();
+    }
+
+    [[nodiscard]] constexpr auto get_data() const noexcept -> const T* {
+        if constexpr (is_trivial) {
+            return m_storage.elems.data();
+        } else {
+            return std::bit_cast<const T*>(m_storage.elems.data());
+        }
+    }
+    [[nodiscard]] constexpr auto get_data() noexcept -> T* {
+        if constexpr (is_trivial) {
+            return m_storage.elems.data();
+        } else {
+            return std::bit_cast<T*>(m_storage.elems.data());
+        }
+    }
+
+    [[nodiscard]] constexpr auto get_storage() const noexcept
+        -> detail::vec::vector_storage<const T> {
+        auto data = get_data();
         return {.begin = data, .end = data + m_len, .end_cap = data + Capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::vector_storage<T> {
-        auto data = [&] {
-            if constexpr (is_trivial) {
-                return m_storage.elems.data();
-            } else {
-                return std::bit_cast<T*>(m_storage.elems.data());
-            }
-        }();
+    constexpr auto get_storage() noexcept -> detail::vec::vector_storage<T> {
+        auto data = get_data();
         return {.begin = data, .end = data + m_len, .end_cap = data + Capacity};
     }
 
@@ -123,6 +177,7 @@ class static_vector:
         if (req_len > Capacity) [[unlikely]] {
             Throw(Error::BufferFull);
         }
+        this->adjust_lifetime(req_len);
         return {};
     }
     constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
@@ -150,20 +205,17 @@ class static_vector:
         [[no_unique_address]] alignas(T) std::array<std::byte, sizeof(T) * Capacity> elems;
     };
 
-    [[no_unique_address]] std::conditional_t<is_trivial, trivial_storage_t, generic_storage_t>
-        m_storage;
     size_type m_len = 0;
+    alignas(ASAN_ALIGN<T>) [[no_unique_address]] std::
+        conditional_t<is_trivial, trivial_storage_t, generic_storage_t> m_storage;
 };
 
 template<typename T, typename... OT>
 constexpr auto make_static_vector(T&& first_val, OT&&... other_vals) noexcept
     -> static_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> {
     static_vector<std::common_type_t<T, OT...>, sizeof...(OT) + 1> vec;
-    auto data = vec.get_storage().begin;
 
-    std::construct_at(data, std::forward<T>(first_val));
-    (std::construct_at(++data, std::forward<OT>(other_vals)), ...);
-    vec.set_len(sizeof...(OT) + 1);
+    vec.load(std::forward<T>(first_val), std::forward<OT>(other_vals)...);
 
     return vec;
 }
@@ -175,11 +227,8 @@ constexpr auto make_static_vector(T&& first_val, OT&&... other_vals) noexcept
 
     using ValueT = std::common_type_t<T, OT...>;
     static_vector<ValueT, VCapacity> vec;
-    auto data = vec.get_storage().begin;
 
-    std::construct_at(data, std::forward<T>(first_val));
-    (std::construct_at(++data, std::forward<OT>(other_vals)), ...);
-    vec.set_len(sizeof...(OT) + 1);
+    vec.load(std::forward<T>(first_val), std::forward<OT>(other_vals)...);
 
     return vec;
 }

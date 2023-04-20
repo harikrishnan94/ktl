@@ -2,7 +2,7 @@ set(ENTRYPOINT start)
 add_library(platform OBJECT platform.cpp)
 add_library(ktl::test::platform ALIAS platform)
 target_compile_definitions(platform PRIVATE -DENTRYPOINT=${ENTRYPOINT})
-target_link_libraries(platform PUBLIC ktl)
+target_link_libraries(platform PUBLIC ktl stdc++)
 target_link_options(platform PUBLIC -e ${ENTRYPOINT})
 
 include(CTest)
@@ -16,6 +16,7 @@ function(define_test name)
 
     # Tests - All tests must link against `platform`
     target_link_libraries(${name} PRIVATE ktl::test::platform)
+    target_compile_options(${name} PRIVATE -ftemplate-backtrace-limit=0)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
@@ -28,3 +29,4 @@ define_simple_test(string_view_test)
 define_simple_test(vector_test)
 define_simple_test(bitops_test)
 define_simple_test(string_test)
+define_simple_test(container_test)

@@ -9,9 +9,9 @@
 #include <ktl/int.hpp>
 #include <ktl/memory.hpp>
 
-#include "contiguous_common_implementation.hpp"
+#include "contiguous_container_common_defs.hpp"
 
-namespace ktl::detail {
+namespace ktl::detail::vec {
 // Determine the size_type for the given capacity
 template<auto Capacity>
 using size_t = std::conditional_t<
@@ -161,28 +161,29 @@ class vector_ops {
         return rend();
     }
 
-    [[nodiscard("must check if push_back succeeded")]] constexpr auto push_back(T&& val) noexcept
-        -> expected<void, Error> {
+    constexpr auto push_back(T&& val) noexcept -> expected<void, Error> {
         TryV(emplace_back(std::move(val)));
         return {};
     }
-    [[nodiscard("must check if push_back succeeded")]] constexpr auto
-    push_back(const T& val) noexcept -> expected<void, Error> {
+    constexpr auto push_back(const T& val) noexcept -> expected<void, Error> {
         TryV(emplace_back(val));
         return {};
     }
 
     template<typename... Args>
-    [[nodiscard("must check if emplace_back succeeded")]] constexpr auto
-    emplace_back(Args&&... args) noexcept -> expected<std::reference_wrapper<T>, Error> {
+    constexpr auto emplace_back(Args&&... args) noexcept
+        -> expected<std::reference_wrapper<T>, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
+        auto new_len = len + 1;
         if (end == end_cap) [[unlikely]] {
-            TryV(grow(len + 1));
+            TryV(grow(new_len));
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_len);
         }
-        set_len(len + 1);
+        set_len<!UpdateLifetime>(new_len);
         return *std::construct_at(end, std::forward<Args>(args)...);
     }
 
@@ -192,10 +193,10 @@ class vector_ops {
 
         check_(len != 0, "cannot pop_back empty vector");
 
-        set_len(len - 1);
         if constexpr (!std::is_trivially_destructible_v<T>) {
             std::destroy_at(end - 1);
         }
+        set_len<UpdateLifetime>(len - 1);
     }
 
     constexpr void clear() noexcept {
@@ -205,22 +206,19 @@ class vector_ops {
             if constexpr (!std::is_trivially_destructible_v<T>) {
                 std::destroy(begin, end);
             }
-            set_len(0);
+            set_len<UpdateLifetime>(0);
         }
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto
-    resize(SizeT new_len, const T& new_value) noexcept -> expected<void, Error> {
+    constexpr auto resize(SizeT new_len, const T& new_value) noexcept -> expected<void, Error> {
         return resize_with(new_len, [&]() -> const T& { return new_value; });
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto resize(SizeT new_len) noexcept
-        -> expected<void, Error> {
+    constexpr auto resize(SizeT new_len) noexcept -> expected<void, Error> {
         return resize_with(new_len, [&] { return T {}; });
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto
-    resize_uninitialized(SizeT new_len) noexcept -> expected<void, Error> {
+    constexpr auto resize_uninitialized(SizeT new_len) noexcept -> expected<void, Error> {
         return resize_impl(new_len);
     }
 
@@ -253,7 +251,7 @@ class vector_ops {
             VectorT tmp;
 
             TryV(tmp.assign_iter(first, last));
-            check_(assign(tmp.begin(), tmp.end()), "");
+            check_(assign_range(std::make_move_iterator(tmp.begin()), tmp.size()), "");
         }
 
         return {};
@@ -279,7 +277,7 @@ class vector_ops {
     constexpr auto insert(const_iterator pos, SizeT count, const T& value) noexcept
         -> expected<iterator, Error> {
         Try(it, make_space_at(pos, count));
-        uninitialized_fill_n(it, count, value);
+        ktl::uninitialized_fill_n(it, count, value);
         return it;
     }
 
@@ -287,10 +285,7 @@ class vector_ops {
         requires std::convertible_to<std::iter_value_t<RandAccIt>, T>
     constexpr auto insert(const_iterator pos, RandAccIt first, RandAccIt last) noexcept
         -> expected<iterator, Error> {
-        auto count = std::distance(first, last);
-        Try(it, make_space_at(pos, count));
-        uninitialized_copy_n(first, count, it);
-        return it;
+        return insert_range(pos, first, std::distance(first, last));
     }
 
     template<std::input_iterator InputIt>
@@ -305,7 +300,7 @@ class vector_ops {
 
         VectorT tmp;
         auto tmp_res = tmp.assign(first, last);
-        auto res = insert(pos, tmp.begin(), tmp.end());
+        auto res = insert_range(pos, std::make_move_iterator(tmp.begin()), tmp.size());
 
         // All rows inseted into `tmp` vector? If so, return the `res`.
         if (tmp_res || !res) {
@@ -319,7 +314,7 @@ class vector_ops {
         -> expected<iterator, Error> {
         auto count = ilist.size();
         Try(it, make_space_at(pos, count));
-        uninitialized_copy_n(ilist.begin(), count, it);
+        ktl::uninitialized_copy_n(ilist.begin(), count, it);
         return it;
     }
 
@@ -341,13 +336,15 @@ class vector_ops {
         check_(first >= cbegin() && first <= cend(), "iterator does not belong to the container");
         check_(last >= first && last <= cend(), "iterator range does not belong to the container");
 
+        auto last_ind = std::distance(cbegin(), last);
         if (first == last) {
-            return begin() + std::distance(cbegin(), last);
+            return begin() + last_ind;
         }
 
         auto it = begin() + std::distance(cbegin(), first);
-        std::move(last, cend(), it);
-        set_len(size() - std::distance(first, last));
+        auto [beg, end, _] = get_storage();
+        std::move(beg + last_ind, end, it);
+        set_len<UpdateLifetime>(end - beg - std::distance(first, last));
         return it;
     }
 
@@ -373,7 +370,21 @@ class vector_ops {
         return {};
     }
 
+    ASAN_ANNOTATION_HELPERS;
+
   private:
+    using container = VectorT;
+
+    static constexpr bool UpdateLifetime = true;
+
+    template<std::input_iterator InputIt>
+    constexpr auto insert_range(const_iterator pos, InputIt first, usize count) noexcept
+        -> expected<iterator, Error> {
+        Try(it, make_space_at(pos, count));
+        ktl::uninitialized_copy_n(first, count, it);
+        return it;
+    }
+
     constexpr auto make_space_at(const_iterator pos, usize count) noexcept
         -> expected<iterator, Error> {
         check_(pos >= begin() && pos <= end(), "iterator does not belong to the container");
@@ -381,27 +392,34 @@ class vector_ops {
         auto [beg, end, end_cap] = get_storage();
         usize size = end - beg;
         usize capacity = end_cap - beg;
+        auto new_size = size + count;
         auto pos_i = std::distance(cbegin(), pos);
 
-        if (size + count > capacity) {
-            TryV(grow(size + count));
+        if (new_size > capacity) {
+            TryV(grow(new_size));
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_size);
         }
         // NOTE: Cannot use `pos` here as it might have been invalidated by previous call to
         // grow.
-        uninitialized_move_backward(beg + pos_i, end, end + count);
-        set_len(size + count);
+        ktl::uninitialized_move_backward(beg + pos_i, end, end + count);
+        set_len<!UpdateLifetime>(new_size);
         return begin() + pos_i;
     }
 
     constexpr auto assign_range(std::input_iterator auto first, usize count) noexcept
         -> expected<void, Error> {
-        return assign_impl(count, [&](auto* begin) { uninitialized_copy_n(first, count, begin); });
+        return assign_impl(count, [&](auto* begin) {
+            ktl::uninitialized_copy_n(first, count, begin);
+        });
     }
 
     constexpr auto assign_fill(SizeT count, const T& value) -> expected<void, Error> {
-        return assign_impl(count, [&](auto* begin) { uninitialized_fill_n(begin, count, value); });
+        return assign_impl(count, [&](auto* begin) {
+            ktl::uninitialized_fill_n(begin, count, value);
+        });
     }
 
     constexpr auto assign_impl(usize count, auto&& initializer) noexcept -> expected<void, Error> {
@@ -415,12 +433,14 @@ class vector_ops {
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - begin;
+        } else {
+            adjust_lifetime(count);
         }
 
         assert(capacity >= count);
 
         initializer(begin);
-        set_len(count);
+        set_len<!UpdateLifetime>(count);
 
         return {};
     }
@@ -436,7 +456,7 @@ class vector_ops {
         if (new_len > old_len) {
             auto&& new_value = std::invoke(std::forward<FillValueGetter>(get_fill_value));
             begin = get_storage().begin;
-            uninitialized_fill_n(begin + old_len, new_len - old_len, new_value);
+            ktl::uninitialized_fill_n(begin + old_len, new_len - old_len, new_value);
         }
 
         return {};
@@ -451,6 +471,8 @@ class vector_ops {
             TryV(grow(new_len));
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_len);
         }
 
         if constexpr (!std::is_trivially_destructible_v<T>) {
@@ -459,8 +481,13 @@ class vector_ops {
             }
         }
 
-        set_len(new_len);
+        set_len<!UpdateLifetime>(new_len);
         return {};
+    }
+
+    constexpr auto get_storage_impl() const noexcept -> vector_storage<const T> {
+        static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a string");
+        return static_cast<const VectorT*>(this)->get_storage();
     }
 
     constexpr auto get_storage() const noexcept -> vector_storage<const T> {
@@ -488,9 +515,13 @@ class vector_ops {
         return static_cast<VectorT*>(this)->grow_uninit(req_len);
     }
 
+    template<bool UpdateLifetime>
     constexpr void set_len(SizeT new_len) noexcept {
         static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
         static_cast<VectorT*>(this)->set_len(new_len);
+        if constexpr (UpdateLifetime) {
+            adjust_lifetime(new_len);
+        }
     }
 };
 
@@ -506,10 +537,10 @@ concept comparable_vector = requires(const V& v) {
         same_as<std::iter_value_t<std::decay_t<decltype(std::end(v))>>, typename V::value_type>;
 };
 
-}  // namespace ktl::detail
+}  // namespace ktl::detail::vec
 
 namespace ktl {
-template<detail::comparable_vector Vec1, detail::comparable_vector Vec2>
+template<detail::vec::comparable_vector Vec1, detail::vec::comparable_vector Vec2>
     requires std::equality_comparable_with<typename Vec1::value_type, typename Vec2::value_type>
 constexpr auto operator==(const Vec1& lhs, const Vec2& rhs) noexcept -> bool {
     auto beg1 = std::begin(lhs);
@@ -525,7 +556,7 @@ constexpr auto operator==(const Vec1& lhs, const Vec2& rhs) noexcept -> bool {
     return std::equal(beg1, end1, beg2);
 }
 
-template<detail::comparable_vector Vec1, detail::comparable_vector Vec2>
+template<detail::vec::comparable_vector Vec1, detail::vec::comparable_vector Vec2>
     requires std::three_way_comparable_with<typename Vec1::value_type, typename Vec2::value_type>
 constexpr auto operator<=>(const Vec1& lhs, const Vec2& rhs) noexcept {
     return std::lexicographical_compare_three_way(

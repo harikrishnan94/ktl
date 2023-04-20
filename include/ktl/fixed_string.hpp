@@ -12,7 +12,7 @@ class basic_static_string;
 template<typename CharT, std::integral Size, typename Traits = std::char_traits<CharT>>
     requires(!std::is_const_v<CharT>)
 class fixed_string:
-    public detail::
+    public detail::str::
         string_ops<CharT, Traits, std::make_unsigned_t<Size>, fixed_string<CharT, Size, Traits>> {
   public:
     using traits_type = Traits;
@@ -26,10 +26,16 @@ class fixed_string:
 
   private:
     using base =
-        detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, size_type, Traits>>;
+        detail::str::string_ops<CharT, Traits, size_type, fixed_string<CharT, size_type, Traits>>;
 
   public:
-    constexpr fixed_string() = delete;
+    fixed_string() = delete;
+    fixed_string(const fixed_string&) = delete;
+    auto operator=(const fixed_string&) -> fixed_string = delete;
+
+    ~fixed_string() = default;
+    fixed_string(fixed_string&&) noexcept = default;
+    auto operator=(fixed_string&&) noexcept -> fixed_string& = default;
 
     // NOLINTNEXTLINE(*-easily-swappable-parameters)
     constexpr fixed_string(not_null<pointer> chars, size_type& len, size_type capacity) noexcept :
@@ -38,6 +44,7 @@ class fixed_string:
         m_capacity {capacity} {
         check_(*m_len > 0 && len <= m_capacity, "");
         m_chars[*m_len - 1] = base::NUL;
+        this->start_lifetime();
     }
 
     template<auto Capacity>
@@ -59,13 +66,14 @@ class fixed_string:
 
   private:
     // Allow access to internal members. Classic CRTP.
-    friend class detail::string_ops<CharT, Traits, size_type, fixed_string<CharT, Size, Traits>>;
+    friend class detail::str::
+        string_ops<CharT, Traits, size_type, fixed_string<CharT, Size, Traits>>;
 
     [[nodiscard]] constexpr auto get_storage() const noexcept
-        -> detail::string_storage<const CharT> {
+        -> detail::str::string_storage<const CharT> {
         return {.begin = m_chars, .end = m_chars + *m_len, .end_cap = m_chars + m_capacity};
     }
-    constexpr auto get_storage() noexcept -> detail::string_storage<CharT> {
+    constexpr auto get_storage() noexcept -> detail::str::string_storage<CharT> {
         return {.begin = m_chars, .end = m_chars + *m_len, .end_cap = m_chars + m_capacity};
     }
 
@@ -73,6 +81,7 @@ class fixed_string:
         if (req_len > m_capacity) [[unlikely]] {
             Throw(Error::BufferFull);
         }
+        this->adjust_lifetime(req_len);
         return {};
     }
     constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {

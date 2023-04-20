@@ -1124,7 +1124,8 @@ struct format_string_t {
 
         fixed_buffer ab {buf};
 
-        auto res = detail::vformat<RawFmtStr, underlying_value>(ab, detail::FmtArgs {Args...});
+        [[maybe_unused]] auto res =
+            detail::vformat<RawFmtStr, underlying_value>(ab, detail::FmtArgs {Args...});
 
         assert(res && "cannot format string");
         assert(res->len() == Len);
