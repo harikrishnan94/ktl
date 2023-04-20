@@ -176,7 +176,7 @@ class basic_string:
                 lstr = {};
             } else {
                 sstr.chars[0] = base::NUL;
-                sstr.len = 1;
+                sstr.inv_len = short_string::Capacity - 1;
             }
         }
 
@@ -217,7 +217,7 @@ class basic_string:
             if (is_short()) {
                 assert(is_short(len));
                 assert(len <= short_string::Capacity);
-                sstr.len = len;
+                sstr.inv_len = short_string::Capacity - len;
             } else {
                 assert(lstr.len <= lstr.cap);
                 lstr.len = len;
@@ -243,9 +243,10 @@ class basic_string:
 
             std::array<char, sizeof(long_string) - 1> chars;
             // Length of the string including NUL char.
+            // Stored as (capacity - actual_length)
             // Incase strlen(chars) == Capacity - 1, `len` is repurposed to store NUL char.
             // (i.e) `len` is considered an extension of `chars`.
-            char len;  // Len == Cap,
+            char inv_len;  // Len == Cap,
         };
 
         template<typename Self>
@@ -258,7 +259,7 @@ class basic_string:
                 return {
                     true,
                     self.sstr.chars.data(),
-                    static_cast<usize>(self.sstr.len),
+                    static_cast<usize>(short_string::Capacity - self.sstr.inv_len),
                     static_cast<usize>(short_string::Capacity)};
             }
 
@@ -284,7 +285,7 @@ class basic_string:
             if (std::is_constant_evaluated()) {
                 return false;
             } else {  // NOLINT
-                return sstr.len != LongStrTag;
+                return sstr.inv_len != LongStrTag;
             }
         }
 
