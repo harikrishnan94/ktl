@@ -15,7 +15,7 @@ template<typename T>
 using vector = ktl::vector<T, ktl::Allocator<T>>;
 
 template<typename T, auto>
-using vector_1 = ktl::vector<T, ktl::Allocator<T>>;
+using vector_dyn = vector<T>;
 
 using string = ktl::string<ktl::Allocator<char>>;
 
@@ -109,8 +109,8 @@ auto main() -> int {
     constexpr usize MaxVecLen = 32;
     constexpr usize NumVecVecs = 256;
 
-    test<vector_1, string, MaxStrLen, MaxVecLen, NumVecVecs>();
-    test<vector_1, ktl::static_string<MaxStrLen + 1>, MaxStrLen, MaxVecLen, NumVecVecs>();
+    test<vector_dyn, string, MaxStrLen, MaxVecLen, NumVecVecs>();
+    test<vector_dyn, ktl::static_string<MaxStrLen + 1>, MaxStrLen, MaxVecLen, NumVecVecs>();
     test<ktl::static_vector, ktl::static_string<MaxStrLen + 1>, MaxStrLen, MaxVecLen, NumVecVecs>();
 
     return 0;
