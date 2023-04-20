@@ -181,7 +181,11 @@ class static_vector:
         return {};
     }
     constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {
-        return grow(req_len);
+        auto res = grow(req_len);
+        if (res) {
+            std::destroy_n(get_data(), m_len);
+        }
+        return res;
     }
 
     constexpr auto set_len(size_type new_len) noexcept {
