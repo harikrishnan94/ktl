@@ -40,12 +40,19 @@ class basic_string:
     constexpr explicit basic_string(const Allocator& a = {}) noexcept : m_alloc {a} {
         if (std::is_constant_evaluated()) {
             const_init();
+        } else {
+            if constexpr (ASAN_ENABLED) {
+                if (!m_storage.is_short()) {
+                    this->start_lifetime();
+                }
+            }
         }
     }
 
     constexpr ~basic_string() {
         auto [is_short, chars, _, capacity] = m_storage.extract();
         if (!is_short) {
+            this->end_lifetime();
             alloc_traits::deallocate(m_alloc, chars, capacity);
         }
     }
@@ -106,6 +113,9 @@ class basic_string:
     }
 
     constexpr auto reserve(size_type new_cap) noexcept -> expected<void, Error> {
+        if (new_cap <= this->capacity()) {
+            return {};
+        }
         return grow(new_cap);
     }
 
@@ -115,6 +125,7 @@ class basic_string:
 
         if (len != capacity && !is_short) {
             if (storage_t::is_short(len)) {
+                this->end_lifetime();
                 (void)std::move(m_storage);
 
                 std::construct_at(&m_storage);
@@ -126,8 +137,10 @@ class basic_string:
                 Try(new_chars, alloc_traits::allocate(m_alloc, len));
 
                 ktl::uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
+                this->end_lifetime();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_long_str(new_chars, len, len);
+                this->start_lifetime();
             }
         }
 
@@ -195,6 +208,14 @@ class basic_string:
         }
         constexpr auto extract() noexcept -> std::tuple<bool, pointer, usize, usize> {
             return extract(*this);
+        }
+
+        [[nodiscard]] constexpr auto is_short() const noexcept -> bool {
+            if (std::is_constant_evaluated()) {
+                return false;
+            } else {  // NOLINT
+                return sstr.inv_len != LongStrTag;
+            }
         }
 
         // NOLINTNEXTLINE(*-easily-swappable-parameters)
@@ -281,14 +302,6 @@ class basic_string:
                 static_cast<usize>(cap)};
         }
 
-        [[nodiscard]] constexpr auto is_short() const noexcept -> bool {
-            if (std::is_constant_evaluated()) {
-                return false;
-            } else {  // NOLINT
-                return sstr.inv_len != LongStrTag;
-            }
-        }
-
         static constexpr size_type LongStrTag = std::numeric_limits<char>::max();
         static constexpr size_type LongStrTagBits = std::numeric_limits<char>::digits;
         static constexpr size_type LongStrTagMask = std::endian::native == std::endian::little
@@ -323,25 +336,28 @@ class basic_string:
         });
     }
 
-    constexpr auto grow_impl(usize req_cap, auto&& initializer) noexcept -> expected<void, Error> {
+    constexpr auto grow_impl(usize req_len, auto&& initializer) noexcept -> expected<void, Error> {
         auto [was_short, chars, len, capacity] = m_storage.extract();
         assert(len != 0);
 
-        if (req_cap > capacity) [[unlikely]] {
-            if (was_short && storage_t::is_short(req_cap)) {
+        if (req_len > capacity) [[unlikely]] {
+            if (was_short && storage_t::is_short(req_len)) {
                 return {};
             }
 
-            auto new_cap = ktl::grow<GP>(m_alloc, capacity, req_cap);
+            auto new_cap = ktl::grow<GP>(m_alloc, capacity, req_len);
             Try(new_chars, alloc_traits::allocate(m_alloc, new_cap));
 
             initializer(new_chars, chars, len);
 
             if (!was_short) {
+                this->end_lifetime();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
             }
             m_storage.set_long_str(new_chars, len, new_cap);
+            this->start_lifetime();
         }
+        this->adjust_lifetime(req_len);
         return {};
     }
 
@@ -357,6 +373,19 @@ class basic_string:
         CharT* chars = *res;
         m_storage.set_long_str(chars, 1, 1);
         std::construct_at(chars, base::NUL);
+    }
+
+    constexpr void adjust_lifetime_impl(usize new_len) const noexcept {
+        if constexpr (ASAN_ENABLED) {
+            auto [is_short, chars, len, capacity] = m_storage.extract();
+            if (!is_short) {
+                detail::sanitizer_annotate_contiguous_container(
+                    chars,
+                    chars + capacity,
+                    chars + len,
+                    chars + new_len);
+            }
+        }
     }
 
     storage_t m_storage = {};
@@ -433,5 +462,12 @@ make_string(std::initializer_list<CharT> ilist, const Allocator& alloc = Allocat
 
     TryV(str.assign(ilist));
     return str;
+}
+
+template<typename CharT, typename Traits, allocator_for<CharT> Allocator, typename GP>
+constexpr void swap(
+    basic_string<CharT, Traits, Allocator, GP>& s1,
+    basic_string<CharT, Traits, Allocator, GP>& s2) noexcept {
+    s1.swap(s2);
 }
 }  // namespace ktl

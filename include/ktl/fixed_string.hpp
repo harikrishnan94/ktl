@@ -44,6 +44,7 @@ class fixed_string:
         m_capacity {capacity} {
         check_(*m_len > 0 && len <= m_capacity, "");
         m_chars[*m_len - 1] = base::NUL;
+        this->start_lifetime();
     }
 
     template<auto Capacity>
@@ -80,6 +81,7 @@ class fixed_string:
         if (req_len > m_capacity) [[unlikely]] {
             Throw(Error::BufferFull);
         }
+        this->adjust_lifetime(req_len);
         return {};
     }
     constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {

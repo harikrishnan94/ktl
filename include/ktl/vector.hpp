@@ -125,6 +125,9 @@ class vector: public detail::vec::vector_ops<T, usize, vector<T, Allocator, GP>>
     }
 
     constexpr auto reserve(size_type new_cap) noexcept -> expected<void, Error> {
+        if (new_cap <= m_capacity) {
+            return {};
+        }
         return grow(new_cap);
     }
 
@@ -134,9 +137,11 @@ class vector: public detail::vec::vector_ops<T, usize, vector<T, Allocator, GP>>
                 Try(new_data, alloc_traits::allocate(m_alloc, m_len));
 
                 ktl::uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+                this->end_lifetime();
                 alloc_traits::deallocate(m_alloc, m_data, m_capacity);
                 m_data = new_data;
                 m_capacity = m_len;
+                this->start_lifetime();
             } else {
                 alloc_traits::deallocate(m_alloc, m_data, m_capacity);
                 m_data = nullptr;
@@ -180,17 +185,20 @@ class vector: public detail::vec::vector_ops<T, usize, vector<T, Allocator, GP>>
         });
     }
 
-    constexpr auto grow_impl(usize req_cap, auto&& transfer) noexcept -> expected<void, Error> {
+    constexpr auto grow_impl(usize req_len, auto&& transfer) noexcept -> expected<void, Error> {
         assert(m_data == nullptr ? m_len == 0 && m_capacity == 0 : true);
-        if (req_cap > m_capacity) [[unlikely]] {
-            auto new_cap = ktl::grow<GP>(m_alloc, m_capacity, req_cap);
+        if (req_len > m_capacity) [[unlikely]] {
+            auto new_cap = ktl::grow<GP>(m_alloc, m_capacity, req_len);
             Try(new_data, alloc_traits::allocate(m_alloc, new_cap));
 
             transfer(static_cast<T*>(new_data), m_data, m_len);
+            this->end_lifetime();
             alloc_traits::deallocate(m_alloc, m_data, m_capacity);
             m_data = new_data;
             m_capacity = new_cap;
+            this->start_lifetime();
         }
+        this->adjust_lifetime(req_len);
         return {};
     }
 
@@ -241,5 +249,10 @@ constexpr auto make_vector(InputIt first, InputIt last, const Alloc& a = Alloc {
     TryV(vec.assign(first, last));
 
     return vec;
+}
+
+template<typename T, allocator_for<T> Allocator, typename GP>
+constexpr void swap(vector<T, Allocator, GP>& v1, vector<T, Allocator, GP>& v2) noexcept {
+    v1.swap(v2);
 }
 }  // namespace ktl

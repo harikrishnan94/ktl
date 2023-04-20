@@ -45,7 +45,9 @@ class fixed_vector:
     constexpr fixed_vector(not_null<pointer> base, size_type& len, size_type capacity) noexcept :
         m_data {base},
         m_len {&len},
-        m_capacity {capacity} {}
+        m_capacity {capacity} {
+        this->start_lifetime();
+    }
 
     template<auto Capacity>
         requires std::integral<std::decay_t<decltype(Capacity)>>
@@ -81,6 +83,7 @@ class fixed_vector:
         if (req_len > m_capacity) [[unlikely]] {
             Throw(Error::BufferFull);
         }
+        this->adjust_lifetime(req_len);
         return {};
     }
     constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {

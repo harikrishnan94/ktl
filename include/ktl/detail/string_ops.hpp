@@ -231,14 +231,17 @@ class string_ops {
     constexpr auto push_back(CharT c) noexcept -> expected<void, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
+        auto new_len = len + 1;
         if (end == end_cap) [[unlikely]] {
-            TryV(grow(len + 1));
+            TryV(grow(new_len));
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_len);
         }
         std::construct_at(end - 1, c);
         std::construct_at(end, NUL);
-        set_len(len + 1);
+        set_len<!UpdateLifetime>(new_len);
         return {};
     }
 
@@ -249,13 +252,13 @@ class string_ops {
         check_(len != 1, "cannot pop_back empty string");  // Contains trailing NUL char
 
         std::construct_at(end - 2, NUL);
-        set_len(len - 1);
+        set_len<UpdateLifetime>(len - 1);
     }
 
     constexpr void clear() noexcept {
         auto [begin, _end, _end_cap] = get_storage();
         std::construct_at(begin, NUL);  // Empty NUL terminate,string
-        set_len(1);
+        set_len<UpdateLifetime>(1);
     }
 
     constexpr auto resize(SizeT count, CharT ch) noexcept -> expected<void, Error> {
@@ -957,7 +960,7 @@ class string_ops {
             end = std::move(beg + pos, beg + pos + count, beg);
         }
         std::construct_at(beg + count, NUL);
-        set_len(count + 1);
+        set_len<UpdateLifetime>(count + 1);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -981,7 +984,13 @@ class string_ops {
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
+    ASAN_ANNOTATION_HELPERS;
+
   private:
+    using container = StringT;
+
+    static constexpr bool UpdateLifetime = true;
+
     constexpr void erase_impl(SizeT index, SizeT count) noexcept {
         check_(index < size(), "erase index cannot exceed string length");
 
@@ -991,7 +1000,7 @@ class string_ops {
         auto size = end - beg;
 
         std::move(beg + index + count, end, beg + index);
-        set_len(size - count);
+        set_len<UpdateLifetime>(size - count);
     }
 
     constexpr auto
@@ -1070,17 +1079,20 @@ class string_ops {
         auto [beg, end, end_cap] = get_storage();
         usize size = end - beg;
         usize capacity = end_cap - beg;
+        auto new_len = size + count;
 
-        if (size + count > capacity) {
-            TryV(grow(size + count));
+        if (new_len > capacity) {
+            TryV(grow(new_len));
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - beg;
+        } else {
+            adjust_lifetime(new_len);
         }
-        assert(capacity >= size + count);
+        assert(capacity >= new_len);
 
         ktl::uninitialized_move_backward(beg + pos, end, end + count);
-        set_len(size + count);
+        set_len<!UpdateLifetime>(new_len);
 
         return begin() + pos;
     }
@@ -1112,20 +1124,23 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         auto [begin, _, end_cap] = get_storage();
         usize capacity = end_cap - begin;
+        auto new_len = count + 1;
 
-        if (count + 1 > capacity) {  // account for trailing NUL char
-            TryV(grow_uninit(count + 1));
+        if (new_len > capacity) {  // account for trailing NUL char
+            TryV(grow_uninit(new_len));
             // String is cleared and contains enough space to construct count elements
 
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - begin;
+        } else {
+            adjust_lifetime(new_len);
         }
         assert(capacity > count);
 
         initializer(begin);
         std::construct_at(begin + count, NUL);
-        set_len(count + 1);
+        set_len<!UpdateLifetime>(new_len);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1165,18 +1180,21 @@ class string_ops {
         auto [begin, end, end_cap] = get_storage();
         usize capacity = end_cap - begin;
         usize old_len = end - begin - 1;  // account for trailing NUL char
+        auto new_len = old_len + count + 1;
 
-        if (count + old_len + 1 > capacity) {
-            TryV(grow(old_len + count + 1));
+        if (new_len > capacity) {
+            TryV(grow(new_len));
 
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - begin;
+        } else {
+            adjust_lifetime(new_len);
         }
 
         auto new_end = initializer(begin + old_len);
         std::construct_at(new_end, NUL);
-        set_len(old_len + count + 1);
+        set_len<!UpdateLifetime>(new_len);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1192,6 +1210,8 @@ class string_ops {
             TryV(grow(new_len));
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_len);
         }
 
         if constexpr (Initialize) {
@@ -1204,7 +1224,7 @@ class string_ops {
         }
 
         std::construct_at(begin + count, NUL);
-        set_len(new_len);
+        set_len<!UpdateLifetime>(new_len);
         return {};
     }
 
@@ -1236,10 +1256,14 @@ class string_ops {
         return static_cast<StringT*>(this)->grow_uninit(req_len);
     }
 
+    template<bool UpdateLifetime>
     constexpr void set_len(SizeT new_len) noexcept {
         static_assert(string_like<StringT, CharT, SizeT>, "StringT is not a string");
         static_cast<StringT*>(this)->set_len(new_len);
         assert(*end() == NUL);  // Must contain trailing NUL char
+        if constexpr (UpdateLifetime) {
+            adjust_lifetime(new_len);
+        }
     }
 };
 

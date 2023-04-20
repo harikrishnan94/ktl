@@ -71,9 +71,18 @@ class basic_static_string:
   public:
     constexpr basic_static_string() : m_len {1} {
         std::construct_at(m_chars.data(), base::NUL);
+        this->start_lifetime();
     }
 
-    ~basic_static_string() = default;
+    ~basic_static_string()
+        requires(!ASAN_ENABLED)
+    = default;
+
+    constexpr ~basic_static_string()
+        requires(ASAN_ENABLED)
+    {
+        this->end_lifetime();
+    }
 
     template<typename CharU, auto Cap, typename TraitsT>
         requires(std::same_as<CharU, CharT> && Cap == Capacity && std::same_as<Traits, TraitsT>)
@@ -85,30 +94,41 @@ class basic_static_string:
         ktl::uninitialized_copy_n(view.begin(), view.length(), m_chars.data());
         m_len = view.length() + 1;
         at(m_chars, m_len - 1) = base::NUL;
+        this->start_lifetime();
     }
 
     // NOLINTNEXTLINE(*-explicit-conversions, *-avoid-c-arrays)
     constexpr basic_static_string(const CharT (&str)[Capacity]) : m_len {Capacity} {
         std::copy(std::begin(str), std::end(str), m_chars.data());
+        this->start_lifetime();
     }
 
     constexpr basic_static_string(const basic_static_string& o) noexcept : m_len {o.m_len} {
         ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        this->start_lifetime();
     }
 
     constexpr basic_static_string(basic_static_string&& o) noexcept : m_len {o.m_len} {
         ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        this->start_lifetime();
     }
 
-    // NOLINTNEXTLINE(cert-oop54-cpp)
     constexpr auto operator=(const basic_static_string& o) noexcept -> basic_static_string& {
+        if (this == &o) {
+            return *this;
+        }
         m_len = o.m_len;
+        this->adjust_lifetime(m_len);
         ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
 
     constexpr auto operator=(basic_static_string&& o) noexcept -> basic_static_string& {
+        if (this == &o) {
+            return *this;
+        }
         m_len = o.m_len;
+        this->adjust_lifetime(m_len);
         ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
@@ -118,7 +138,16 @@ class basic_static_string:
     }
 
     constexpr void swap(basic_static_string& o) noexcept {
+        if (this == &o)
+            return;
+
+        this->adjust_lifetime(std::max(m_len, o.m_len));
+        o.adjust_lifetime(std::max(m_len, o.m_len));
+
         detail::swap_range_with_len(this->m_chars.data(), m_len, o.m_chars.data(), o.m_len);
+
+        this->adjust_lifetime(m_len);
+        o.adjust_lifetime(o.m_len);
     }
 
     constexpr auto max_size() const noexcept -> size_type {
@@ -171,6 +200,7 @@ class basic_static_string:
         if (req_len > Capacity) [[unlikely]] {
             Throw(Error::BufferFull);
         }
+        this->adjust_lifetime(req_len);
         return {};
     }
     constexpr auto grow_uninit(usize req_len) noexcept -> expected<void, Error> {

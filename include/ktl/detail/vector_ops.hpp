@@ -175,12 +175,15 @@ class vector_ops {
         -> expected<std::reference_wrapper<T>, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
+        auto new_len = len + 1;
         if (end == end_cap) [[unlikely]] {
-            TryV(grow(len + 1));
+            TryV(grow(new_len));
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_len);
         }
-        set_len(len + 1);
+        set_len<!UpdateLifetime>(new_len);
         return *std::construct_at(end, std::forward<Args>(args)...);
     }
 
@@ -190,10 +193,10 @@ class vector_ops {
 
         check_(len != 0, "cannot pop_back empty vector");
 
-        set_len(len - 1);
         if constexpr (!std::is_trivially_destructible_v<T>) {
             std::destroy_at(end - 1);
         }
+        set_len<UpdateLifetime>(len - 1);
     }
 
     constexpr void clear() noexcept {
@@ -203,7 +206,7 @@ class vector_ops {
             if constexpr (!std::is_trivially_destructible_v<T>) {
                 std::destroy(begin, end);
             }
-            set_len(0);
+            set_len<UpdateLifetime>(0);
         }
     }
 
@@ -339,7 +342,7 @@ class vector_ops {
 
         auto it = begin() + std::distance(cbegin(), first);
         std::move(last, cend(), it);
-        set_len(size() - std::distance(first, last));
+        set_len<UpdateLifetime>(size() - std::distance(first, last));
         return it;
     }
 
@@ -365,7 +368,13 @@ class vector_ops {
         return {};
     }
 
+    ASAN_ANNOTATION_HELPERS;
+
   private:
+    using container = VectorT;
+
+    static constexpr bool UpdateLifetime = true;
+
     template<std::input_iterator InputIt>
     constexpr auto insert_range(const_iterator pos, InputIt first, usize count) noexcept
         -> expected<iterator, Error> {
@@ -381,17 +390,20 @@ class vector_ops {
         auto [beg, end, end_cap] = get_storage();
         usize size = end - beg;
         usize capacity = end_cap - beg;
+        auto new_size = size + count;
         auto pos_i = std::distance(cbegin(), pos);
 
-        if (size + count > capacity) {
-            TryV(grow(size + count));
+        if (new_size > capacity) {
+            TryV(grow(new_size));
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(beg, end, end_cap) = std::tie(nbeg, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_size);
         }
         // NOTE: Cannot use `pos` here as it might have been invalidated by previous call to
         // grow.
         ktl::uninitialized_move_backward(beg + pos_i, end, end + count);
-        set_len(size + count);
+        set_len<!UpdateLifetime>(new_size);
         return begin() + pos_i;
     }
 
@@ -419,12 +431,14 @@ class vector_ops {
             auto [nbeg, nend, nend_cap] = get_storage();
             std::tie(begin, _, end_cap) = std::tie(nbeg, nend, nend_cap);
             capacity = end_cap - begin;
+        } else {
+            adjust_lifetime(count);
         }
 
         assert(capacity >= count);
 
         initializer(begin);
-        set_len(count);
+        set_len<!UpdateLifetime>(count);
 
         return {};
     }
@@ -455,6 +469,8 @@ class vector_ops {
             TryV(grow(new_len));
             auto [nbegin, nend, nend_cap] = get_storage();
             std::tie(begin, end, end_cap) = std::tie(nbegin, nend, nend_cap);
+        } else {
+            adjust_lifetime(new_len);
         }
 
         if constexpr (!std::is_trivially_destructible_v<T>) {
@@ -463,7 +479,7 @@ class vector_ops {
             }
         }
 
-        set_len(new_len);
+        set_len<!UpdateLifetime>(new_len);
         return {};
     }
 
@@ -492,9 +508,13 @@ class vector_ops {
         return static_cast<VectorT*>(this)->grow_uninit(req_len);
     }
 
+    template<bool UpdateLifetime>
     constexpr void set_len(SizeT new_len) noexcept {
         static_assert(vector_like<VectorT, T, SizeT>, "VectorT is not a vector");
         static_cast<VectorT*>(this)->set_len(new_len);
+        if constexpr (UpdateLifetime) {
+            adjust_lifetime(new_len);
+        }
     }
 };
 

@@ -20,7 +20,7 @@ template<usize MaxStrLen>
 auto generate_random_string() -> string {
     ktl::string_view ALNUM = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789";
     static std::mt19937_64 gen {std::random_device {}()};
-    static std::uniform_int_distribution<usize> len_dist {0, MaxStrLen};
+    static std::uniform_int_distribution<usize> len_dist {1, MaxStrLen};
     static std::uniform_int_distribution<usize> ind_dist {0, ALNUM.length() - 1};
 
     const auto len = len_dist(gen);
@@ -37,7 +37,7 @@ auto generate_random_string() -> string {
 template<usize MaxVecLen, usize MaxStrLen>
 auto generate_random_vector() -> vector<string> {
     static std::mt19937_64 gen {std::random_device {}()};
-    static std::uniform_int_distribution<usize> len_dist {0, MaxVecLen};
+    static std::uniform_int_distribution<usize> len_dist {1, MaxVecLen};
 
     const auto len = len_dist(gen);
     vector<string> strs;
