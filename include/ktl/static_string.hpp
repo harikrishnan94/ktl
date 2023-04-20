@@ -92,7 +92,7 @@ class basic_static_string:
         auto view = proxy.view();
         assert(Capacity > view.length());
 
-        uninitialized_copy_n(view.begin(), view.length(), m_chars.data());
+        ktl::uninitialized_copy_n(view.begin(), view.length(), m_chars.data());
         m_len = view.length() + 1;
         at(m_chars, m_len - 1) = base::NUL;
         AsanAnnotator<basic_static_string>::start_lifetime(*this);
@@ -105,12 +105,12 @@ class basic_static_string:
     }
 
     constexpr basic_static_string(const basic_static_string& o) noexcept : m_len {o.m_len} {
-        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         AsanAnnotator<basic_static_string>::start_lifetime(*this);
     }
 
     constexpr basic_static_string(basic_static_string&& o) noexcept : m_len {o.m_len} {
-        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         AsanAnnotator<basic_static_string>::start_lifetime(*this);
     }
 
@@ -119,7 +119,7 @@ class basic_static_string:
         AsanAnnotator<basic_static_string>& asan_annotator {*this};
         m_len = o.m_len;
         asan_annotator.allow_full_access();
-        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
 
@@ -127,7 +127,7 @@ class basic_static_string:
         AsanAnnotator<basic_static_string>& asan_annotator {*this};
         m_len = o.m_len;
         asan_annotator.allow_full_access();
-        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         return *this;
     }
 

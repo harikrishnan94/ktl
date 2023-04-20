@@ -138,7 +138,7 @@ class vector: public vec::detail::vector_ops<T, usize, vector<T, Allocator, GP>>
                 AsanAnnotator<vector> asan_annotator {*this};
                 Try(new_data, alloc_traits::allocate(m_alloc, m_len));
 
-                uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
+                ktl::uninitialized_move_n(m_data, m_len, static_cast<value_type*>(new_data));
                 asan_annotator.deallocate();
                 alloc_traits::deallocate(m_alloc, m_data, m_capacity);
                 m_data = new_data;
@@ -179,7 +179,9 @@ class vector: public vec::detail::vector_ops<T, usize, vector<T, Allocator, GP>>
         -> expected<void, Error> {
         return grow_impl(
             req_cap,
-            [](auto* new_data, auto* data, auto len) { uninitialized_move_n(data, len, new_data); },
+            [](auto* new_data, auto* data, auto len) {
+                ktl::uninitialized_move_n(data, len, new_data);
+            },
             asan_annotator);
     }
     constexpr auto grow_uninit(usize req_cap, AsanAnnotator<vector>& asan_annotator) noexcept

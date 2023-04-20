@@ -129,7 +129,7 @@ class basic_string:
 
                 std::construct_at(&m_storage);
                 auto new_chars = std::get<pointer>(m_storage.extract());
-                uninitialized_move_n(chars, len, new_chars);
+                ktl::uninitialized_move_n(chars, len, new_chars);
                 asan_annotator.deallocate();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_len(len);
@@ -137,7 +137,7 @@ class basic_string:
             } else {
                 Try(new_chars, alloc_traits::allocate(m_alloc, len));
 
-                uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
+                ktl::uninitialized_move_n(chars, len, static_cast<value_type*>(new_chars));
                 asan_annotator.deallocate();
                 alloc_traits::deallocate(m_alloc, chars, capacity);
                 m_storage.set_long_str(new_chars, len, len);
@@ -330,7 +330,7 @@ class basic_string:
         return grow_impl(
             req_cap,
             [](CharT* new_chars, auto* chars, auto len) {
-                uninitialized_move_n(chars, len, new_chars);
+                ktl::uninitialized_move_n(chars, len, new_chars);
             },
             asan_annotator);
     }

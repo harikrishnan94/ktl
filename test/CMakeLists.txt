@@ -16,6 +16,7 @@ function(define_test name)
 
     # Tests - All tests must link against `platform`
     target_link_libraries(${name} PRIVATE ktl::test::platform)
+    target_compile_options(${name} PRIVATE -ftemplate-backtrace-limit=0)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 

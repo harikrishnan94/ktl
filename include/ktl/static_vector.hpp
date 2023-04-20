@@ -53,14 +53,14 @@ class static_vector:
     }
 
     constexpr static_vector(const static_vector& o) noexcept : m_len {o.m_len} {
-        uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+        ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         AsanAnnotator<static_vector>::start_lifetime(*this);
     }
 
     constexpr static_vector(static_vector&& o) noexcept {
         if constexpr (std::is_trivially_copyable_v<T>) {
             m_len = o.m_len;
-            uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+            ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
             AsanAnnotator<static_vector>::start_lifetime(*this);
         } else {
             swap(o);
@@ -71,7 +71,7 @@ class static_vector:
         if constexpr (std::is_trivially_copyable_v<T>) {
             AsanAnnotator<static_vector> asan_annotator {*this};
             m_len = o.m_len;
-            uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+            ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         } else {
             static_vector {o}.swap(*this);
         }
@@ -82,7 +82,7 @@ class static_vector:
         if constexpr (std::is_trivially_copyable_v<T>) {
             AsanAnnotator<static_vector> asan_annotator {*this};
             m_len = o.m_len;
-            uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
+            ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         } else {
             swap(o);
         }

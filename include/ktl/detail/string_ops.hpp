@@ -233,8 +233,7 @@ class string_ops {
 
     // --------------------- Member functions ---------------------
 
-    [[nodiscard("must check if push_back succeeded")]] constexpr auto push_back(CharT c) noexcept
-        -> expected<void, Error> {
+    constexpr auto push_back(CharT c) noexcept -> expected<void, Error> {
         auto [begin, end, end_cap] = get_storage();
         auto len = end - begin;
         {
@@ -269,18 +268,15 @@ class string_ops {
         set_len(1);
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto
-    resize(SizeT count, CharT ch) noexcept -> expected<void, Error> {
+    constexpr auto resize(SizeT count, CharT ch) noexcept -> expected<void, Error> {
         return resize_impl<true>(count, ch);
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto resize(SizeT new_len) noexcept
-        -> expected<void, Error> {
+    constexpr auto resize(SizeT new_len) noexcept -> expected<void, Error> {
         return resize(new_len, NUL);
     }
 
-    [[nodiscard("must check if resize succeeded")]] constexpr auto
-    resize_uninitialized(SizeT new_len) noexcept -> expected<void, Error> {
+    constexpr auto resize_uninitialized(SizeT new_len) noexcept -> expected<void, Error> {
         return resize_impl<false>(new_len, NUL);
     }
 
@@ -427,10 +423,10 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         if constexpr (std::convertible_to<IndexT, SizeT>) {
             Try(it, make_space_at(index, count));
-            uninitialized_fill_n(it, count, ch);
+            ktl::uninitialized_fill_n(it, count, ch);
         } else {
             Try(it, make_space_at(index, count));
-            uninitialized_fill_n(it, count, ch);
+            ktl::uninitialized_fill_n(it, count, ch);
         }
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -439,7 +435,7 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         Try(it, make_space_at(index, count));
 
-        uninitialized_copy_n(s, count, it);
+        ktl::uninitialized_copy_n(s, count, it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -474,7 +470,7 @@ class string_ops {
         auto str = as_view(t);
         Try(it, make_space_at(index, str.size()));
 
-        uninitialized_copy_n(str.begin(), str.size(), it);
+        ktl::uninitialized_copy_n(str.begin(), str.size(), it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -496,7 +492,7 @@ class string_ops {
         auto n = std::distance(first, last);
         Try(it, make_space_at(pos, n));
 
-        uninitialized_copy_n(first, n, it);
+        ktl::uninitialized_copy_n(first, n, it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -526,7 +522,7 @@ class string_ops {
         -> expected<non_null_ptr, Error> {
         Try(it, make_space_at(pos, ilist.size()));
 
-        uninitialized_copy_n(ilist.begin(), ilist.size(), it);
+        ktl::uninitialized_copy_n(ilist.begin(), ilist.size(), it);
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
 
@@ -678,7 +674,7 @@ class string_ops {
         }
 
         count = std::min<SizeT>(count, size - pos);
-        auto dest_last = uninitialized_copy_n(beg + pos, count, dest);
+        auto dest_last = ktl::uninitialized_copy_n(beg + pos, count, dest);
 
         return std::distance(dest, dest_last);
     }
@@ -1020,7 +1016,7 @@ class string_ops {
             pos + std::min<usize>(count, str_len),
             static_cast<isize>(count) - static_cast<isize>(str_len)));
 
-        uninitialized_copy_n(str.begin(), str_len, begin() + pos);
+        ktl::uninitialized_copy_n(str.begin(), str_len, begin() + pos);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1042,7 +1038,7 @@ class string_ops {
 
         check_(pos + count <= size(), "replace range must be valid");
         TryV(shift_chars_at(pos + std::min(count, str_len), count - str_len));
-        uninitialized_copy_n(first2, str_len, begin() + pos);
+        ktl::uninitialized_copy_n(first2, str_len, begin() + pos);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1055,7 +1051,7 @@ class string_ops {
 
         check_(pos + count <= size(), "replace range must be valid");
         TryV(shift_chars_at(pos + std::min(count, times), count - times));
-        uninitialized_fill_n(begin() + pos, times, ch);
+        ktl::uninitialized_fill_n(begin() + pos, times, ch);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1066,7 +1062,7 @@ class string_ops {
         TryV(shift_chars_at(
             pos + std::min<isize>(count, times),
             static_cast<isize>(count) - static_cast<isize>(times)));
-        uninitialized_fill_n(begin() + pos, times, ch);
+        ktl::uninitialized_fill_n(begin() + pos, times, ch);
 
         return non_null_ptr {static_cast<StringT&>(*this)};
     }
@@ -1098,7 +1094,7 @@ class string_ops {
             assert(capacity >= size + count);
             set_len(size + count);
         }
-        uninitialized_move_backward(beg + pos, end, end + count);
+        ktl::uninitialized_move_backward(beg + pos, end, end + count);
 
         return begin() + pos;
     }
@@ -1110,7 +1106,9 @@ class string_ops {
 
     constexpr auto assign_range(std::input_iterator auto first, usize count) noexcept
         -> expected<non_null_ptr, Error> {
-        return assign_impl(count, [&](auto* begin) { uninitialized_copy_n(first, count, begin); });
+        return assign_impl(count, [&](auto* begin) {
+            ktl::uninitialized_copy_n(first, count, begin);
+        });
     }
 
     constexpr auto assign_string_view(basic_string_view<CharT, Traits> str) noexcept
@@ -1119,7 +1117,9 @@ class string_ops {
     }
 
     constexpr auto assign_fill(SizeT count, CharT ch) noexcept -> expected<non_null_ptr, Error> {
-        return assign_impl(count, [&](auto* begin) { uninitialized_fill_n(begin, count, ch); });
+        return assign_impl(count, [&](auto* begin) {
+            ktl::uninitialized_fill_n(begin, count, ch);
+        });
     }
 
     constexpr auto assign_impl(usize count, auto&& initializer) noexcept
@@ -1159,7 +1159,7 @@ class string_ops {
     constexpr auto append_range(std::input_iterator auto first, usize count) noexcept
         -> expected<non_null_ptr, Error> {
         return append_impl(count, [&](auto* end) {
-            return uninitialized_copy_n(first, count, end);
+            return ktl::uninitialized_copy_n(first, count, end);
         });
     }
 
@@ -1169,7 +1169,9 @@ class string_ops {
     }
 
     constexpr auto append_fill(SizeT count, CharT ch) noexcept -> expected<non_null_ptr, Error> {
-        return append_impl(count, [&](auto* end) { return uninitialized_fill_n(end, count, ch); });
+        return append_impl(count, [&](auto* end) {
+            return ktl::uninitialized_fill_n(end, count, ch);
+        });
     }
 
     constexpr auto append_impl(usize count, auto&& initializer) noexcept
@@ -1211,7 +1213,7 @@ class string_ops {
 
         if constexpr (Initialize) {
             if (count > len - 1) {
-                uninitialized_fill_n(
+                ktl::uninitialized_fill_n(
                     end - 1,
                     count - (len - 1),
                     ch);  // 'end[-1]' contains NUL char
