@@ -51,7 +51,9 @@ class static_vector:
         this->clear();
     }
 
-    constexpr static_vector(const static_vector& o) noexcept : m_len {o.m_len} {
+    constexpr static_vector(const static_vector& o) noexcept
+        requires(std::is_copy_constructible_v<T>)
+        : m_len {o.m_len} {
         ktl::uninitialized_copy_n(o.begin(), m_len, get_storage().begin);
         this->start_lifetime();
     }
@@ -66,7 +68,9 @@ class static_vector:
         }
     }
 
-    constexpr auto operator=(const static_vector& o) noexcept -> static_vector& {
+    constexpr auto operator=(const static_vector& o) noexcept -> static_vector&
+        requires(std::is_copy_constructible_v<T>)
+    {
         if constexpr (std::is_trivially_copyable_v<T>) {
             if (this == &o) {
                 return *this;
