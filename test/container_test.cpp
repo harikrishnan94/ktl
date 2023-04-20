@@ -98,6 +98,8 @@ void test() {
     std::ranges::sort(str_vecs);
     check_(std::ranges::is_sorted(str_vecs), "must be sorted");
 
+    check_(clone(str_vecs), "");
+
     while (!str_vecs.empty()) {
         str_vecs.erase(str_vecs.begin());
     }
