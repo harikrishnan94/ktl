@@ -114,6 +114,7 @@ auto main() -> int {
     test<vector_dyn, string, MaxStrLen, MaxVecLen, NumVecVecs>();
     test<vector_dyn, ktl::static_string<MaxStrLen + 1>, MaxStrLen, MaxVecLen, NumVecVecs>();
     test<ktl::static_vector, ktl::static_string<MaxStrLen + 1>, MaxStrLen, MaxVecLen, NumVecVecs>();
+    test<ktl::static_vector, string, MaxStrLen, MaxVecLen, NumVecVecs>();
 
     return 0;
 }

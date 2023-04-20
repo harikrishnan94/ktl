@@ -127,20 +127,24 @@ namespace detail {
 
 namespace detail {
     template<typename C>
+    concept is_allocator_aware = requires(const C& c) {
+        { allocator_like<typename C::allocator_type> };
+        { c.get_allocator_for_clone() } -> std::same_as<typename C::allocator_type>;
+        { C {c.get_allocator_for_clone()} };
+    };
+
+    template<typename C>
     concept has_clone_mem_fn = requires(const C& o) {
         { o.clone() } -> std::same_as<expected<C, Error>>;
     };
 
     template<typename C>
     concept is_clone_implementable = requires(C& c) {
-        { allocator_like<typename C::allocator_type> };
         { !std::is_void_v<typename C::value_type> };
         {
             std::is_copy_constructible_v<typename C::value_type>
                 || requires { clone(std::declval<typename C::value_type>()); }
         };
-        { c.get_allocator_for_clone() } -> std::same_as<typename C::allocator_type>;
-        { C {c.get_allocator_for_clone()} };
         { std::cbegin(c) } -> std::same_as<typename C::const_iterator>;
         { std::cend(c) } -> std::same_as<typename C::const_iterator>;
         {
@@ -165,7 +169,13 @@ constexpr auto clone(const C& cont) noexcept -> expected<C, Error> {
     if constexpr (detail::has_clone_mem_fn<C>) {
         return cont.clone();
     } else {
-        C copy {cont.get_allocator_for_clone()};
+        auto copy = [&]() -> C {
+            if constexpr (detail::is_allocator_aware<C>) {
+                return C {cont.get_allocator_for_clone()};
+            } else {
+                return C {};
+            }
+        }();
 
         if constexpr (std::is_copy_constructible_v<typename C::value_type>) {
             TryV(copy.assign(std::cbegin(cont), std::cend(cont)));
