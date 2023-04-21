@@ -660,7 +660,7 @@ class string_ops {
 
     constexpr auto copy(CharT* dest, SizeT count, SizeT pos = 0) const -> expected<SizeT, Error> {
         auto [beg, end, _] = get_storage();
-        auto size = end - beg - 1;
+        usize size = end - beg - 1;
 
         if (pos > size) {
             Throw(Error::IndexOutOfBounds);

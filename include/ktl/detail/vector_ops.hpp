@@ -464,7 +464,7 @@ class vector_ops {
 
     constexpr auto resize_impl(SizeT new_len) noexcept -> expected<void, Error> {
         auto [begin, end, end_cap] = get_storage();
-        auto len = end - begin;
+        usize len = end - begin;
         usize capacity = end_cap - begin;
 
         if (new_len > capacity) {
