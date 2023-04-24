@@ -17,7 +17,7 @@ constexpr auto at(T (&arr)[N], usize index) noexcept -> auto& {
 }
 
 template<typename Optional>
-constexpr auto unwrap(Optional&& optional) -> auto& {
+constexpr auto unwrap(Optional&& optional) -> decltype(*std::forward<Optional>(optional)) {
     check_(std::forward<Optional>(optional).has_value(), "empty optional unwrap");
     return *std::forward<Optional>(optional);
 }
