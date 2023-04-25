@@ -1,6 +1,7 @@
 #pragma once
 
 #include <compare>
+#include <memory>
 #include <type_traits>
 
 #include <ktl/assert.hpp>
@@ -10,14 +11,12 @@ template<typename Ptr>
     requires std::is_pointer_v<Ptr>
 class not_null {
   public:
+    using element_type = std::pointer_traits<Ptr>::element_type;
+
     not_null(std::nullptr_t) = delete;
 
-#ifndef __CLANGD__
-    [[gnu::nonnull(2)]]
-#endif
     // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr not_null(Ptr p) :
-        m_ptr(p) {
+    [[gnu::nonnull(2)]] constexpr not_null(element_type* p) : m_ptr(p) {
         if (!std::is_constant_evaluated()) {
             check_(m_ptr != nullptr, "nullptr is not expected");
         }
@@ -42,4 +41,5 @@ class not_null {
     Ptr m_ptr;
 };
 
+static_assert(std::same_as<std::pointer_traits<not_null<int*>>::element_type, int>);
 }  // namespace ktl
