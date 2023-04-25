@@ -79,7 +79,7 @@ class fixed_string:
 
     constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
         if (req_len > m_capacity) [[unlikely]] {
-            Throw(Error::BufferFull);
+            Throw(error::BufferFull);
         }
         this->adjust_lifetime(req_len);
         return {};

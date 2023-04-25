@@ -152,7 +152,7 @@ class basic_string_view {
     [[nodiscard]] constexpr inline auto at(size_type pos) const noexcept
         -> expected<std::reference_wrapper<const value_type>, Error> {
         if (pos >= size()) {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
         return m_data[pos];
     }
@@ -194,7 +194,7 @@ class basic_string_view {
     inline constexpr auto copy(CharT* s, size_type n, size_type pos = 0) const noexcept
         -> expected<size_type, Error> {
         if (pos > size()) {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
         size_type rlen = std::min(n, size() - pos);
         Traits::copy(s, data() + pos, rlen);
@@ -204,7 +204,7 @@ class basic_string_view {
     [[nodiscard]] constexpr inline auto substr(size_type pos = 0, size_type n = npos) const noexcept
         -> expected<basic_string_view, Error> {
         if (pos > size()) {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
 
         return basic_string_view {data() + pos, std::min(n, size() - pos)};

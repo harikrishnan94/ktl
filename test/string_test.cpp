@@ -42,7 +42,7 @@ static void sstring_test() {
         static_assert(str[0] == 'a');
         static_assert(str[1] == 'b');
         static_assert(str.at(1) == 'b');
-        static_assert(str.at(2) == unexpected(Error::IndexOutOfBounds));
+        static_assert(str.at(2) == unexpected(error::IndexOutOfBounds));
         static_assert(str.data()[str.size()] == '\0');
         static_assert(str.c_str() == string_view {"ab"});
     }
@@ -740,7 +740,7 @@ void sstring_operators_test() {
         auto str = make_static_string<10>("1222");
 
         check_(**(str += "44") == "122244", "");
-        check_((str += "4444444") == unexpected(Error::BufferFull), "");
+        check_((str += "4444444") == unexpected(error::BufferFull), "");
 
         return str.size();
     }();

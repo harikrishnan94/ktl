@@ -225,7 +225,7 @@ static void svector_assign_test() {
             InputIterator end {ovec.end()};
 
             check_(
-                vec.assign(begin, end).error().second == Error::BufferFull,
+                vec.assign(begin, end).error().second == error::BufferFull,
                 "large assign must fail");
 
             return vec;
@@ -237,7 +237,7 @@ static void svector_assign_test() {
     {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
-            check_(vec.assign(4, 1).error() == Error::BufferFull, "large assign must fail");
+            check_(vec.assign(4, 1).error() == error::BufferFull, "large assign must fail");
 
             return vec;
         }();
@@ -248,7 +248,7 @@ static void svector_assign_test() {
     {
         constexpr auto vec = [] {
             auto vec = make_static_vector(1, 2, 3);
-            check_(vec.assign({1, 2, 3, 4}).error() == Error::BufferFull, "large assign must fail");
+            check_(vec.assign({1, 2, 3, 4}).error() == error::BufferFull, "large assign must fail");
 
             return vec;
         }();

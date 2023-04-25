@@ -7,38 +7,9 @@
 #include <ktl/error.hpp>
 #include <ktl/expected.hpp>
 #include <ktl/int.hpp>
+#include <ktl/not_null.hpp>
 
 namespace ktl {
-template<typename Ptr>
-    requires std::is_pointer_v<Ptr>
-class not_null {
-  public:
-    not_null(std::nullptr_t) = delete;
-
-#ifndef __CLANGD__
-    [[gnu::nonnull(2)]]
-#endif
-    // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr not_null(Ptr p) :
-        m_ptr(p) {
-        check_(m_ptr != nullptr, "nullptr is not expected");
-    }
-
-    // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr operator Ptr() const noexcept {
-        return m_ptr;
-    }
-
-    constexpr auto operator*() const noexcept -> auto& {
-        return *m_ptr;
-    }
-    constexpr auto operator->() const noexcept -> Ptr {
-        return m_ptr;
-    }
-
-  private:
-    Ptr m_ptr;
-};
 
 template<typename A>
 concept allocator_like = std::copy_constructible<A> && requires(A a, A b, usize n) {
