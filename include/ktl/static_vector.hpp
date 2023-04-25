@@ -179,7 +179,7 @@ class static_vector:
 
     constexpr auto grow(usize req_len) noexcept -> expected<void, Error> {
         if (req_len > Capacity) [[unlikely]] {
-            Throw(Error::BufferFull);
+            Throw(error::BufferFull);
         }
         this->adjust_lifetime(req_len);
         return {};

@@ -40,7 +40,7 @@ namespace detail {
             auto val = get<argid>(args);
             if constexpr (std::is_signed_v<rep_type>) {
                 if (val < 0) {
-                    Throw(Error::ValueOutOfDomain);
+                    Throw(error::ValueOutOfDomain);
                 }
             }
             return static_cast<u64>(val);
@@ -427,7 +427,7 @@ class FormatContext {
             auto c = static_cast<u64>(val);
             if (c < std::numeric_limits<char_type>::min()
                 || c > std::numeric_limits<char_type>::max()) {
-                return Error::ValueOutOfRange;
+                return error::ValueOutOfRange;
             }
             res.buf[0] = static_cast<char_type>(c);
             res.len.num = 1;

@@ -77,7 +77,7 @@ auto main() -> int {
             std::array<char, 8> dest = {};
             return source.copy(dest.data(), 1, 666);
         }();
-        static_assert(dest4.error() == Error::IndexOutOfBounds);
+        static_assert(dest4.error() == error::IndexOutOfBounds);
     }
 
     // substr test
@@ -90,7 +90,7 @@ auto main() -> int {
         static_assert(data.substr(pos_t(1)) == "BCDEF");
         static_assert(data.substr(pos_t(2), count_t(3)) == "CDE");
         static_assert(data.substr(pos_t(4), count_t(42)) == "EF");
-        static_assert(data.substr(pos_t(666), count_t(1)).error() == Error::IndexOutOfBounds);
+        static_assert(data.substr(pos_t(666), count_t(1)).error() == error::IndexOutOfBounds);
     }
 
     // Compare
@@ -99,7 +99,7 @@ auto main() -> int {
         static_assert("abcd"_sv.compare("abc"_sv) > 0);
         static_assert("abc"_sv.compare("abc"_sv) == 0);
         static_assert(""_sv.compare(""_sv) == 0);
-        static_assert("abc"_sv.compare(4, 0, "abc"_sv).error() == Error::IndexOutOfBounds);
+        static_assert("abc"_sv.compare(4, 0, "abc"_sv).error() == error::IndexOutOfBounds);
     }
 
     // starts_with

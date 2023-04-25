@@ -87,13 +87,13 @@ class vector_ops {
 
     constexpr auto at(SizeT i) const noexcept -> expected<std::reference_wrapper<const T>, Error> {
         if (i >= size()) {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
         return data()[i];
     }
     constexpr auto at(SizeT i) noexcept -> expected<std::reference_wrapper<T>, Error> {
         if (i >= size()) {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
         return data()[i];
     }

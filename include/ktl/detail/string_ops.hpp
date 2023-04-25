@@ -121,13 +121,13 @@ class string_ops {
     constexpr auto at(SizeT i) const noexcept
         -> expected<std::reference_wrapper<const CharT>, Error> {
         if (i >= size()) {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
         return data()[i];
     }
     constexpr auto at(SizeT i) noexcept -> expected<std::reference_wrapper<CharT>, Error> {
         if (i >= size()) {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
         return data()[i];
     }
@@ -663,7 +663,7 @@ class string_ops {
         usize size = end - beg - 1;
 
         if (pos > size) {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
 
         count = std::min<SizeT>(count, size - pos);
@@ -951,7 +951,7 @@ class string_ops {
         usize size = end - beg - 1;
 
         if (pos > size) [[unlikely]] {
-            Throw(Error::IndexOutOfBounds);
+            Throw(error::IndexOutOfBounds);
         }
 
         count = std::min<usize>(count, size - pos);
