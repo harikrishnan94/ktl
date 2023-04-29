@@ -7,12 +7,15 @@ if(KTL_ENABLE_UBSAN_MINIMAL)
     target_sources(ktl ubsan.cpp)
 endif()
 
+find_package(Boost REQUIRED)
+
 target_include_directories(ktl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_compile_features(ktl PUBLIC cxx_std_20)
 target_compile_options(ktl PUBLIC -ffreestanding -mgeneral-regs-only -fPIC
     -fno-exceptions -fno-unwind-tables -fno-rtti
     -fno-threadsafe-statics -fno-builtin)
 target_link_options(ktl PUBLIC -nostdlib)
+target_link_libraries(ktl PUBLIC Boost::boost)
 
 if((NOT KTL_ENABLE_CHECKS) AND(CMAKE_BUILD_TYPE STREQUAL "Release"))
     target_compile_definitions(ktl PUBLIC DISABLE_CHECKS=1)

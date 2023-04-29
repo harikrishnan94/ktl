@@ -37,3 +37,11 @@ RUN apt update && \
     apt install -yq tzdata && \
     ln -fs /usr/share/zoneinfo/America/Kolkata /etc/localtime && \
     dpkg-reconfigure -f noninteractive tzdata
+
+# Download Install Boost Libraries
+ARG BOOST_VERSION=1.82.0
+ARG BOOST_FILE_NAME=1_82_0
+RUN wget -c https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/boost_${BOOST_FILE_NAME}.tar.gz &&  \
+    tar xf boost_${BOOST_FILE_NAME}.tar.gz && \
+    mv boost_${BOOST_FILE_NAME}/boost /usr/local/include/ && \
+    rm -r boost_${BOOST_FILE_NAME}.tar.gz boost_${BOOST_FILE_NAME}
