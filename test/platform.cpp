@@ -66,7 +66,12 @@ syscall(long arg1 = 0, long arg2 = 0, long arg3 = 0, long arg4 = 0, long arg5 = 
 
 void exit(int status) {
     syscall<SYS_exit>(status);
-    __builtin_unreachable();
+    unreachable();
+}
+
+void abort() {
+    syscall<SYS_exit>(-1);
+    unreachable();
 }
 
 void* __dso_handle = nullptr;  // NOLINT

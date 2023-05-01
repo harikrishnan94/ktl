@@ -27,8 +27,21 @@ namespace error::detail {
 }  // namespace error::detail
 
 // NOLINTBEGIN
+#define DEFINE_ERROR_LOCAL_EXT(name, what_str) \
+    struct CONCAT(name, _t) : ::ktl::error::detail::ErrorBase { \
+        /* Workaround for GCC-12 */ \
+        constexpr ~CONCAT(name, _t)() override {} \
+\
+        [[nodiscard]] constexpr auto what() const noexcept -> const char* override { \
+            return what_str; \
+        } \
+    } static constexpr CONCAT(name, _v); \
+    static constexpr ::ktl::Error name { \
+        &CONCAT(name, _v) \
+    }
+
 #define DEFINE_ERROR_EXT(name, what_str) \
-    namespace detail::error_codes { \
+    namespace detail::error_types { \
         struct CONCAT(name, _t) : ::ktl::error::detail::ErrorBase { \
             /* Workaround for GCC-12 */ \
             constexpr ~CONCAT(name, _t)() override {} \
@@ -39,9 +52,10 @@ namespace error::detail {
         } inline constexpr name; \
     } \
     inline constexpr ::ktl::Error name { \
-        &detail::error_codes::name \
+        &detail::error_types::name \
     }
 
+#define DEFINE_ERROR_LOCAL(name) DEFINE_ERROR_LOCAL_EXT(name, #name)
 #define DEFINE_ERROR(name) DEFINE_ERROR_EXT(name, #name)
 // NOLINTEND
 

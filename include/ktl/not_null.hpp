@@ -16,7 +16,7 @@ class not_null {
     not_null(std::nullptr_t) = delete;
 
     // NOLINTNEXTLINE(*-explicit-conversions)
-    [[gnu::nonnull(2)]] constexpr not_null(element_type* p) : m_ptr(p) {
+    [[gnu::nonnull(2)]] constexpr not_null(element_type* p) : m_ptr {p} {
         if (!std::is_constant_evaluated()) {
             check_(m_ptr != nullptr, "nullptr is not expected");
         }
@@ -36,6 +36,13 @@ class not_null {
 
     friend auto operator==(const not_null&, const not_null&) -> bool = default;
     friend auto operator<=>(const not_null&, const not_null&) = default;
+
+    friend auto operator==(const not_null& p1, element_type* p2) noexcept -> bool {
+        return p1.m_ptr == p2;
+    }
+    friend auto operator<=>(const not_null& p1, element_type* p2) noexcept {
+        return p1.m_ptr <=> p2;
+    }
 
   private:
     Ptr m_ptr;
