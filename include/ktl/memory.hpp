@@ -90,12 +90,12 @@ class allocator_traits {
         };
     };
 
+  public:
     template<typename OtherType>
     static constexpr auto has_rebind = requires {
         requires allocator_for<typename Alloc::template rebind<OtherType>::other, OtherType>;
     };
 
-  public:
     template<typename U>
     using rebind_alloc =
         typename std::conditional_t<has_rebind<U>, Alloc, rebinder<Alloc>>::template rebind<
