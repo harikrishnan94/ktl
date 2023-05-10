@@ -13,6 +13,7 @@ struct Allocator {
     Allocator() = default;
 
     template<typename U>
+    // NOLINTNEXTLINE(*-explicit-conversions)
     Allocator(Allocator<U> /* alloc */) {}
 
     constexpr auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
