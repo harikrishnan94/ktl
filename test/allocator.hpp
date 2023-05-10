@@ -10,6 +10,12 @@ struct Allocator {
   public:
     using value_type = T;
 
+    Allocator() = default;
+
+    template<typename U>
+    // NOLINTNEXTLINE(*-explicit-conversions)
+    Allocator(Allocator<U> /* alloc */) {}
+
     constexpr auto allocate(usize n) noexcept -> expected<not_null<T*>, Error> {
         return std::allocator<T> {}.allocate(n);
     }

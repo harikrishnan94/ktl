@@ -20,10 +20,6 @@ class expected;
 
 struct monostate {};
 
-struct in_place_t {
-    explicit in_place_t() = default;
-} static constexpr in_place;
-
 template<typename E>
 class unexpected {
   public:
@@ -117,7 +113,8 @@ namespace detail {
 
     template<typename T, typename E, typename U>
     using expected_enable_forward_value = std::enable_if_t<
-        std::is_constructible<T, U&&>::value && !std::is_same<std::decay_t<U>, in_place_t>::value
+        std::is_constructible<T, U&&>::value
+        && !std::is_same<std::decay_t<U>, std::in_place_t>::value
         && !std::is_same<expected<T, E>, std::decay_t<U>>::value
         && !std::is_same<unexpected<E>, std::decay_t<U>>::value>;
 
@@ -169,7 +166,7 @@ namespace detail {
         template<
             typename... Args,
             std::enable_if_t<std::is_constructible<T, Args&&...>::value>* = nullptr>
-        constexpr expected_storage_base(in_place_t, Args&&... args) noexcept :
+        constexpr expected_storage_base(std::in_place_t, Args&&... args) noexcept :
             m_val(std::forward<Args>(args)...),
             m_has_val(true) {}
 
@@ -179,7 +176,7 @@ namespace detail {
             std::enable_if_t<
                 std::is_constructible<T, std::initializer_list<U>&, Args&&...>::value>* = nullptr>
         constexpr expected_storage_base(
-            in_place_t,
+            std::in_place_t,
             std::initializer_list<U> il,
             Args&&... args) noexcept :
             m_val(il, std::forward<Args>(args)...),
@@ -228,7 +225,7 @@ namespace detail {
         template<
             typename... Args,
             std::enable_if_t<std::is_constructible<T, Args&&...>::value>* = nullptr>
-        constexpr expected_storage_base(in_place_t, Args&&... args) noexcept :
+        constexpr expected_storage_base(std::in_place_t, Args&&... args) noexcept :
             m_val(std::forward<Args>(args)...),
             m_has_val(true) {}
 
@@ -238,7 +235,7 @@ namespace detail {
             std::enable_if_t<
                 std::is_constructible<T, std::initializer_list<U>&, Args&&...>::value>* = nullptr>
         constexpr expected_storage_base(
-            in_place_t,
+            std::in_place_t,
             std::initializer_list<U> il,
             Args&&... args) noexcept :
             m_val(il, std::forward<Args>(args)...),
@@ -280,7 +277,7 @@ namespace detail {
         template<
             typename... Args,
             std::enable_if_t<std::is_constructible<T, Args&&...>::value>* = nullptr>
-        constexpr expected_storage_base(in_place_t, Args&&... args) noexcept :
+        constexpr expected_storage_base(std::in_place_t, Args&&... args) noexcept :
             m_val(std::forward<Args>(args)...),
             m_has_val(true) {}
 
@@ -290,7 +287,7 @@ namespace detail {
             std::enable_if_t<
                 std::is_constructible<T, std::initializer_list<U>&, Args&&...>::value>* = nullptr>
         constexpr expected_storage_base(
-            in_place_t,
+            std::in_place_t,
             std::initializer_list<U> il,
             Args&&... args) noexcept :
             m_val(il, std::forward<Args>(args)...),
@@ -337,7 +334,7 @@ namespace detail {
         template<
             typename... Args,
             std::enable_if_t<std::is_constructible<T, Args&&...>::value>* = nullptr>
-        constexpr expected_storage_base(in_place_t, Args&&... args) noexcept :
+        constexpr expected_storage_base(std::in_place_t, Args&&... args) noexcept :
             m_val(std::forward<Args>(args)...),
             m_has_val(true) {}
 
@@ -347,7 +344,7 @@ namespace detail {
             std::enable_if_t<
                 std::is_constructible<T, std::initializer_list<U>&, Args&&...>::value>* = nullptr>
         constexpr expected_storage_base(
-            in_place_t,
+            std::in_place_t,
             std::initializer_list<U> il,
             Args&&... args) noexcept :
             m_val(il, std::forward<Args>(args)...),
@@ -391,7 +388,7 @@ namespace detail {
 
         constexpr expected_storage_base(no_init_t) noexcept : m_val(), m_has_val(false) {}
 
-        constexpr expected_storage_base(in_place_t) noexcept : m_has_val(true) {}
+        constexpr expected_storage_base(std::in_place_t) noexcept : m_has_val(true) {}
 
         template<
             typename... Args,
@@ -427,7 +424,7 @@ namespace detail {
         constexpr expected_storage_base() noexcept : m_dummy(), m_has_val(true) {}
         constexpr expected_storage_base(no_init_t) noexcept : m_dummy(), m_has_val(false) {}
 
-        constexpr expected_storage_base(in_place_t) noexcept : m_dummy(), m_has_val(true) {}
+        constexpr expected_storage_base(std::in_place_t) noexcept : m_dummy(), m_has_val(true) {}
 
         template<
             typename... Args,
@@ -897,8 +894,8 @@ class [[nodiscard("check for errors.")]] expected:
     private detail::expected_default_ctor_base<T, E> {
     static_assert(!std::is_reference<T>::value, "T must not be a reference");
     static_assert(
-        !std::is_same<T, std::remove_cv<in_place_t>::type>::value,
-        "T must not be in_place_t");
+        !std::is_same<T, std::remove_cv<std::in_place_t>::type>::value,
+        "T must not be std::in_place_t");
     static_assert(
         !std::is_same<T, std::remove_cv<unexpect_t>::type>::value,
         "T must not be unexpect_t");
@@ -1059,8 +1056,8 @@ class [[nodiscard("check for errors.")]] expected:
     template<
         typename... Args,
         std::enable_if_t<std::is_constructible<T, Args&&...>::value>* = nullptr>
-    constexpr expected(in_place_t, Args&&... args) noexcept :
-        impl_base(in_place, std::forward<Args>(args)...),
+    constexpr expected(std::in_place_t, Args&&... args) noexcept :
+        impl_base(std::in_place, std::forward<Args>(args)...),
         ctor_base(detail::default_constructor_tag {}) {}
 
     template<
@@ -1068,8 +1065,8 @@ class [[nodiscard("check for errors.")]] expected:
         typename... Args,
         std::enable_if_t<std::is_constructible<T, std::initializer_list<U>&, Args&&...>::value>* =
             nullptr>
-    constexpr expected(in_place_t, std::initializer_list<U> il, Args&&... args) noexcept :
-        impl_base(in_place, il, std::forward<Args>(args)...),
+    constexpr expected(std::in_place_t, std::initializer_list<U> il, Args&&... args) noexcept :
+        impl_base(std::in_place, il, std::forward<Args>(args)...),
         ctor_base(detail::default_constructor_tag {}) {}
 
     template<
@@ -1186,13 +1183,13 @@ class [[nodiscard("check for errors.")]] expected:
         typename U = T,
         std::enable_if_t<!std::is_convertible<U&&, T>::value>* = nullptr,
         detail::expected_enable_forward_value<T, E, U>* = nullptr>
-    explicit constexpr expected(U&& v) noexcept : expected(in_place, std::forward<U>(v)) {}
+    explicit constexpr expected(U&& v) noexcept : expected(std::in_place, std::forward<U>(v)) {}
 
     template<
         typename U = T,
         std::enable_if_t<std::is_convertible<U&&, T>::value>* = nullptr,
         detail::expected_enable_forward_value<T, E, U>* = nullptr>
-    constexpr expected(U&& v) noexcept : expected(in_place, std::forward<U>(v)) {}
+    constexpr expected(U&& v) noexcept : expected(std::in_place, std::forward<U>(v)) {}
 
     template<
         typename U = T,
