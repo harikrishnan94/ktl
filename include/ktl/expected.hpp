@@ -1777,11 +1777,11 @@ void swap(expected<T, E>& lhs, expected<T, E>& rhs) noexcept {
 #define try$(expr) \
     ({ \
         static_assert(::ktl::detail::is_expected<std::decay_t<decltype((expr))>>::value); \
-        auto res = (expr); \
-        if (!res) [[unlikely]] { \
-            Rethrow(res); \
+        auto CONCAT(ret_, __LINE__) = (expr); \
+        if (!CONCAT(ret_, __LINE__)) [[unlikely]] { \
+            Rethrow(CONCAT(ret_, __LINE__)); \
         }; \
-        *std::move(res); \
+        *std::move(CONCAT(ret_, __LINE__)); \
     })
 
 #define Throw(e) return ::ktl::make_unexpected(e)

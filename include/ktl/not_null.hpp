@@ -22,16 +22,20 @@ class not_null {
         }
     }
 
-    // NOLINTNEXTLINE(*-explicit-conversions)
-    constexpr operator Ptr() const noexcept {
+    [[nodiscard]] constexpr auto get() const noexcept -> Ptr {
         return m_ptr;
     }
 
+    // NOLINTNEXTLINE(*-explicit-conversions)
+    constexpr operator Ptr() const noexcept {
+        return get();
+    }
+
     constexpr auto operator*() const noexcept -> auto& {
-        return *m_ptr;
+        return *get();
     }
     constexpr auto operator->() const noexcept -> Ptr {
-        return m_ptr;
+        return get();
     }
 
     friend auto operator==(const not_null&, const not_null&) -> bool = default;
@@ -47,6 +51,9 @@ class not_null {
   private:
     Ptr m_ptr;
 };
+
+template<typename T>
+not_null(T* p) -> not_null<T*>;
 
 static_assert(std::same_as<std::pointer_traits<not_null<int*>>::element_type, int>);
 }  // namespace ktl

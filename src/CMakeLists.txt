@@ -1,4 +1,4 @@
-add_library(ktl STATIC builtins.cpp)
+add_library(ktl STATIC builtins.cpp monotonic_buffer_resource.cpp)
 add_library(ktl::ktl ALIAS ktl)
 
 option(KTL_ENABLE_UBSAN_MINIMAL "Enable UBSAN minimal runtime" OFF)

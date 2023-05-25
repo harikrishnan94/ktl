@@ -176,6 +176,7 @@ class enable_iteration {
     using unexpected_t = unexpected<error_type>;
 
   public:
+    // Models a range (input_iterator) of values yielded by the coroutine.
     class range {
       public:
         using value_type = T;
@@ -322,7 +323,7 @@ class enable_iteration {
         m_cur_yield = std::move(v);
     }
 
-    constexpr void set_error(E e) noexcept {
+    constexpr void set_error(error_type e) noexcept {
         if (!std::holds_alternative<unexpected_t>(m_cur_yield)) [[likely]] {
             m_cur_yield = make_unexpected(std::move(e));
         }
